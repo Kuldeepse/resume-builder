@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { Sparkles, RefreshCw, BarChart3, AlertTriangle, Target, Share2, Copy, CheckCircle } from 'lucide-react';
+import { Sparkles, RefreshCw, BarChart3, AlertTriangle, Target, Share2, Copy, CheckCircle, HelpCircle, User, Code } from 'lucide-react';
 
 export default function Home() {
   const [fullName, setFullName] = useState('');
@@ -10,6 +10,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<any>(null);
   const [copied, setCopied] = useState(false);
+  const [activeTab, setActiveTab] = useState<'resume' | 'hr' | 'tech'>('resume');
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,9 +60,9 @@ export default function Home() {
       <div className="max-w-5xl mx-auto space-y-8">
         <header className="text-center">
           <h1 className="text-4xl font-extrabold text-indigo-600 flex items-center justify-center gap-2">
-            <Sparkles className="text-indigo-500 w-9 h-9" /> AI Resume Builder & Matcher
+            <Sparkles className="text-indigo-500 w-9 h-9" /> AI Career Dashboard & Matcher
           </h1>
-          <p className="text-slate-500 mt-2">Generate a tailored resume and review your job fit score instantly for free using Gemini</p>
+          <p className="text-slate-500 mt-2">Tailor your resume, track job compatibility matrix score, and unlock AI interview mock runs</p>
         </header>
 
         {!results ? (
@@ -69,29 +70,30 @@ export default function Home() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-semibold mb-2">Full Name</label>
-                <input type="text" required className="w-full border border-slate-300 p-3 rounded-lg bg-white" placeholder="John Doe" value={fullName} onChange={(e) => setFullName(e.target.value)} />
+                <input type="text" required className="w-full border border-slate-300 p-3 rounded-lg bg-white text-slate-900" placeholder="John Doe" value={fullName} onChange={(e) => setFullName(e.target.value)} />
               </div>
               <div>
                 <label className="block text-sm font-semibold mb-2">Target Job Title</label>
-                <input type="text" required className="w-full border border-slate-300 p-3 rounded-lg bg-white" placeholder="Software Engineer" value={targetRole} onChange={(e) => setTargetRole(e.target.value)} />
+                <input type="text" required className="w-full border border-slate-300 p-3 rounded-lg bg-white text-slate-900" placeholder="Software Engineer" value={targetRole} onChange={(e) => setTargetRole(e.target.value)} />
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-semibold mb-2">Career History & Notes</label>
-                <textarea rows={6} required className="w-full border border-slate-300 p-3 rounded-lg bg-white" placeholder="Past roles..." value={careerHistory} onChange={(e) => setCareerHistory(e.target.value)} />
+                <textarea rows={6} required className="w-full border border-slate-300 p-3 rounded-lg bg-white text-slate-900" placeholder="Past roles and experiences..." value={careerHistory} onChange={(e) => setCareerHistory(e.target.value)} />
               </div>
               <div>
                 <label className="block text-sm font-semibold mb-2">Target Job Description</label>
-                <textarea rows={6} required className="w-full border border-slate-300 p-3 rounded-lg bg-white" placeholder="Job requirements..." value={jobDescription} onChange={(e) => setJobDescription(e.target.value)} />
+                <textarea rows={6} required className="w-full border border-slate-300 p-3 rounded-lg bg-white text-slate-900" placeholder="Paste target requirements here..." value={jobDescription} onChange={(e) => setJobDescription(e.target.value)} />
               </div>
             </div>
-            <button type="submit" disabled={loading} className="w-full bg-indigo-600 text-white font-bold py-3 rounded-lg hover:bg-indigo-700 transition flex items-center justify-center gap-2">
-              {loading ? <><RefreshCw className="animate-spin w-5 h-5" /> Processing...</> : "Generate Resume & Fit Report"}
+            <button type="submit" disabled={loading} className="w-full bg-indigo-600 text-white font-bold py-3 rounded-lg hover:bg-indigo-700 transition flex items-center justify-center gap-2 cursor-pointer">
+              {loading ? <><RefreshCw className="animate-spin w-5 h-5" /> Generating Live Dashboard Report...</> : "Analyze Fit & Build Smart Dashboard"}
             </button>
           </form>
         ) : (
           <div className="bg-white p-8 rounded-xl shadow-sm space-y-8">
+            {/* Live Link Share Link */}
             <div className="bg-gradient-to-r from-indigo-500 to-purple-600 p-4 rounded-lg text-white flex flex-col sm:flex-row items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <Share2 className="w-6 h-6 shrink-0" />
@@ -100,11 +102,12 @@ export default function Home() {
                   <p className="text-xs text-indigo-100">Send this cloud hosted link straight to hiring managers.</p>
                 </div>
               </div>
-              <button onClick={copyLink} className="bg-white text-indigo-600 p-2 rounded text-xs font-bold hover:bg-indigo-50 flex items-center gap-1 transition">
+              <button onClick={copyLink} className="bg-white text-indigo-600 p-2 rounded text-xs font-bold hover:bg-indigo-50 flex items-center gap-1 transition cursor-pointer">
                 {copied ? <CheckCircle className="w-3 h-3 text-green-600"/> : <Copy className="w-3 h-3"/>} {copied ? "Copied" : "Copy Link"}
               </button>
             </div>
 
+            {/* Core Analytics Scoring Metrics Row */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-slate-50 p-6 rounded-xl border border-slate-100">
               <div className="flex flex-col items-center justify-center bg-white p-6 rounded-lg text-center shadow-sm">
                 <BarChart3 className="w-8 h-8 text-indigo-500 mb-2" />
@@ -123,25 +126,25 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="border border-slate-200 p-6 rounded-lg space-y-4 bg-white">
-              <h2 className="text-2xl font-bold text-slate-900 border-b pb-2">{results.resume?.full_name}</h2>
-              <p className="text-sm text-slate-700 leading-relaxed">{results.resume?.professional_summary}</p>
-              <div className="flex flex-wrap gap-1.5 py-2">
-                {results.resume?.skills?.map((s: string, i: number) => <span key={i} className="bg-indigo-50 text-indigo-700 text-xs px-2.5 py-1 rounded font-medium border border-indigo-100">{s}</span>)}
-              </div>
-              <div className="space-y-4">
-                {results.resume?.experience?.map((exp: any, i: number) => (
-                  <div key={i} className="text-xs space-y-1 border-l-2 border-slate-100 pl-3">
-                    <div className="flex justify-between font-bold text-slate-800"><span>{exp.role} — {exp.company}</span><span>{exp.duration}</span></div>
-                    <ul className="list-disc list-inside text-slate-500 space-y-0.5">{exp.bullet_points?.map((b: string, idx: number) => <li key={idx}>{b}</li>)}</ul>
-                  </div>
-                ))}
-              </div>
+            {/* Interactive Section Toggles Tab Bar */}
+            <div className="flex border-b border-slate-200 gap-4">
+              <button onClick={() => setActiveTab('resume')} className={`pb-3 text-sm font-bold border-b-2 flex items-center gap-1.5 cursor-pointer transition ${activeTab === 'resume' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400'}`}><FileText className="w-4 h-4"/> Generated Resume</button>
+              <button onClick={() => setActiveTab('hr')} className={`pb-3 text-sm font-bold border-b-2 flex items-center gap-1.5 cursor-pointer transition ${activeTab === 'hr' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400'}`}><User className="w-4 h-4"/> HR Interview Prep</button>
+              <button onClick={() => setActiveTab('tech')} className={`pb-3 text-sm font-bold border-b-2 flex items-center gap-1.5 cursor-pointer transition ${activeTab === 'tech' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400'}`}><Code className="w-4 h-4"/> Tech Interview Prep</button>
             </div>
-            <button onClick={() => setResults(null)} className="text-sm font-semibold text-indigo-600 hover:text-indigo-800 transition">← Build another document</button>
-          </div>
-        )}
-      </div>
-    </main>
-  );
-}
+
+            {/* TAB PANEL CONTENT: Optimized Resume Template View */}
+            {activeTab === 'resume' && (
+              <div className="border border-slate-200 p-6 rounded-lg space-y-4 bg-white shadow-xs">
+                <h2 className="text-2xl font-bold text-slate-900 border-b pb-2">{results.resume?.full_name}</h2>
+                <p className="text-sm text-slate-700 leading-relaxed">{results.resume?.professional_summary}</p>
+                <div className="flex flex-wrap gap-1.5 py-2">
+                  {results.resume?.skills?.map((s: string, i: number) => <span key={i} className="bg-indigo-50 text-indigo-700 text-xs px-2.5 py-1 rounded font-medium border border-indigo-100">{s}</span>)}
+                </div>
+                <div className="space-y-4">
+                  {results.resume?.experience?.map((exp: any, i: number) => (
+                    <div key={i} className="text-xs space-y-1 border-l-2 border-slate-100 pl-3">
+                      <div className="flex justify-between font-bold text-slate-800"><span>{exp.role} — {exp.company}</span><span>{exp.duration}</span></div>
+                      <ul className="list-disc list-inside text-slate-500 space-y-0.5">{exp.bullet_points?.map((b: string, idx: number) => <li key={idx}>{b}</li>)}</ul>
+                    </div>
+                  ))}
