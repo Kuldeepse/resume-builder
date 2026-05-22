@@ -1,121 +1,174 @@
 'use client';
 import { useState } from 'react';
-import { Sparkles, RefreshCw, BarChart3, AlertTriangle, Target, Share2, Copy, CheckCircle, FileText, User, Code, HelpCircle } from 'lucide-react';
+import { Sparkles, RefreshCw, BarChart3, AlertTriangle, Target, FileText, User, Code, HelpCircle, RotateCcw, ClipboardCheck, ArrowRight } from 'lucide-react';
 
 export default function Home() {
+  // Form Inputs
   const [fullName, setFullName] = useState('');
   const [targetRole, setTargetRole] = useState('');
   const [careerHistory, setCareerHistory] = useState('');
   const [jobDescription, setJobDescription] = useState('');
+  
+  // App UI State
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<any>(null);
   const [copied, setCopied] = useState(false);
-  const [tab, setTab] = useState<'resume' | 'hr' | 'tech'>('resume');
+  
+  // Navigation Tabs: 'builder' | 'validation' | 'updated_resume' | 'prep'
+  const [tab, setTab] = useState<'builder' | 'validation' | 'updated_resume' | 'prep'>('builder');
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fullName || !targetRole || !careerHistory || !jobDescription) return alert("Fill out all fields.");
-    setLoading(true); setResults(null);
+    setLoading(true); 
+    setResults(null);
+    
     const formData = new FormData();
-    formData.append('full_name', fullName); formData.append('target_role', targetRole);
-    formData.append('career_history', careerHistory); formData.append('job_description', jobDescription);
+    formData.append('full_name', fullName); 
+    formData.append('target_role', targetRole);
+    formData.append('career_history', careerHistory); 
+    formData.append('job_description', jobDescription);
+    
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 90000);
-      const res = await fetch('https://resume-builder-backend-ph7b.onrender.com/build-resume', { method: 'POST', body: formData, signal: controller.signal });
+      const res = await fetch('https://onrender.com', { method: 'POST', body: formData, signal: controller.signal });
       clearTimeout(timeoutId);
+      
       if (!res.ok) throw new Error();
-      setResults(await res.json());
+      
+      const data = await res.json();
+      setResults(data);
+      // Automatically switch to the validation metrics tab upon receiving results
+      setTab('validation');
     } catch {
       alert("AI generation failed. Check your Render key or reload.");
-    } finally { setLoading(false); }
+    } finally { 
+      setLoading(false); 
+    }
+  };
+
+  const handleReset = () => {
+    setFullName('');
+    setTargetRole('');
+    setCareerHistory('');
+    setJobDescription('');
+    setResults(null);
+    setTab('builder');
+  };
+
+  const handleCopyLink = () => {
+    if (!results?.shareable_url) return;
+    navigator.clipboard.writeText(results.shareable_url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   return (
     <main className="min-h-screen bg-slate-50 p-6 text-slate-900 text-xs">
       <div className="max-w-4xl mx-auto space-y-6">
+        
+        {/* Header Dashboard Banner */}
         <header className="text-center space-y-1">
-          <h1 className="text-2xl font-extrabold text-indigo-600 flex items-center justify-center gap-1"><Sparkles className="w-6 h-6"/> AI Career Dashboard</h1>
+          <h1 className="text-2xl font-extrabold text-indigo-600 flex items-center justify-center gap-1">
+            <Sparkles className="w-6 h-6"/> AI Career Dashboard
+          </h1>
           <p className="text-slate-500">Tailor resumes, track ATS matching score, and unlock interview prep guides</p>
         </header>
 
-        {!results ? (
-          <form onSubmit={handleGenerate} className="bg-white p-5 rounded-xl shadow-sm space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <input type="text" required className="border p-2 rounded bg-white" placeholder="Full Name" value={fullName} onChange={(e) => setFullName(e.target.value)} />
-              <input type="text" required className="border p-2 rounded bg-white" placeholder="Target Job Title" value={targetRole} onChange={(e) => setTargetRole(e.target.value)} />
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <textarea rows={5} required className="border p-2 rounded bg-white" placeholder="Career History & Notes" value={careerHistory} onChange={(e) => setCareerHistory(e.target.value)} />
-              <textarea rows={5} required className="border p-2 rounded bg-white" placeholder="Target Job Description" value={jobDescription} onChange={(e) => setJobDescription(e.target.value)} />
-            </div>
-            <button type="submit" disabled={loading} className="w-full bg-indigo-600 text-white font-bold py-2 rounded flex items-center justify-center gap-1 cursor-pointer">
-              {loading ? <><RefreshCw className="animate-spin w-4 h-4" /> Analyzing...</> : "Generate Dashboard"}
+        {/* Global Dashboard Navigation Bar (Only visible after form results exist) */}
+        {results && (
+          <div className="flex flex-wrap border-b gap-4 bg-white p-3 rounded-t-xl shadow-sm border-x border-t">
+            <button onClick={() => setTab('builder')} className={`pb-2 pt-1 font-bold border-b-2 flex items-center gap-1 cursor-pointer transition ${tab === 'builder' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400'}`}>
+              <Sparkles className="w-4 h-4"/> AI Resume Builder
             </button>
-          </form>
-        ) : (
-          <div className="bg-white p-6 rounded-xl shadow-sm space-y-6">
-            <div className="bg-indigo-600 p-3 rounded text-white flex justify-between items-center">
-              <div><h3 className="font-bold">Resume & Interview Prep Live!</h3></div>
-              <button onClick={() => { navigator.clipboard.writeText(results.shareable_url); setCopied(true); setTimeout(() => setCopied(false), 2000); }} className="bg-white text-indigo-600 p-1.5 rounded font-bold cursor-pointer">
-                {copied ? "Copied" : "Copy PDF Link"}
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-xl border">
-              <div className="bg-white p-3 rounded text-center"><BarChart3 className="w-5 h-5 text-indigo-500 mx-auto mb-1"/><h4 className="text-slate-400 font-bold uppercase">Match Score</h4><div className="text-2xl font-black text-indigo-600 mt-1">{results.match_score}%</div></div>
-              <div className="bg-white p-3 rounded"><h4 className="text-rose-500 font-bold flex items-center gap-1 mb-1"><AlertTriangle className="w-4 h-4"/> Missing Skills</h4><div className="flex flex-wrap gap-1">{results.missing_skills?.map((s: string, i: number) => <span key={i} className="bg-rose-50 text-rose-700 px-1.5 py-0.5 rounded border">{s}</span>) || "None"}</div></div>
-              <div className="bg-white p-3 rounded"><h4 className="text-indigo-600 font-bold flex items-center gap-1 mb-1"><Target className="w-4 h-4"/> Strategy Tips</h4><ul className="list-disc list-inside space-y-0.5">{results.tailoring_tips?.map((t: string, i: number) => <li key={i}>{t}</li>)}</ul></div>
-            </div>
-
-            <div className="flex border-b gap-4">
-              <button onClick={() => setTab('resume')} className={`pb-2 font-bold border-b-2 flex items-center gap-1 cursor-pointer ${tab === 'resume' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400'}`}><FileText className="w-4 h-4"/> Resume</button>
-              <button onClick={() => setTab('hr')} className={`pb-2 font-bold border-b-2 flex items-center gap-1 cursor-pointer ${tab === 'hr' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400'}`}><User className="w-4 h-4"/> HR Prep</button>
-              <button onClick={() => setTab('tech')} className={`pb-2 font-bold border-b-2 flex items-center gap-1 cursor-pointer ${tab === 'tech' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400'}`}><Code className="w-4 h-4"/> Tech Prep</button>
-            </div>
-
-            {tab === 'resume' && (
-              <div className="border p-4 rounded bg-white space-y-3">
-                <h2 className="text-lg font-bold border-b pb-1">{results.resume?.full_name}</h2>
-                <p className="text-slate-700 leading-relaxed">{results.resume?.professional_summary}</p>
-                <div className="flex flex-wrap gap-1">{results.resume?.skills?.map((s: string, i: number) => <span key={i} className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded border">{s}</span>)}</div>
-                <div className="space-y-3">
-                  {results.resume?.experience?.map((exp: any, i: number) => (
-                    <div key={i} className="space-y-0.5 border-l-2 pl-2">
-                      <div className="flex justify-between font-bold text-slate-800"><span>{exp.role} — {exp.company}</span><span>{exp.duration}</span></div>
-                      <ul className="list-disc list-inside text-slate-500 space-y-0.5">{exp.bullet_points?.map((b: string, idx: number) => <li key={idx}>{b}</li>)}</ul>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {tab === 'hr' && (
-              <div className="space-y-3">
-                {results.hr_interview?.map((item: any, i: number) => (
-                  <div key={i} className="p-3 bg-slate-50 rounded border space-y-1">
-                    <div className="font-bold text-slate-800 flex items-start gap-1"><HelpCircle className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5"/> Q: {item.question}</div>
-                    <div className="text-slate-600 pl-5 leading-relaxed"><span className="font-semibold text-indigo-600">Answer Strategy:</span> {item.response}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {tab === 'tech' && (
-              <div className="space-y-3">
-                {results.technical_interview?.map((item: any, i: number) => (
-                  <div key={i} className="p-3 bg-slate-50 rounded border space-y-1">
-                    <div className="font-bold text-slate-800 flex items-start gap-1"><HelpCircle className="w-4 h-4 text-purple-500 shrink-0 mt-0.5"/> Q: {item.question}</div>
-                    <div className="text-slate-600 pl-5 leading-relaxed"><span className="font-semibold text-purple-600">Technical Explanation:</span> {item.response}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <button onClick={() => setResults(null)} className="text-indigo-600 font-semibold cursor-pointer">← Build another document</button>
+            <button onClick={() => setTab('validation')} className={`pb-2 pt-1 font-bold border-b-2 flex items-center gap-1 cursor-pointer transition ${tab === 'validation' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400'}`}>
+              <ClipboardCheck className="w-4 h-4"/> Resume Validation
+            </button>
+            <button onClick={() => setTab('updated_resume')} className={`pb-2 pt-1 font-bold border-b-2 flex items-center gap-1 cursor-pointer transition ${tab === 'updated_resume' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400'}`}>
+              <FileText className="w-4 h-4"/> Updated Resume
+            </button>
+            <button onClick={() => setTab('prep')} className={`pb-2 pt-1 font-bold border-b-2 flex items-center gap-1 cursor-pointer transition ${tab === 'prep' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400'}`}>
+              <User className="w-4 h-4"/> Interview Prep (HR & Tech)
+            </button>
           </div>
         )}
-      </div>
-    </main>
-  );
-}
+
+        {/* TAB 1: AI Resume Builder (Always persistent, shows details and fields) */}
+        {tab === 'builder' && (
+          <div className="bg-white p-5 rounded-xl shadow-sm border space-y-4">
+            <div className="flex justify-between items-center border-b pb-2">
+              <h2 className="text-sm font-bold text-slate-700 flex items-center gap-1">Input Specifications Matrix</h2>
+              {results && (
+                <button type="button" onClick={handleReset} className="flex items-center gap-1 bg-rose-50 text-rose-600 font-bold px-2 py-1 rounded border border-rose-200 transition hover:bg-rose-100 cursor-pointer">
+                  <RotateCcw className="w-3.5 h-3.5"/> Reset Form
+                </button>
+              )}
+            </div>
+            
+            <form onSubmit={handleGenerate} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="font-semibold text-slate-500">Applicant Full Name</label>
+                  <input type="text" required className="w-full border p-2 rounded bg-white" placeholder="e.g. John Doe" value={fullName} onChange={(e) => setFullName(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <label className="font-semibold text-slate-500">Target Role Objective</label>
+                  <input type="text" required className="w-full border p-2 rounded bg-white" placeholder="e.g. Senior Software Engineer" value={targetRole} onChange={(e) => setTargetRole(e.target.value)} />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="font-semibold text-slate-500">Career History Profile Summary</label>
+                  <textarea rows={6} required className="w-full border p-2 rounded bg-white" placeholder="Paste your comprehensive work history nodes here..." value={careerHistory} onChange={(e) => setCareerHistory(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <label className="font-semibold text-slate-500">Target Job Description Criteria</label>
+                  <textarea rows={6} required className="w-full border p-2 rounded bg-white" placeholder="Paste the employer's job requirement listing text here..." value={jobDescription} onChange={(e) => setJobDescription(e.target.value)} />
+                </div>
+              </div>
+              
+              <div className="flex gap-3">
+                <button type="submit" disabled={loading} className="flex-1 bg-indigo-600 text-white font-bold py-2 rounded flex items-center justify-center gap-1 cursor-pointer transition hover:bg-indigo-700 disabled:bg-slate-300">
+                  {loading ? <><RefreshCw className="animate-spin w-4 h-4" /> Analyzing Architecture...</> : "Generate Career Analytics"}
+                </button>
+                {results && (
+                  <button type="button" onClick={() => setTab('validation')} className="bg-slate-800 text-white font-bold px-4 py-2 rounded flex items-center gap-1 cursor-pointer hover:bg-slate-900">
+                    View Extracted Analysis <ArrowRight className="w-4 h-4"/>
+                  </button>
+                )}
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* TAB 2: Resume Validation Metrics */}
+        {tab === 'validation' && results && (
+          <div className="bg-white p-6 rounded-xl shadow-sm border space-y-4">
+            <h3 className="text-sm font-bold text-slate-800 border-b pb-2 flex items-center gap-1">
+              <BarChart3 className="w-4 h-4 text-indigo-600"/> Resume Metrics Comparison Scope
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-xl border">
+              <div className="bg-white p-3 rounded text-center border">
+                <BarChart3 className="w-5 h-5 text-indigo-500 mx-auto mb-1"/>
+                <h4 className="text-slate-400 font-bold uppercase">Match Score</h4>
+                <div className="text-2xl font-black text-indigo-600 mt-1">{results.match_score}%</div>
+              </div>
+              <div className="bg-white p-3 rounded border">
+                <h4 className="text-rose-500 font-bold flex items-center gap-1 mb-1"><AlertTriangle className="w-4 h-4"/> Missing Skills</h4>
+                <div className="flex flex-wrap gap-1">
+                  {results.missing_skills?.map((s: string, i: number) => <span key={i} className="bg-rose-50 text-rose-700 px-1.5 py-0.5 rounded border border-rose-200">{s}</span>) || "None detected"}
+                </div>
+              </div>
+              <div className="bg-white p-3 rounded border">
+                <h4 className="text-indigo-600 font-bold flex items-center gap-1 mb-1"><Target className="w-4 h-4"/> Strategy Tips</h4>
+                <ul className="list-disc list-inside space-y-0.5 text-slate-600">
+                  {results.tailoring_tips?.map((t: string, i: number) => <li key={i}>{t}</li>)}
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 3: Updated Resume Output Block */}
+        {tab === 'updated_resume' && results && (
