@@ -2,6 +2,8 @@ import os
 import json
 from fastapi import FastAPI, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
+from typing import List
 from google import genai
 from supabase import create_client, Client
 from reportlab.lib.pagesizes import letter
@@ -19,9 +21,26 @@ app.add_middleware(
 )
 
 supabase: Client = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
-
-# 🚀 CRITICAL: Force the client to look strictly for GEMINI_API_KEY env variables natively
 gemini_client = genai.Client()
+
+# 🚀 DEFINE RIGID SCHEMAS: This forces Gemini to output structural JSON natively without missing properties
+class ExperienceItem(BaseModel):
+    company: str
+    role: str
+    duration: str
+    bullet_points: List[str]
+
+class ResumeStructure(BaseModel):
+    full_name: str
+    professional_summary: str
+    skills: List[str]
+    experience: List[ExperienceItem]
+
+class JobFitResponse(BaseModel):
+    match_score: int
+    missing_skills: List[str]
+    tailoring_tips: List[str]
+    resume: ResumeStructure
 
 @app.post("/build-resume")
 async def build_and_compare_resume(
@@ -31,8 +50,10 @@ async def build_and_compare_resume(
     job_description: str = Form(...)
 ):
     system_prompt = (
-        "You are an expert resume writer and ATS optimization system. Analyze the user's career logs against the target job requirements. "
-        "Calculate an objective match score percentage, list the missing technical skills, give clear optimization tips, and build a tailored resume structure."
+        "You are an expert resume strategist and ATS optimization engine. "
+        "Analyze the user's raw background and map it to the requested JobFitResponse schema. "
+        "Calculate an objective match score percentage against the job description, extract missing skills, "
+        "give tailoring tips, and formulate a professional, tailored resume structure."
     )
     
     user_prompt = (
@@ -43,20 +64,22 @@ async def build_and_compare_resume(
     )
     
     try:
-        # Define a rigid type constraint so Gemini answers strictly in clean data objects natively
+        # Force Gemini to use Pydantic structure natively for stable, crash-free output
         response = gemini_client.models.generate_content(
             model='gemini-2.5-flash',
             contents=user_prompt,
             config=genai.types.GenerateContentConfig(
                 system_instruction=system_prompt,
                 response_mime_type="application/json",
+                response_schema=JobFitResponse,
                 temperature=0.3
             ),
         )
         
+        # Load the clean JSON object direct from response text strings
         analysis_result = json.loads(response.text)
     except Exception as ai_error:
-        print(f"--- GEMINI PARSING CRASH LOG: {str(ai_error)} ---")
+        print(f"--- GEMINI CRASH LOG: {str(ai_error)} ---")
         raise HTTPException(status_code=500, detail=f"Gemini Processing Failed: {str(ai_error)}")
     
     resume_data = analysis_result.get("resume", {})
@@ -76,14 +99,14 @@ async def build_and_compare_resume(
         story.append(Spacer(1, 10))
         
         story.append(Paragraph("<b>Professional Summary</b>", section_style))
-        story.append(Paragraph(resume_data.get('professional_summary', 'Experienced professional tailored for target role.'), body_style))
+        story.append(Paragraph(resume_data.get('professional_summary', ''), body_style))
         
         story.append(Paragraph("<b>Core Competencies</b>", section_style))
-        story.append(Paragraph(", ".join(resume_data.get('skills', ['ATS Optimization'])), body_style))
+        story.append(Paragraph(", ".join(resume_data.get('skills', [])), body_style))
         
         story.append(Paragraph("<b>Professional Experience</b>", section_style))
         for exp in resume_data.get('experience', []):
-            story.append(Paragraph(f"<b>{exp.get('role', 'Specialist')}</b> — {exp.get('company', 'Enterprise')} ({exp.get('duration', 'Recent')})", styles['Heading4']))
+            story.append(Paragraph(f"<b>{exp.get('role', '')}</b> — {exp.get('company', '')} ({exp.get('duration', '')})", styles['Heading4']))
             for bullet in exp.get('bullet_points', []):
                 story.append(Paragraph(f"• {bullet}", body_style))
             story.append(Spacer(1, 6))
