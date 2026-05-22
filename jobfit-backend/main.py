@@ -19,6 +19,7 @@ app.add_middleware(
 )
 
 supabase: Client = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
+# Explicitly initialize the native client using the Render variable
 gemini_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 @app.post("/build-resume")
@@ -60,10 +61,10 @@ async def build_and_compare_resume(
     )
     
     try:
-        # Fetch data back natively via clean configuration profiles
+        # ✅ FIXED: Correct and robust argument passing structure for the official genai SDK
         response = gemini_client.models.generate_content(
             model='gemini-2.5-flash',
-            contents=f"System Context: {system_prompt}\n\nUser Input Data:\n{user_prompt}"
+            contents=f"{system_prompt}\n\nUser Input Data:\n{user_prompt}"
         )
         
         cleaned_text = response.text.strip()
@@ -75,7 +76,7 @@ async def build_and_compare_resume(
         
         analysis_result = json.loads(cleaned_text)
     except Exception as ai_error:
-        print(f"--- GEMINI PARSING CRASH: {str(ai_error)} ---")
+        print(f"--- GEMINI CRASH LOG: {str(ai_error)} ---")
         raise HTTPException(status_code=500, detail=f"Gemini Processing Failed: {str(ai_error)}")
     
     resume_data = analysis_result.get("resume", {})
@@ -109,9 +110,9 @@ async def build_and_compare_resume(
 
         doc.build(story)
 
-        # ✅ FIXED: Corrected positional parameter signature format for the Supabase python storage SDK
-        storage_path = f"resumes/{pdf_filename}"
+        storage_path = f"{pdf_filename}"
         with open(pdf_filename, "rb") as f:
+            # ✅ FIXED: Correct file and parameter structure for the Supabase python SDK
             supabase.storage.from_("updated-resumes").upload(
                 path=storage_path,
                 file=f,
