@@ -1,6 +1,6 @@
 import os
 import json
-from fastapi import FastAPI, Form
+from fastapi import FastAPI, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from openai import OpenAI
 from supabase import create_client, Client
@@ -59,58 +59,65 @@ async def build_and_compare_resume(
         f"Target Job Description:\n{job_description}"
     )
     
-    # 1. Generate text safely using OpenAI's native structured JSON mode
-    completion = ai_client.chat.completions.create(
-        model="gpt-4o",
-        response_format={"type": "json_object"},
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt}
-        ]
-    )
+    # 🚀 CRITICAL: Wrap the AI block in a try-except to pinpoint the exact crash reason
+    try:
+        completion = ai_client.chat.completions.create(
+            model="gpt-4o-mini",  # Using highly cost-effective, optimized engine to prevent billing failures
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ]
+        )
+        raw_content = completion.choices.message.content
+        analysis_result = json.loads(raw_content)
+    except Exception as ai_error:
+        print(f"--- OPENAI EXECUTION CRASH ERROR LOG: {str(ai_error)} ---")
+        raise HTTPException(status_code=500, detail=f"OpenAI Generation Failed: {str(ai_error)}")
     
-    # Extract the string content and parse it
-    raw_content = completion.choices.message.content
-    analysis_result = json.loads(raw_content)
     resume_data = analysis_result.get("resume", {})
 
-    # 2. Programmatically generate clean layout PDF
-    pdf_filename = f"{full_name.replace(' ', '_')}_Resume.pdf"
-    doc = SimpleDocTemplate(pdf_filename, pagesize=letter, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
-    styles = getSampleStyleSheet()
-    
-    title_style = ParagraphStyle('TitleStyle', parent=styles['Heading1'], fontSize=24, leading=28, spaceAfter=12)
-    section_style = ParagraphStyle('SectionStyle', parent=styles['Heading2'], fontSize=14, leading=18, spaceBefore=12, spaceAfter=6, textColor='#4F46E5')
-    body_style = styles['Normal']
-    
-    story = []
-    story.append(Paragraph(f"<b>{resume_data.get('full_name', full_name)}</b>", title_style))
-    story.append(Paragraph(f"Target Role: {target_role}", styles['Heading3']))
-    story.append(Spacer(1, 10))
-    
-    story.append(Paragraph("<b>Professional Summary</b>", section_style))
-    story.append(Paragraph(resume_data.get('professional_summary', ''), body_style))
-    
-    story.append(Paragraph("<b>Core Competencies</b>", section_style))
-    story.append(Paragraph(", ".join(resume_data.get('skills', [])), body_style))
-    
-    story.append(Paragraph("<b>Professional Experience</b>", section_style))
-    for exp in resume_data.get('experience', []):
-        story.append(Paragraph(f"<b>{exp.get('role', '')}</b> — {exp.get('company', '')} ({exp.get('duration', '')})", styles['Heading4']))
-        for bullet in exp.get('bullet_points', []):
-            story.append(Paragraph(f"• {bullet}", body_style))
-        story.append(Spacer(1, 6))
+    try:
+        # 2. Programmatically generate clean layout PDF
+        pdf_filename = f"{full_name.replace(' ', '_')}_Resume.pdf"
+        doc = SimpleDocTemplate(pdf_filename, pagesize=letter, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
+        styles = getSampleStyleSheet()
+        
+        title_style = ParagraphStyle('TitleStyle', parent=styles['Heading1'], fontSize=24, leading=28, spaceAfter=12)
+        section_style = ParagraphStyle('SectionStyle', parent=styles['Heading2'], fontSize=14, leading=18, spaceBefore=12, spaceAfter=6, textColor='#4F46E5')
+        body_style = styles['Normal']
+        
+        story = []
+        story.append(Paragraph(f"<b>{resume_data.get('full_name', full_name)}</b>", title_style))
+        story.append(Paragraph(f"Target Role: {target_role}", styles['Heading3']))
+        story.append(Spacer(1, 10))
+        
+        story.append(Paragraph("<b>Professional Summary</b>", section_style))
+        story.append(Paragraph(resume_data.get('professional_summary', ''), body_style))
+        
+        story.append(Paragraph("<b>Core Competencies</b>", section_style))
+        story.append(Paragraph(", ".join(resume_data.get('skills', [])), body_style))
+        
+        story.append(Paragraph("<b>Professional Experience</b>", section_style))
+        for exp in resume_data.get('experience', []):
+            story.append(Paragraph(f"<b>{exp.get('role', '')}</b> — {exp.get('company', '')} ({exp.get('duration', '')})", styles['Heading4']))
+            for bullet in exp.get('bullet_points', []):
+                story.append(Paragraph(f"• {bullet}", body_style))
+            story.append(Spacer(1, 6))
 
-    doc.build(story)
+        doc.build(story)
 
-    # 3. Save PDF directly to Supabase Storage Bucket
-    storage_path = f"resumes/{pdf_filename}"
-    with open(pdf_filename, "rb") as f:
-        supabase.storage.from_("updated-resumes").upload(storage_path, f, {"content-type": "application/pdf"})
+        # 3. Save PDF directly to Supabase Storage Bucket
+        storage_path = f"resumes/{pdf_filename}"
+        with open(pdf_filename, "rb") as f:
+            supabase.storage.from_("updated-resumes").upload(storage_path, f, {"content-type": "application/pdf"})
 
-    # 4. Generate Absolute Cloud Public Share Link
-    public_url = supabase.storage.from_("updated-resumes").get_public_url(storage_path)
-    os.remove(pdf_filename)
+        # 4. Generate Absolute Cloud Public Share Link
+        public_url = supabase.storage.from_("updated-resumes").get_public_url(storage_path)
+        os.remove(pdf_filename)
+    except Exception as infra_error:
+        print(f"--- SUPABASE/PDF STORAGE CRASH ERROR LOG: {str(infra_error)} ---")
+        raise HTTPException(status_code=500, detail=f"Storage System Failed: {str(infra_error)}")
 
     return {
         "match_score": analysis_result.get("match_score", 0),
