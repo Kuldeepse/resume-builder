@@ -1,0 +1,9 @@
+[build]
+  base = "jobfit-frontend"
+  command = "npm run build"
+  publish = "out"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
