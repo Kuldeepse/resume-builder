@@ -12,7 +12,7 @@ export default function Home() {
   const [copied, setCopied] = useState(false);
   const [tab, setTab] = useState<'builder' | 'validation' | 'updated_resume' | 'prep'>('builder');
 
-    const handleGenerate = async () => {
+      const handleGenerate = async () => {
     if (!fullName || !targetRole || !careerHistory || !jobDescription) return alert("Fill out all fields.");
     setLoading(true); 
     setResults(null);
@@ -24,13 +24,21 @@ export default function Home() {
     formData.append('job_description', jobDescription);
     
     try {
-      // ✅ STRUCTURAL RESUME ENDPOINT ROUTE ACCESS
-      const res = await fetch('https://resume-builder-backend-ph7b.onrender.com/build-resume', { method: 'POST', body: formData, signal: controller.signal });
+      // ✅ Restored AbortController setup to fix the TypeScript compiler error
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 90000);
+      
+      const res = await fetch('https://resume-builder-backend-ph7b.onrender.com/build-resume', { 
+        method: 'POST', 
+        body: formData,
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
       
       if (!res.ok) throw new Error();
       
-      const data = await res.json();
-      setResults(data);
+      setResults(await res.json());
       setTab('validation');
     } catch {
       alert("AI generation failed. Check your Render key or reload.");
@@ -38,6 +46,7 @@ export default function Home() {
       setLoading(false); 
     }
   };
+
 
 
   const handleCopyLink = () => {
