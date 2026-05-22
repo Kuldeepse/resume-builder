@@ -3,6 +3,7 @@ import json
 from fastapi import FastAPI, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from google import genai
+from google.genai import types  # 🚀 CRITICAL: Required for modern Gemini configuration schemas
 from supabase import create_client, Client
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
@@ -19,9 +20,6 @@ app.add_middleware(
 )
 
 supabase: Client = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
-
-# 🚀 GOOGLE GEMINI NATIVE INITIALIZATION
-# This natively searches your server environment for a variable named exactly 'GEMINI_API_KEY'
 gemini_client = genai.Client()
 
 @app.post("/build-resume")
@@ -63,20 +61,18 @@ async def build_and_compare_resume(
     )
     
     try:
+        # ✅ FIXED: Utilizing official google-genai config schemas to force stable structural JSON mode
         response = gemini_client.models.generate_content(
             model='gemini-2.5-flash',
-            contents=f"System Context: {system_prompt}\n\nUser Input Data:\n{user_prompt}"
+            contents=f"User Input Data:\n{user_prompt}",
+            config=types.GenerateContentConfig(
+                system_instruction=system_prompt,
+                response_mime_type="application/json",
+                temperature=0.3
+            )
         )
         
-        # Clean potential markdown block formatting wrapping the text string
-        cleaned_text = response.text.strip()
-        if cleaned_text.startswith("```"):
-            cleaned_text = cleaned_text.split("\n", 1)[1] if "\n" in cleaned_text else cleaned_text
-        if cleaned_text.endswith("```"):
-            cleaned_text = cleaned_text.rsplit("\n", 1)[0]
-        cleaned_text = cleaned_text.strip("`").strip()
-        
-        analysis_result = json.loads(cleaned_text)
+        analysis_result = json.loads(response.text)
     except Exception as ai_error:
         print(f"--- GEMINI PARSING CRASH: {str(ai_error)} ---")
         raise HTTPException(status_code=500, detail=f"Gemini Processing Failed: {str(ai_error)}")
