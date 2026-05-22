@@ -81,10 +81,23 @@ export default function Home() {
                 <div className="space-y-1"><label className="font-semibold text-slate-500">Career History Profile Summary</label><textarea rows={6} required className="w-full border p-2 rounded bg-white" placeholder="Paste your comprehensive work history nodes here..." value={careerHistory} onChange={(e) => setCareerHistory(e.target.value)} /></div>
                 <div className="space-y-1"><label className="font-semibold text-slate-500">Target Job Description Criteria</label><textarea rows={6} required className="w-full border p-2 rounded bg-white" placeholder="Paste the employer's job requirement listing text here..." value={jobDescription} onChange={(e) => setJobDescription(e.target.value)} /></div>
               </div>
-              <div className="flex gap-3">
-                <button type="submit" disabled={loading} className="flex-1 bg-indigo-600 text-white font-bold py-2 rounded flex items-center justify-center gap-1 cursor-pointer hover:bg-indigo-700 disabled:bg-slate-300">{loading ? <><RefreshCw className="animate-spin w-4 h-4" /> Analyzing Architecture...</></> : "Generate Career Analytics"}</button>
-                {results && <button type="button" onClick={() => setTab('validation')} className="bg-slate-800 text-white font-bold px-4 py-2 rounded flex items-center gap-1 cursor-pointer hover:bg-slate-900">View Extracted Analysis <ArrowRight className="w-4 h-4"/></button>}
-              </div>
+             <div className="flex gap-3">
+  <button type="submit" disabled={loading} className="flex-1 bg-indigo-600 text-white font-bold py-2 rounded flex items-center justify-center gap-1 cursor-pointer hover:bg-indigo-700 disabled:bg-slate-300">
+    {loading ? (
+      <>
+        <RefreshCw className="animate-spin w-4 h-4" /> Analyzing Architecture...
+      </>
+    ) : (
+      "Generate Career Analytics"
+    )}
+  </button>
+  {results && (
+    <button type="button" onClick={() => setTab('validation')} className="bg-slate-800 text-white font-bold px-4 py-2 rounded flex items-center gap-1 cursor-pointer hover:bg-slate-900">
+      View Extracted Analysis <ArrowRight className="w-4 h-4"/>
+    </button>
+  )}
+</div>
+
             </form>
           </div>
         )}
