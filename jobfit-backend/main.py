@@ -19,12 +19,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-supabase: Client = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
+# 🔐 FIX: Ensure you are using your secret service_role key on the backend for storage uploads
+supabase: Client = create_client(
+    os.getenv("SUPABASE_URL"), 
+    os.getenv("SUPABASE_SERVICE_ROLE_KEY")  
+)
 
-# 🚀 PERMANENT INITIALIZATION FIX: 
-# The modern google-genai library expects your key passed explicitly inside a 'http_options' configuration dictionary wrapper,
-# or completely blank to natively read 'GEMINI_API_KEY' from your environment system vars.
-gemini_client = genai.Client(http_options={'headers': {'x-goog-api-key': os.getenv("GEMINI_API_KEY")}})
+# 🚀 FIX: The SDK automatically detects the "GEMINI_API_KEY" environment variable.
+# Passing incorrect dictionary wrappers like http_options crashes the initialization.
+gemini_client = genai.Client()
 
 @app.post("/build-resume")
 async def build_and_compare_resume(
