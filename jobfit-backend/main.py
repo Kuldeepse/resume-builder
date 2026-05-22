@@ -22,7 +22,8 @@ supabase: Client = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_
 
 # Initialize the official, free-tier native Google Gemini client
 # We reuse your existing OPENAI_API_KEY environment variable slot on Render to save your Gemini Key
-gemini_client = genai.Client(api_key=os.environ.get("OPENAI_API_KEY"))
+# gemini_client = genai.Client(api_key=os.environ.get("OPENAI_API_KEY"))
+gemini_client = genai.Client()
 
 @app.post("/build-resume")
 async def build_and_compare_resume(
