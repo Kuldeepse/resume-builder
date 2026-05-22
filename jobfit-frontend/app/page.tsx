@@ -10,11 +10,17 @@ export default function Home() {
   const [results, setResults] = useState<any>(null);
   const [copied, setCopied] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleGenerate = async (e: React.MouseEvent<HTMLButtonElement> | React.FormEvent) => {
+    // 🚀 CRITICAL: Force stop all native browser freezes instantly
     e.preventDefault();
-    if (!fullName || !targetRole || !careerHistory) return;
+    if (!fullName || !targetRole || !careerHistory) {
+      alert("Please fill out all fields before generating.");
+      return;
+    }
 
     setLoading(true);
+    setResults(null); // Clear previous runs
+
     const formData = new FormData();
     formData.append('full_name', fullName);
     formData.append('target_role', targetRole);
@@ -25,10 +31,16 @@ export default function Home() {
         method: 'POST',
         body: formData,
       });
+      
+      if (!response.ok) {
+        throw new Error(`Server returned status code: ${response.status}`);
+      }
+
       const data = await response.json();
       setResults(data);
     } catch (error) {
       console.error("Error processing building request profile:", error);
+      alert("Failed to reach the AI engine. Please verify that your Render backend service is fully awake and live!");
     } finally {
       setLoading(false);
     }
@@ -53,14 +65,14 @@ export default function Home() {
         </header>
 
         {!results ? (
-          <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow-sm space-y-6">
+          <div className="bg-white p-6 rounded-xl shadow-sm space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-semibold mb-2">Full Name</label>
                 <input 
                   type="text" 
                   required 
-                  className="w-full border border-slate-300 p-3 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" 
+                  className="w-full border border-slate-300 p-3 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-slate-900" 
                   placeholder="John Doe" 
                   value={fullName} 
                   onChange={(e) => setFullName(e.target.value)}
@@ -71,7 +83,7 @@ export default function Home() {
                 <input 
                   type="text" 
                   required 
-                  className="w-full border border-slate-300 p-3 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" 
+                  className="w-full border border-slate-300 p-3 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-slate-900" 
                   placeholder="Senior Software Engineer" 
                   value={targetRole} 
                   onChange={(e) => setTargetRole(e.target.value)}
@@ -84,7 +96,7 @@ export default function Home() {
               <textarea 
                 rows={8} 
                 required 
-                className="w-full border border-slate-300 p-3 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" 
+                className="w-full border border-slate-300 p-3 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-slate-900" 
                 placeholder="Paste your rough background notes, old resume bullet points, or list your past responsibilities here..." 
                 value={careerHistory} 
                 onChange={(e) => setCareerHistory(e.target.value)}
@@ -92,9 +104,10 @@ export default function Home() {
             </div>
 
             <button 
-              type="submit" 
+              type="button"
+              onClick={handleGenerate} 
               disabled={loading} 
-              className="w-full bg-indigo-600 text-white font-bold py-3 rounded-lg hover:bg-indigo-700 disabled:bg-indigo-300 transition flex items-center justify-center gap-2"
+              className="w-full bg-indigo-600 text-white font-bold py-3 rounded-lg hover:bg-indigo-700 disabled:bg-indigo-300 transition flex items-center justify-center gap-2 cursor-pointer"
             >
               {loading ? (
                 <>
@@ -104,7 +117,7 @@ export default function Home() {
                 "Generate Resume"
               )}
             </button>
-          </form>
+          </div>
         ) : (
           <div className="bg-white p-8 rounded-xl shadow-sm space-y-8">
             {/* Share link Banner Component */}
@@ -178,4 +191,3 @@ export default function Home() {
     </main>
   );
 }
-
