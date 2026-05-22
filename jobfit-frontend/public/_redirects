@@ -1,7 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: 'standalone', // 🚀 CRITICAL: This line forces Next.js to build the missing server directory during your build
+  output: 'export', // 🚀 CRITICAL: Forces Next.js 16 to compile the app into 100% static HTML/CSS files
+  images: {
+    unoptimized: true, // Required by Next.js when utilizing static export pipelines
+  },
   typescript: {
     ignoreBuildErrors: true,
   },
