@@ -2,7 +2,7 @@ import os
 import json
 from fastapi import FastAPI, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from openai import OpenAI
+from google import genai  # 🚀 GEMINI INTEGRATION: Clean, native Google developer package
 from supabase import create_client, Client
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
@@ -19,7 +19,10 @@ app.add_middleware(
 )
 
 supabase: Client = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
-ai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+# Initialize the official, free-tier native Google Gemini client
+# We reuse your existing OPENAI_API_KEY environment variable slot on Render to save your Gemini Key
+gemini_client = genai.Client(api_key=os.getenv("OPENAI_API_KEY"))
 
 @app.post("/build-resume")
 async def build_and_compare_resume(
@@ -59,26 +62,24 @@ async def build_and_compare_resume(
         f"Target Job Description:\n{job_description}"
     )
     
-    # 🚀 CRITICAL: Wrap the AI block in a try-except to pinpoint the exact crash reason
     try:
-        completion = ai_client.chat.completions.create(
-            model="gpt-4o-mini",  # Using highly cost-effective, optimized engine to prevent billing failures
-            response_format={"type": "json_object"},
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
-            ]
+        # Generate text safely using Gemini's native structured JSON layout mode for FREE
+        response = gemini_client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=user_prompt,
+            config=genai.types.GenerateContentConfig(
+                system_instruction=system_prompt,
+                response_mime_type="application/json",
+            ),
         )
-        raw_content = completion.choices.message.content
-        analysis_result = json.loads(raw_content)
+        analysis_result = json.loads(response.text)
     except Exception as ai_error:
-        print(f"--- OPENAI EXECUTION CRASH ERROR LOG: {str(ai_error)} ---")
-        raise HTTPException(status_code=500, detail=f"OpenAI Generation Failed: {str(ai_error)}")
+        print(f"--- GEMINI EXECUTION CRASH ERROR LOG: {str(ai_error)} ---")
+        raise HTTPException(status_code=500, detail=f"Gemini Generation Failed: {str(ai_error)}")
     
     resume_data = analysis_result.get("resume", {})
 
     try:
-        # 2. Programmatically generate clean layout PDF
         pdf_filename = f"{full_name.replace(' ', '_')}_Resume.pdf"
         doc = SimpleDocTemplate(pdf_filename, pagesize=letter, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
         styles = getSampleStyleSheet()
@@ -107,12 +108,10 @@ async def build_and_compare_resume(
 
         doc.build(story)
 
-        # 3. Save PDF directly to Supabase Storage Bucket
         storage_path = f"resumes/{pdf_filename}"
         with open(pdf_filename, "rb") as f:
             supabase.storage.from_("updated-resumes").upload(storage_path, f, {"content-type": "application/pdf"})
 
-        # 4. Generate Absolute Cloud Public Share Link
         public_url = supabase.storage.from_("updated-resumes").get_public_url(storage_path)
         os.remove(pdf_filename)
     except Exception as infra_error:
