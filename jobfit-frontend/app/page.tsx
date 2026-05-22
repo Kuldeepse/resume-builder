@@ -36,7 +36,7 @@ export default function Home() {
   };
 
   return (
-    <main className={`min-h-screen p-4 md:p-8 font-sans antialiased transition-colors duration-300 ${darkMode ? 'bg-slate-950 text-slate-100 selection:bg-indigo-500 selection:text-white' : 'bg-slate-50 text-slate-900 selection:bg-indigo-600 selection:text-white'}`}>
+    <main className={`min-h-screen p-4 md:p-8 font-sans antialiased transition-colors duration-300 ${darkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
       <div className="max-w-5xl mx-auto space-y-6">
         
         <header className="relative flex flex-col items-center text-center space-y-2 py-4 border-b border-dashed border-slate-300 dark:border-slate-800">
@@ -86,7 +86,11 @@ export default function Home() {
                 </div>
               </div>
               <div className="flex flex-col sm:flex-row gap-3 pt-1">
-                <button type="button" onClick={handleGenerate} disabled={loading} className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all text-xxs uppercase tracking-widest disabled:bg-slate-300 disabled:text-slate-500 dark:disabled:bg-slate-800 dark:disabled:text-slate-600">
+                <button type="button" onClick={handleGenerate} disabled={loading} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all text-xxs uppercase tracking-widest disabled:bg-slate-300 disabled:text-slate-500 dark:disabled:bg-slate-800 dark:disabled:text-slate-600">
+                  {loading ? <><RefreshCw className="animate-spin w-4 h-4 text-indigo-200" /> Computing Neural Vectors...</> : <><Sparkles className="w-4 h-4 text-amber-400" /> Execute Generation Cycle</>}
+                </button>
+              </div>
+            </form>
  {tab === 'validation' && results && (
           <div className={`border p-6 rounded-2xl shadow-sm space-y-5 ${darkMode ? 'bg-slate-900/40 border-slate-800/80' : 'bg-white border-slate-200'}`}>
             <h3 className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 border-b pb-3 ${darkMode ? 'text-indigo-400 border-slate-800/60' : 'text-indigo-600 border-slate-100'}`}><BarChart3 className="w-4 h-4"/> Analytical Delta Dashboard</h3>
@@ -96,13 +100,13 @@ export default function Home() {
                 <h4 className={`font-bold uppercase tracking-widest text-[9px] ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>ATS Alignment Matrix</h4>
                 <div className={`text-4xl font-black mt-1 ${darkMode ? 'text-white' : 'text-indigo-600'}`}>{results.match_score}%</div>
               </div>
-              <div className={`p-5 rounded-2xl border ${darkMode ? 'bg-slate-950/80 border-slate-800' : 'bg-slate-50 border-slate-2/60'}`}>
+              <div className={`p-5 rounded-2xl border ${darkMode ? 'bg-slate-950/80 border-slate-800' : 'bg-slate-50 border-slate-200/60'}`}>
                 <h4 className="text-rose-600 font-bold uppercase tracking-widest text-[9px] flex items-center gap-1 mb-2"><AlertTriangle className="w-3.5 h-3.5 text-rose-500"/> Core Keyword Gaps</h4>
                 <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pr-1">
                   {results.missing_skills?.map((s: string, i: number) => <span key={i} className={`font-medium px-2 py-0.5 rounded-lg border text-[10px] tracking-wide ${darkMode ? 'bg-rose-500/10 text-rose-300 border-rose-500/20' : 'bg-rose-50 text-rose-700 border-rose-200'}`}>{s}</span>) || "None"}
                 </div>
               </div>
-              <div className={`p-5 rounded-2xl border ${darkMode ? 'bg-slate-950/80 border-slate-800' : 'bg-slate-50 border-slate-2/60'}`}>
+              <div className={`p-5 rounded-2xl border ${darkMode ? 'bg-slate-950/80 border-slate-800' : 'bg-slate-50 border-slate-200/60'}`}>
                 <h4 className="text-indigo-600 dark:text-indigo-400 font-bold uppercase tracking-widest text-[9px] flex items-center gap-1 mb-2"><Target className="w-3.5 h-3.5"/> Strategic Tailoring Focus</h4>
                 <ul className={`space-y-1.5 text-[10px] leading-relaxed max-h-24 overflow-y-auto pr-1 list-none ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>{results.tailoring_tips?.map((t: string, i: number) => <li key={i} className="flex items-start gap-1.5"><CheckCircle2 className="w-3 h-3 text-indigo-500 shrink-0 mt-0.5"/> <span>{t}</span></li>)}</ul>
               </div>
