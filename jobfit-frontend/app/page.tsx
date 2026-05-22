@@ -27,23 +27,34 @@ export default function Home() {
     formData.append('career_history', careerHistory);
 
     try {
-      const response = await fetch('https://onrender.com', {
-        method: 'POST',
-        body: formData,
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Server returned status code: ${response.status}`);
-      }
+  // Create a custom controller to extend the request time to 90 seconds
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 90000); 
 
-      const data = await response.json();
-      setResults(data);
-    } catch (error) {
-      console.error("Error processing building request profile:", error);
-      alert("Failed to reach the AI engine. Please verify that your Render backend service is fully awake and live!");
-    } finally {
-      setLoading(false);
-    }
+  const response = await fetch('https://onrender.com', {
+    method: 'POST',
+    body: formData,
+    signal: controller.signal
+  });
+
+  clearTimeout(timeoutId);
+
+  if (!response.ok) {
+    throw new Error(`Server returned error code: ${response.status}`);
+  }
+
+  const data = await response.json();
+  setResults(data);
+} catch (error: any) {
+  console.error("Error processing building request profile:", error);
+  if (error.name === 'AbortError') {
+    alert("The AI Engine is taking a bit longer to wake up on Render's free tier. Please wait 10 seconds and click 'Generate Resume' again!");
+  } else {
+    alert("Connected to server, but the AI generation failed. Please check your Render logs for API Key limits.");
+  }
+} finally {
+  setLoading(false);
+}
   };
 
   const copyToClipboard = () => {
