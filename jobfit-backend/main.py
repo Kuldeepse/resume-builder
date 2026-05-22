@@ -3,6 +3,7 @@ import json
 from fastapi import FastAPI, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from google import genai
+from google.genai import types  # 🚀 CRITICAL: Required for modern Gemini configurations
 from supabase import create_client, Client
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
@@ -19,7 +20,6 @@ app.add_middleware(
 )
 
 supabase: Client = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
-# Explicitly initialize the native client using the Render variable
 gemini_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 @app.post("/build-resume")
@@ -30,13 +30,19 @@ async def build_and_compare_resume(
     job_description: str = Form(...)
 ):
     system_prompt = (
-        "You are an expert resume writer and ATS optimization system. Your task is to output a single, raw, valid JSON object "
-        "matching this exact keys structure. Do not include markdown code block wrappers (like ```json), preambles, or text formatting. Only raw JSON.\n\n"
+        "You are an expert resume writer, recruiter, and interview coach. Your task is to output a single, raw, valid JSON object "
+        "matching this exact keys layout framework. Do not output markdown, preambles, or formatting blocks. Only valid JSON.\n\n"
         "EXPECTED JSON FORMAT:\n"
         "{\n"
         '  "match_score": 85,\n'
         '  "missing_skills": ["Skill A", "Skill B"],\n'
         '  "tailoring_tips": ["Tip 1", "Tip 2"],\n'
+        '  "hr_interview": [\n'
+        '    {"question": "Why do you want to join our company?", "response": "Based on my background in X..."}\n'
+        '  ],\n'
+        '  "technical_interview": [\n'
+        '    {"question": "Explain system architecture X.", "response": "In my past role, I implemented..."}\n'
+        '  ],\n'
         '  "resume": {\n'
         '    "full_name": "User Name",\n'
         '    "professional_summary": "Summary text",\n'
@@ -61,22 +67,21 @@ async def build_and_compare_resume(
     )
     
     try:
-        # ✅ FIXED: Correct and robust argument passing structure for the official genai SDK
+        # ✅ FIXED: Utilizing official google-genai config types to split systemic instructions and force native JSON mode
         response = gemini_client.models.generate_content(
             model='gemini-2.5-flash',
-            contents=f"{system_prompt}\n\nUser Input Data:\n{user_prompt}"
+            contents=user_prompt,
+            config=types.GenerateContentConfig(
+                system_instruction=system_prompt,
+                response_mime_type="application/json",
+                temperature=0.3
+            )
         )
         
         cleaned_text = response.text.strip()
-        if cleaned_text.startswith("```"):
-            cleaned_text = cleaned_text.split("\n", 1)[1] if "\n" in cleaned_text else cleaned_text
-        if cleaned_text.endswith("```"):
-            cleaned_text = cleaned_text.rsplit("\n", 1)[0]
-        cleaned_text = cleaned_text.strip("`").strip()
-        
         analysis_result = json.loads(cleaned_text)
     except Exception as ai_error:
-        print(f"--- GEMINI CRASH LOG: {str(ai_error)} ---")
+        print(f"--- GEMINI PARSING CRASH: {str(ai_error)} ---")
         raise HTTPException(status_code=500, detail=f"Gemini Processing Failed: {str(ai_error)}")
     
     resume_data = analysis_result.get("resume", {})
@@ -112,7 +117,6 @@ async def build_and_compare_resume(
 
         storage_path = f"{pdf_filename}"
         with open(pdf_filename, "rb") as f:
-            # ✅ FIXED: Correct file and parameter structure for the Supabase python SDK
             supabase.storage.from_("updated-resumes").upload(
                 path=storage_path,
                 file=f,
@@ -129,6 +133,8 @@ async def build_and_compare_resume(
         "match_score": analysis_result.get("match_score", 75),
         "missing_skills": analysis_result.get("missing_skills", []),
         "tailoring_tips": analysis_result.get("tailoring_tips", []),
+        "hr_interview": analysis_result.get("hr_interview", []),
+        "technical_interview": analysis_result.get("technical_interview", []),
         "resume": resume_data, 
         "shareable_url": public_url
     }
