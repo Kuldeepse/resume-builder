@@ -26,9 +26,10 @@ export default function Home() {
     
     try {
       const controller = new AbortController();
+      // Generous 90 second timeout since Render Free tier can take time to spin up
       const timeoutId = setTimeout(() => controller.abort(), 90000);
       
-      const res = await fetch('https://resume-builder-backend-ph7b.onrender.com/build-resume', { 
+      const res = await fetch('https://onrender.com', { 
         method: 'POST', 
         body: formData, 
         signal: controller.signal 
@@ -36,6 +37,7 @@ export default function Home() {
       
       clearTimeout(timeoutId);
       
+      // PERMANENT FIX: Read explicit JSON exception from FastAPI backend instead of throwing generic failures
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
         throw new Error(errorData.detail || `Server responded with status ${res.status}`);
@@ -43,7 +45,7 @@ export default function Home() {
       
       setResults(await res.json());
     } catch (err: any) {
-      alert(`AI generation failed: ${err.message || "Check your Render backend logs or environment variables."}`);
+      alert(`Pipeline Interrupted: ${err.message || "Check your Render backend logs or environment variables."}`);
     } finally { 
       setLoading(false); 
     }
@@ -170,6 +172,3 @@ export default function Home() {
           </div>
         )}
       </div>
-    </main>
-  );
-}
