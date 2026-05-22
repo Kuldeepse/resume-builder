@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { Sparkles, RefreshCw, BarChart3, AlertTriangle, Target, FileText, User, Code, HelpCircle, ArrowLeft } from 'lucide-react';
+import { Sparkles, RefreshCw, BarChart3, AlertTriangle, Target, Share2, Copy, CheckCircle, FileText, User, Code, HelpCircle } from 'lucide-react';
 
 export default function Home() {
   const [fullName, setFullName] = useState('');
@@ -12,57 +12,30 @@ export default function Home() {
   const [copied, setCopied] = useState(false);
   const [tab, setTab] = useState<'resume' | 'hr' | 'tech'>('resume');
 
- const handleGenerate = async (e: React.FormEvent) => {
+  const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fullName || !targetRole || !careerHistory || !jobDescription) return alert("Fill out all fields.");
-    setLoading(true); 
-    setResults(null);
-    
+    setLoading(true); setResults(null);
     const formData = new FormData();
-    formData.append('full_name', fullName); 
-    formData.append('target_role', targetRole);
-    formData.append('career_history', careerHistory); 
-    formData.append('job_description', jobDescription);
-    
+    formData.append('full_name', fullName); formData.append('target_role', targetRole);
+    formData.append('career_history', careerHistory); formData.append('job_description', jobDescription);
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000);
-      
-      // ✅ Explicitly targets your backend instance AND the /build-resume route endpoint
-     // const res = await fetch("https://resume-builder-backend-ph7b.onrender.com/resume-builder", { //  CORRECT SUBDOMAIN
-     const res = await fetch("https://onrender.com", {
-        method: 'POST', 
-        body: formData, 
-        signal: controller.signal 
-      });
-      
+      const timeoutId = setTimeout(() => controller.abort(), 90000);
+      const res = await fetch('https://onrender.com', { method: 'POST', body: formData, signal: controller.signal });
       clearTimeout(timeoutId);
-      
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.detail || `Server responded with status ${res.status}`);
-      }
-      
+      if (!res.ok) throw new Error();
       setResults(await res.json());
-    } catch (err: any) {
-      alert(`Pipeline Interrupted: ${err.message || "Check your Render backend logs or environment variables."}`);
-    } finally { 
-      setLoading(false); 
-    }
-  };
-
-  const resetForm = () => {
-    setResults(null);
-    setTab('resume');
+    } catch {
+      alert("AI generation failed. Check your Render key or reload.");
+    } finally { setLoading(false); }
   };
 
   return (
     <main className="min-h-screen bg-slate-50 p-6 text-slate-900 text-xs">
       <div className="max-w-4xl mx-auto space-y-6">
         <header className="text-center space-y-1">
-          <h1 className="text-2xl font-extrabold text-indigo-600 flex items-center justify-center gap-1">
-            <Sparkles className="w-6 h-6"/> AI Career Dashboard
-          </h1>
+          <h1 className="text-2xl font-extrabold text-indigo-600 flex items-center justify-center gap-1"><Sparkles className="w-6 h-6"/> AI Career Dashboard</h1>
           <p className="text-slate-500">Tailor resumes, track ATS matching score, and unlock interview prep guides</p>
         </header>
 
@@ -83,32 +56,16 @@ export default function Home() {
         ) : (
           <div className="bg-white p-6 rounded-xl shadow-sm space-y-6">
             <div className="bg-indigo-600 p-3 rounded text-white flex justify-between items-center">
-              <button onClick={resetForm} className="flex items-center gap-1 text-white opacity-80 hover:opacity-100 transition font-bold bg-indigo-700 px-2 py-1 rounded cursor-pointer">
-                <ArrowLeft className="w-3.5 h-3.5" /> Back
-              </button>
-              <button onClick={() => { navigator.clipboard.writeText(results.shareable_url); setCopied(true); setTimeout(() => setCopied(false), 2000); }} className="bg-white text-indigo-600 p-1.5 rounded font-bold cursor-pointer transition hover:bg-slate-100">
-                {copied ? "Copied!" : "Copy PDF Link"}
+              <div><h3 className="font-bold">Resume & Interview Prep Live!</h3></div>
+              <button onClick={() => { navigator.clipboard.writeText(results.shareable_url); setCopied(true); setTimeout(() => setCopied(false), 2000); }} className="bg-white text-indigo-600 p-1.5 rounded font-bold cursor-pointer">
+                {copied ? "Copied" : "Copy PDF Link"}
               </button>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-xl border">
-              <div className="bg-white p-3 rounded text-center">
-                <BarChart3 className="w-5 h-5 text-indigo-500 mx-auto mb-1"/>
-                <h4 className="text-slate-400 font-bold uppercase">Match Score</h4>
-                <div className="text-2xl font-black text-indigo-600 mt-1">{results.match_score}%</div>
-              </div>
-              <div className="bg-white p-3 rounded">
-                <h4 className="text-rose-500 font-bold flex items-center gap-1 mb-1"><AlertTriangle className="w-4 h-4"/> Missing Skills</h4>
-                <div className="flex flex-wrap gap-1">
-                  {results.missing_skills?.map((s: string, i: number) => <span key={i} className="bg-rose-50 text-rose-700 px-1.5 py-0.5 rounded border">{s}</span>) || "None"}
-                </div>
-              </div>
-              <div className="bg-white p-3 rounded">
-                <h4 className="text-indigo-600 font-bold flex items-center gap-1 mb-1"><Target className="w-4 h-4"/> Strategy Tips</h4>
-                <ul className="list-disc list-inside space-y-0.5">
-                  {results.tailoring_tips?.map((t: string, i: number) => <li key={i}>{t}</li>)}
-                </ul>
-              </div>
+              <div className="bg-white p-3 rounded text-center"><BarChart3 className="w-5 h-5 text-indigo-500 mx-auto mb-1"/><h4 className="text-slate-400 font-bold uppercase">Match Score</h4><div className="text-2xl font-black text-indigo-600 mt-1">{results.match_score}%</div></div>
+              <div className="bg-white p-3 rounded"><h4 className="text-rose-500 font-bold flex items-center gap-1 mb-1"><AlertTriangle className="w-4 h-4"/> Missing Skills</h4><div className="flex flex-wrap gap-1">{results.missing_skills?.map((s: string, i: number) => <span key={i} className="bg-rose-50 text-rose-700 px-1.5 py-0.5 rounded border">{s}</span>) || "None"}</div></div>
+              <div className="bg-white p-3 rounded"><h4 className="text-indigo-600 font-bold flex items-center gap-1 mb-1"><Target className="w-4 h-4"/> Strategy Tips</h4><ul className="list-disc list-inside space-y-0.5">{results.tailoring_tips?.map((t: string, i: number) => <li key={i}>{t}</li>)}</ul></div>
             </div>
 
             <div className="flex border-b gap-4">
@@ -121,19 +78,12 @@ export default function Home() {
               <div className="border p-4 rounded bg-white space-y-3">
                 <h2 className="text-lg font-bold border-b pb-1">{results.resume?.full_name}</h2>
                 <p className="text-slate-700 leading-relaxed">{results.resume?.professional_summary}</p>
-                <div className="flex flex-wrap gap-1">
-                  {results.resume?.skills?.map((s: string, i: number) => <span key={i} className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded border">{s}</span>)}
-                </div>
+                <div className="flex flex-wrap gap-1">{results.resume?.skills?.map((s: string, i: number) => <span key={i} className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded border">{s}</span>)}</div>
                 <div className="space-y-3">
                   {results.resume?.experience?.map((exp: any, i: number) => (
                     <div key={i} className="space-y-0.5 border-l-2 pl-2">
-                      <div className="flex justify-between font-bold text-slate-800">
-                        <span>{exp.role} — {exp.company}</span>
-                        <span>{exp.duration}</span>
-                      </div>
-                      <ul className="list-disc list-inside text-slate-500 space-y-0.5">
-                        {exp.bullet_points?.map((b: string, idx: number) => <li key={idx}>{b}</li>)}
-                      </ul>
+                      <div className="flex justify-between font-bold text-slate-800"><span>{exp.role} — {exp.company}</span><span>{exp.duration}</span></div>
+                      <ul className="list-disc list-inside text-slate-500 space-y-0.5">{exp.bullet_points?.map((b: string, idx: number) => <li key={idx}>{b}</li>)}</ul>
                     </div>
                   ))}
                 </div>
@@ -144,12 +94,8 @@ export default function Home() {
               <div className="space-y-3">
                 {results.hr_interview?.map((item: any, i: number) => (
                   <div key={i} className="p-3 bg-slate-50 rounded border space-y-1">
-                    <div className="font-bold text-slate-800 flex items-start gap-1">
-                      <HelpCircle className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5"/> Q: {item.question}
-                    </div>
-                    <div className="text-slate-600 pl-5 leading-relaxed">
-                      <span className="font-semibold text-indigo-600">Answer Strategy:</span> {item.response}
-                    </div>
+                    <div className="font-bold text-slate-800 flex items-start gap-1"><HelpCircle className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5"/> Q: {item.question}</div>
+                    <div className="text-slate-600 pl-5 leading-relaxed"><span className="font-semibold text-indigo-600">Answer Strategy:</span> {item.response}</div>
                   </div>
                 ))}
               </div>
@@ -159,16 +105,14 @@ export default function Home() {
               <div className="space-y-3">
                 {results.technical_interview?.map((item: any, i: number) => (
                   <div key={i} className="p-3 bg-slate-50 rounded border space-y-1">
-                    <div className="font-bold text-slate-800 flex items-start gap-1">
-                      <Code className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5"/> Q: {item.question}
-                    </div>
-                    <div className="text-slate-600 pl-5 leading-relaxed">
-                      <span className="font-semibold text-indigo-600">Answer Strategy:</span> {item.response}
-                    </div>
+                    <div className="font-bold text-slate-800 flex items-start gap-1"><HelpCircle className="w-4 h-4 text-purple-500 shrink-0 mt-0.5"/> Q: {item.question}</div>
+                    <div className="text-slate-600 pl-5 leading-relaxed"><span className="font-semibold text-purple-600">Technical Explanation:</span> {item.response}</div>
                   </div>
                 ))}
               </div>
             )}
+
+            <button onClick={() => setResults(null)} className="text-indigo-600 font-semibold cursor-pointer">← Build another document</button>
           </div>
         )}
       </div>
