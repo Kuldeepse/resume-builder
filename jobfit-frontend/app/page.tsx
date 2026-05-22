@@ -182,23 +182,47 @@ export default function Home() {
               <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-sm space-y-2">
                 <h4 className="text-sm font-bold text-rose-500 flex items-center gap-1.5">
                   <AlertTriangle className="w-4 h-4" /> Missing Keywords / Skills
-                </h4>
-                <ul className="list-disc list-inside text-xs text-slate-600 space-y-1 pl-1">
-                  {results.missing_skills?.map((skill: string, i: number) => <li key={i}>{skill}</li>)}
-                  {results.missing_skills?.length === 0 && <li className="text-slate-400 list-none italic">None! You hit all core keywords.</li>}
-                </ul>
+                <div className="border-b border-slate-200 pb-4">
+                <h2 className="text-2xl font-bold text-slate-900">{results.resume?.full_name}</h2>
+                <p className="text-indigo-600 font-medium text-sm mt-1">{targetRole}</p>
               </div>
 
-              <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-sm space-y-2">
-                <h4 className="text-sm font-bold text-indigo-600 flex items-center gap-1.5">
-                  <Target className="w-4 h-4" /> Optimization Tips
-                </h4>
-                <ul className="list-disc list-inside text-xs text-slate-600 space-y-1 pl-1">
-                  {results.tailoring_tips?.map((tip: string, i: number) => <li key={i}>{tip}</li>)}
-                </ul>
+              <div>
+                <h4 className="font-bold text-slate-400 text-xs tracking-wider uppercase mb-1">Professional Summary</h4>
+                <p className="text-sm text-slate-700 leading-relaxed">{results.resume?.professional_summary}</p>
+              </div>
+
+              <div>
+                <h4 className="font-bold text-slate-400 text-xs tracking-wider uppercase mb-2">Core Skills</h4>
+                <div className="flex flex-wrap gap-2">
+                  {results.resume?.skills?.map((skill: string, i: number) => (
+                    <span key={i} className="bg-indigo-50 text-indigo-700 text-xs px-2.5 py-1 rounded-md font-medium border border-indigo-100">{skill}</span>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <h4 className="font-bold text-slate-400 text-xs tracking-wider uppercase mb-3">Professional Experience</h4>
+                <div className="space-y-4">
+                  {results.resume?.experience?.map((exp: any, i: number) => (
+                    <div key={i} className="space-y-1">
+                      <div className="flex justify-between text-sm font-bold text-slate-800">
+                        <span>{exp.role} — <span className="text-slate-500 font-normal">{exp.company}</span></span>
+                        <span className="text-slate-400 font-normal text-xs">{exp.duration}</span>
+                      </div>
+                      <ul className="list-disc list-inside text-xs text-slate-600 space-y-1 pl-1 leading-relaxed">
+                        {exp.bullet_points?.map((bullet: string, idx: number) => <li key={idx}>{bullet}</li>)}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
 
-            {/* Generated Content Preview Area */}
-            <div className="border border-slate-200 p-6 rounded-lg space-y-6 bg-white shadow-sm">
-              <div className="border-b border-slate-200 pb-4">
+            <button onClick={() => setResults(null)} className="text-sm font-semibold text-indigo-600 hover:text-indigo-800 transition">← Build another document</button>
+          </div>
+        )}
+      </div>
+    </main>
+  );
+}
