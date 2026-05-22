@@ -12,7 +12,7 @@ export default function Home() {
   const [copied, setCopied] = useState(false);
   const [tab, setTab] = useState<'resume' | 'hr' | 'tech'>('resume');
 
-  const handleGenerate = async (e: React.FormEvent) => {
+ const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fullName || !targetRole || !careerHistory || !jobDescription) return alert("Fill out all fields.");
     setLoading(true); 
@@ -28,6 +28,7 @@ export default function Home() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 90000);
       
+      // ✅ Explicitly targets your backend instance AND the /build-resume route endpoint
       const res = await fetch('https://onrender.com', { 
         method: 'POST', 
         body: formData, 
