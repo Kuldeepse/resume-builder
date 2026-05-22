@@ -3,7 +3,7 @@ import json
 from fastapi import FastAPI, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from google import genai
-from google.genai import types  # 🚀 CRITICAL: Required for modern Gemini configurations
+from google.genai import types
 from supabase import create_client, Client
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
@@ -20,7 +20,11 @@ app.add_middleware(
 )
 
 supabase: Client = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
-gemini_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+
+# 🚀 PERMANENT INITIALIZATION FIX: 
+# The modern google-genai library expects your key passed explicitly inside a 'http_options' configuration dictionary wrapper,
+# or completely blank to natively read 'GEMINI_API_KEY' from your environment system vars.
+gemini_client = genai.Client(http_options={'headers': {'x-goog-api-key': os.getenv("GEMINI_API_KEY")}})
 
 @app.post("/build-resume")
 async def build_and_compare_resume(
@@ -59,27 +63,17 @@ async def build_and_compare_resume(
         "}"
     )
     
-    user_prompt = (
-        f"Name: {full_name}\n"
-        f"Target Role: {target_role}\n"
-        f"Raw History: {career_history}\n"
-        f"Target Job Description:\n{job_description}"
-    )
-    
     try:
-        # ✅ FIXED: Utilizing official google-genai config types to split systemic instructions and force native JSON mode
         response = gemini_client.models.generate_content(
             model='gemini-2.5-flash',
-            contents=user_prompt,
+            contents=f"Name: {full_name}\nTarget Role: {target_role}\nHistory: {career_history}\nJob Description:\n{job_description}",
             config=types.GenerateContentConfig(
                 system_instruction=system_prompt,
                 response_mime_type="application/json",
                 temperature=0.3
             )
         )
-        
-        cleaned_text = response.text.strip()
-        analysis_result = json.loads(cleaned_text)
+        analysis_result = json.loads(response.text.strip())
     except Exception as ai_error:
         print(f"--- GEMINI PARSING CRASH: {str(ai_error)} ---")
         raise HTTPException(status_code=500, detail=f"Gemini Processing Failed: {str(ai_error)}")
@@ -115,19 +109,23 @@ async def build_and_compare_resume(
 
         doc.build(story)
 
-        storage_path = f"{pdf_filename}"
         with open(pdf_filename, "rb") as f:
-            supabase.storage.from_("updated-resumes").upload(
-                path=storage_path,
-                file=f,
-                file_options={"content-type": "application/pdf"}
-            )
+            file_data = f.read()
+
+        storage_path = f"resumes/{pdf_filename}"
+        supabase.storage.from_("updated-resumes").upload(
+            path=storage_path,
+            file=file_data,
+            file_options={"content-type": "application/pdf"}
+        )
 
         public_url = supabase.storage.from_("updated-resumes").get_public_url(storage_path)
-        os.remove(pdf_filename)
+        if os.path.exists(pdf_filename):
+            os.remove(pdf_filename)
+            
     except Exception as infra_error:
         print(f"--- STORAGE ENGINE CRASH LOG: {str(infra_error)} ---")
-        raise HTTPException(status_code=500, detail=f"Infrastructure Storage System Failed: {str(infra_error)}")
+        raise HTTPException(status_code=500, detail=f"Storage System Failed: {str(infra_error)}")
 
     return {
         "match_score": analysis_result.get("match_score", 75),
