@@ -3,7 +3,7 @@ import json
 from fastapi import FastAPI, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from google import genai
-from google.genai import types  # 🚀 CRITICAL: Required for modern Gemini configuration schemas
+from google.genai import types  # Required for modern Gemini configurations
 from supabase import create_client, Client
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
@@ -20,7 +20,10 @@ app.add_middleware(
 )
 
 supabase: Client = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
-gemini_client = genai.Client()
+
+# 🚀 PERMANENT FIX: Explicitly extract the environment key directly inside the constructor
+# This guarantees that the Google SDK captures your key on Render with zero background discovery failures.
+gemini_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 @app.post("/build-resume")
 async def build_and_compare_resume(
@@ -61,7 +64,7 @@ async def build_and_compare_resume(
     )
     
     try:
-        # ✅ FIXED: Utilizing official google-genai config schemas to force stable structural JSON mode
+        # Utilize official google-genai config schemas to force stable structural JSON mode
         response = gemini_client.models.generate_content(
             model='gemini-2.5-flash',
             contents=f"User Input Data:\n{user_prompt}",
@@ -72,7 +75,15 @@ async def build_and_compare_resume(
             )
         )
         
-        analysis_result = json.loads(response.text)
+        # Clean any potential manual formatting wrappers from response text
+        cleaned_text = response.text.strip()
+        if cleaned_text.startswith("```"):
+            cleaned_text = cleaned_text.split("\n", 1)[1] if "\n" in cleaned_text else cleaned_text
+        if cleaned_text.endswith("```"):
+            cleaned_text = cleaned_text.rsplit("\n", 1)[0]
+        cleaned_text = cleaned_text.strip("`").strip()
+        
+        analysis_result = json.loads(cleaned_text)
     except Exception as ai_error:
         print(f"--- GEMINI PARSING CRASH: {str(ai_error)} ---")
         raise HTTPException(status_code=500, detail=f"Gemini Processing Failed: {str(ai_error)}")
