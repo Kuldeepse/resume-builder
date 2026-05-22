@@ -21,7 +21,7 @@ export default function Home() {
     formData.append('career_history', careerHistory);
 
     try {
-      const response = await fetch('https://onrender.com', {
+      const response = await fetch('https://onrender.com/build-resume', {
         method: 'POST',
         body: formData,
       });
