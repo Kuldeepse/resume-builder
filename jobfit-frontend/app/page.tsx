@@ -182,7 +182,9 @@ export default function Home() {
                   <AlertTriangle className="w-4 h-4" /> Missing Keywords / Skills
                 </h4>
                 <ul className="list-disc list-inside text-xs text-slate-600 space-y-1 pl-1">
-                  {results.missing_skills?.map((skill: string, i: number) => <li key={i}>{skill}</li>)}
+                  {results.missing_skills?.map((skill: string, i: number) => (
+                    <li key={i}>{skill}</li>
+                  ))}
                   {results.missing_skills?.length === 0 && <li className="text-slate-400 list-none italic">None! You hit all core keywords.</li>}
                 </ul>
               </div>
@@ -192,7 +194,9 @@ export default function Home() {
                   <Target className="w-4 h-4" /> Optimization Tips
                 </h4>
                 <ul className="list-disc list-inside text-xs text-slate-600 space-y-1 pl-1">
-                  {results.tailoring_tips?.map((tip: string, i: number) => <li key={i}>{tip}</li>)}
+                  {results.tailoring_tips?.map((tip: string, i: number) => (
+                    <li key={i}>{tip}</li>
+                  ))}
                 </ul>
               </div>
             </div>
@@ -200,7 +204,3 @@ export default function Home() {
             <div className="border border-slate-200 p-6 rounded-lg space-y-6 bg-white shadow-sm">
               <div className="border-b border-slate-200 pb-4">
                 <h2 className="text-2xl font-bold text-slate-900">{results.resume?.full_name}</h2>
-                <p className="text-indigo-600 font-medium text-sm mt-1">{targetRole}</p>
-              </div>
-
-              <div>
