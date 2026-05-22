@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: 'standalone', // 🚀 CRITICAL: Forces Next.js to package assets for independent cloud hosting routes
+  output: 'standalone', // 🚀 CRITICAL: This line forces Next.js to build the missing server directory during your build
   typescript: {
     ignoreBuildErrors: true,
   },
