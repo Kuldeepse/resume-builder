@@ -17,16 +17,25 @@ export default function Home() {
     if (!fullName || !targetRole || !careerHistory || !jobDescription) return alert("Fill out all fields.");
     setLoading(true); 
     setResults(null);
+    
     const formData = new FormData();
     formData.append('full_name', fullName); 
     formData.append('target_role', targetRole);
     formData.append('career_history', careerHistory); 
     formData.append('job_description', jobDescription);
+    
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 90000);
-      const res = await fetch('https://onrender.com', { method: 'POST', body: formData, signal: controller.signal });
+      
+      // ✅ HARDCODED TARGET ADDRESS FOR RESUME-BUILDER-BACKEND-PH7B 
+      const res = await fetch('https://onrender.com', { 
+        method: 'POST', 
+        body: formData, 
+        signal: controller.signal 
+      });
       clearTimeout(timeoutId);
+      
       if (!res.ok) throw new Error();
       setResults(await res.json());
       setTab('validation');
