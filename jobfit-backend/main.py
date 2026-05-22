@@ -2,8 +2,6 @@ import os
 import json
 from fastapi import FastAPI, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
-from typing import List
 from google import genai
 from supabase import create_client, Client
 from reportlab.lib.pagesizes import letter
@@ -21,26 +19,10 @@ app.add_middleware(
 )
 
 supabase: Client = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
+
+# 🚀 GOOGLE GEMINI NATIVE INITIALIZATION
+# This natively searches your server environment for a variable named exactly 'GEMINI_API_KEY'
 gemini_client = genai.Client()
-
-# 🚀 DEFINE RIGID SCHEMAS: This forces Gemini to output structural JSON natively without missing properties
-class ExperienceItem(BaseModel):
-    company: str
-    role: str
-    duration: str
-    bullet_points: List[str]
-
-class ResumeStructure(BaseModel):
-    full_name: str
-    professional_summary: str
-    skills: List[str]
-    experience: List[ExperienceItem]
-
-class JobFitResponse(BaseModel):
-    match_score: int
-    missing_skills: List[str]
-    tailoring_tips: List[str]
-    resume: ResumeStructure
 
 @app.post("/build-resume")
 async def build_and_compare_resume(
@@ -50,10 +32,27 @@ async def build_and_compare_resume(
     job_description: str = Form(...)
 ):
     system_prompt = (
-        "You are an expert resume strategist and ATS optimization engine. "
-        "Analyze the user's raw background and map it to the requested JobFitResponse schema. "
-        "Calculate an objective match score percentage against the job description, extract missing skills, "
-        "give tailoring tips, and formulate a professional, tailored resume structure."
+        "You are an expert resume writer and ATS optimization system. Your task is to output a single, raw, valid JSON object "
+        "matching this exact keys structure. Do not include markdown code block wrappers (like ```json), preambles, or text formatting. Only raw JSON.\n\n"
+        "EXPECTED JSON FORMAT:\n"
+        "{\n"
+        '  "match_score": 85,\n'
+        '  "missing_skills": ["Skill A", "Skill B"],\n'
+        '  "tailoring_tips": ["Tip 1", "Tip 2"],\n'
+        '  "resume": {\n'
+        '    "full_name": "User Name",\n'
+        '    "professional_summary": "Summary text",\n'
+        '    "skills": ["Keyword A", "Keyword B"],\n'
+        '    "experience": [\n'
+        '      {\n'
+        '        "company": "Company Name",\n'
+        '        "role": "Job Title",\n'
+        '        "duration": "2020 - Present",\n'
+        '        "bullet_points": ["Achieved X via Y", "Managed Z"]\n'
+        "      }\n"
+        "    ]\n"
+        '  }\n'
+        "}"
     )
     
     user_prompt = (
@@ -64,22 +63,22 @@ async def build_and_compare_resume(
     )
     
     try:
-        # Force Gemini to use Pydantic structure natively for stable, crash-free output
         response = gemini_client.models.generate_content(
             model='gemini-2.5-flash',
-            contents=user_prompt,
-            config=genai.types.GenerateContentConfig(
-                system_instruction=system_prompt,
-                response_mime_type="application/json",
-                response_schema=JobFitResponse,
-                temperature=0.3
-            ),
+            contents=f"System Context: {system_prompt}\n\nUser Input Data:\n{user_prompt}"
         )
         
-        # Load the clean JSON object direct from response text strings
-        analysis_result = json.loads(response.text)
+        # Clean potential markdown block formatting wrapping the text string
+        cleaned_text = response.text.strip()
+        if cleaned_text.startswith("```"):
+            cleaned_text = cleaned_text.split("\n", 1)[1] if "\n" in cleaned_text else cleaned_text
+        if cleaned_text.endswith("```"):
+            cleaned_text = cleaned_text.rsplit("\n", 1)[0]
+        cleaned_text = cleaned_text.strip("`").strip()
+        
+        analysis_result = json.loads(cleaned_text)
     except Exception as ai_error:
-        print(f"--- GEMINI CRASH LOG: {str(ai_error)} ---")
+        print(f"--- GEMINI PARSING CRASH: {str(ai_error)} ---")
         raise HTTPException(status_code=500, detail=f"Gemini Processing Failed: {str(ai_error)}")
     
     resume_data = analysis_result.get("resume", {})
@@ -113,7 +112,6 @@ async def build_and_compare_resume(
 
         doc.build(story)
 
-        # 3. Save PDF direct to Supabase Storage Bucket
         storage_path = f"resumes/{pdf_filename}"
         with open(pdf_filename, "rb") as f:
             supabase.storage.from_("updated-resumes").upload(storage_path, f, {"content-type": "application/pdf"})
