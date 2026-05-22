@@ -26,7 +26,7 @@ export default function Home() {
     
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 90000);
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
       
       // ✅ Explicitly targets your backend instance AND the /build-resume route endpoint
      // const res = await fetch("https://resume-builder-backend-ph7b.onrender.com/resume-builder", { //  CORRECT SUBDOMAIN
