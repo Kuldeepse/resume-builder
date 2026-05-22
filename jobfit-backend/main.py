@@ -19,7 +19,6 @@ app.add_middleware(
 )
 
 supabase: Client = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
-# Initialize the official, robust native OpenAI client
 ai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 @app.post("/build-resume")
@@ -71,7 +70,7 @@ async def build_and_compare_resume(
     )
     
     # Extract the string content and parse it
-    raw_content = completion.choices[0].message.content
+    raw_content = completion.choices.message.content
     analysis_result = json.loads(raw_content)
     resume_data = analysis_result.get("resume", {})
 
