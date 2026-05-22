@@ -39,7 +39,6 @@ export default function Home() {
       
       const data = await res.json();
       setResults(data);
-      // Automatically switch to the validation metrics tab upon receiving results
       setTab('validation');
     } catch {
       alert("AI generation failed. Check your Render key or reload.");
@@ -76,7 +75,7 @@ export default function Home() {
           <p className="text-slate-500">Tailor resumes, track ATS matching score, and unlock interview prep guides</p>
         </header>
 
-        {/* Global Dashboard Navigation Bar (Only visible after form results exist) */}
+        {/* Global Dashboard Navigation Bar */}
         {results && (
           <div className="flex flex-wrap border-b gap-4 bg-white p-3 rounded-t-xl shadow-sm border-x border-t">
             <button onClick={() => setTab('builder')} className={`pb-2 pt-1 font-bold border-b-2 flex items-center gap-1 cursor-pointer transition ${tab === 'builder' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400'}`}>
@@ -94,7 +93,7 @@ export default function Home() {
           </div>
         )}
 
-        {/* TAB 1: AI Resume Builder (Always persistent, shows details and fields) */}
+        {/* TAB 1: AI Resume Builder */}
         {tab === 'builder' && (
           <div className="bg-white p-5 rounded-xl shadow-sm border space-y-4">
             <div className="flex justify-between items-center border-b pb-2">
@@ -172,3 +171,5 @@ export default function Home() {
 
         {/* TAB 3: Updated Resume Output Block */}
         {tab === 'updated_resume' && results && (
+          <div className="bg-white p-6 rounded-xl shadow-sm border space-y-4">
+            <div className="bg-indigo-600 p-3 rounded text-white flex justify-between items-center shadow-sm">
