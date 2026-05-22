@@ -20,7 +20,7 @@ export default function Home() {
     formData.append('full_name', fullName); formData.append('target_role', targetRole);
     formData.append('career_history', careerHistory); formData.append('job_description', jobDescription);
     try {
-      const res = await fetch('https://onrender.com', { method: 'POST', body: formData });
+      const res = await fetch('https://resume-builder-backend-ph7b.onrender.com/build-resume', { method: 'POST', body: formData });
       if (!res.ok) throw new Error();
       setResults(await res.json());
       setTab('validation');
