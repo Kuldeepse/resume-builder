@@ -40,7 +40,7 @@ export default function Home() {
       setResults(data);
     } catch (error: any) {
       console.error(error);
-      alert(error.name === 'AbortError' ? "The AI Engine is waking up on Render. Please try again in 10 seconds!" : "AI generation failed. Check your Render API key balance.");
+      alert(error.name === 'AbortError' ? "The Google Gemini Engine is waking up on Render. Please try again in 10 seconds!" : "AI generation failed. Check your Render logs to ensure your GEMINI_API_KEY is correct.");
     } finally {
       setLoading(false);
     }
@@ -61,7 +61,7 @@ export default function Home() {
           <h1 className="text-4xl font-extrabold text-indigo-600 flex items-center justify-center gap-2">
             <Sparkles className="text-indigo-500 w-9 h-9" /> AI Resume Builder & Matcher
           </h1>
-          <p className="text-slate-500 mt-2">Generate a tailored resume and review your job fit score instantly</p>
+          <p className="text-slate-500 mt-2">Generate a tailored resume and review your job fit score instantly for free using Gemini</p>
         </header>
 
         {!results ? (
