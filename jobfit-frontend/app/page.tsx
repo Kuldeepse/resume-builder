@@ -12,21 +12,33 @@ export default function Home() {
   const [copied, setCopied] = useState(false);
   const [tab, setTab] = useState<'builder' | 'validation' | 'updated_resume' | 'prep'>('builder');
 
-  const handleGenerate = async () => {
+    const handleGenerate = async () => {
     if (!fullName || !targetRole || !careerHistory || !jobDescription) return alert("Fill out all fields.");
-    setLoading(true); setResults(null);
+    setLoading(true); 
+    setResults(null);
+    
     const formData = new FormData();
-    formData.append('full_name', fullName); formData.append('target_role', targetRole);
-    formData.append('career_history', careerHistory); formData.append('job_description', jobDescription);
+    formData.append('full_name', fullName); 
+    formData.append('target_role', targetRole);
+    formData.append('career_history', careerHistory); 
+    formData.append('job_description', jobDescription);
+    
     try {
-      const res = await fetch('https://onrender.com', { method: 'POST', body: formData });
+      // ✅ STRUCTURAL RESUME ENDPOINT ROUTE ACCESS
+      const res = await fetch('https://resume-builder-backend-ph7b.onrender.com/build-resume', { method: 'POST', body: formData, signal: controller.signal });
+      
       if (!res.ok) throw new Error();
-      setResults(await res.json());
+      
+      const data = await res.json();
+      setResults(data);
       setTab('validation');
     } catch {
       alert("AI generation failed. Check your Render key or reload.");
-    } finally { setLoading(false); }
+    } finally { 
+      setLoading(false); 
+    }
   };
+
 
   const handleCopyLink = () => {
     if (!results?.shareable_url) return;
