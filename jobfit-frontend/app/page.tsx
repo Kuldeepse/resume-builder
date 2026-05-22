@@ -22,7 +22,7 @@ export default function Home() {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 90000);
-      const res = await fetch('https://onrender.com', { method: 'POST', body: formData, signal: controller.signal });
+      const res = await fetch('https://resume-builder-backend-ph7b.onrender.com/build-resume', { method: 'POST', body: formData, signal: controller.signal });
       clearTimeout(timeoutId);
       if (!res.ok) throw new Error();
       setResults(await res.json());
