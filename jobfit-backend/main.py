@@ -4,6 +4,8 @@ from fastapi import FastAPI, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from google import genai
 from google.genai import types
+from pydantic import BaseModel, Field
+from typing import List, Optional
 from supabase import create_client, Client
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
@@ -21,7 +23,6 @@ app.add_middleware(
 )
 
 # 🔐 SAFE SUPABASE INITIALIZATION
-# Checks multiple common names to prevent startup crashes
 supabase_url = os.getenv("SUPABASE_URL")
 supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY")
 
@@ -31,13 +32,36 @@ if not supabase_url or not supabase_key:
 supabase: Client = create_client(supabase_url, supabase_key)
 
 # 🚀 GOOGLE GEMINI INITIALIZATION
-# Automatically reads GEMINI_API_KEY from Render environment
 gemini_client = genai.Client()
+
+# 📋 Pydantic Schemas to Guarantee Perfect Data Formats
+class ExperienceItem(BaseModel):
+    company: str
+    role: str
+    duration: str
+    bullet_points: List[str]
+
+class ResumeData(BaseModel):
+    full_name: str
+    professional_summary: str
+    skills: List[str]
+    experience: List[ExperienceItem]
+
+class InterviewItem(BaseModel):
+    question: str
+    response: str
+
+class CareerDashboardSchema(BaseModel):
+    match_score: int
+    missing_skills: List[str]
+    tailoring_tips: List[str]
+    hr_interview: List[InterviewItem]
+    technical_interview: List[InterviewItem]
+    resume: ResumeData
 
 
 @app.get("/health")
 async def health_check():
-    """Endpoint to check backend deployment health."""
     return {
         "status": "healthy",
         "gemini_key_loaded": bool(os.getenv("GEMINI_API_KEY")),
@@ -54,42 +78,19 @@ async def build_and_compare_resume(
     job_description: str = Form(...)
 ):
     system_prompt = (
-        "You are an expert resume writer, recruiter, and interview coach. Your task is to output a single, raw, valid JSON object "
-        "matching this exact keys layout framework. Do not output markdown, preambles, or formatting blocks. Only valid JSON.\n\n"
-        "EXPECTED JSON FORMAT:\n"
-        "{\n"
-        '  "match_score": 85,\n'
-        '  "missing_skills": ["Skill A", "Skill B"],\n'
-        '  "tailoring_tips": ["Tip 1", "Tip 2"],\n'
-        '  "hr_interview": [\n'
-        '    {"question": "Why do you want to join our company?", "response": "Based on my background in X..."}\n'
-        '  ],\n'
-        '  "technical_interview": [\n'
-        '    {"question": "Explain system architecture X.", "response": "In my past role, I implemented..."}\n'
-        '  ],\n'
-        '  "resume": {\n'
-        '    "full_name": "User Name",\n'
-        '    "professional_summary": "Summary text",\n'
-        '    "skills": ["Keyword A", "Keyword B"],\n'
-        '    "experience": [\n'
-        '      {\n'
-        '        "company": "Company Name",\n'
-        '        "role": "Job Title",\n'
-        '        "duration": "2020 - Present",\n'
-        '        "bullet_points": ["Achieved X via Y", "Managed Z"]\n'
-        "      }\n"
-        "    ]\n"
-        '  }\n'
-        "}"
+        "You are an expert resume writer, recruiter, and interview coach. Your task is to output a single structural layout "
+        "matching the requested schema exactly. Analyze the user's career history against the target job description to build everything."
     )
     
     try:
+        # Uses strict Pydantic Response Schema to enforce exact data formatting natively
         response = gemini_client.models.generate_content(
             model='gemini-2.5-flash',
             contents=f"Name: {full_name}\nTarget Role: {target_role}\nHistory: {career_history}\nJob Description:\n{job_description}",
             config=types.GenerateContentConfig(
                 system_instruction=system_prompt,
                 response_mime_type="application/json",
+                response_schema=CareerDashboardSchema,
                 temperature=0.3
             )
         )
@@ -99,7 +100,9 @@ async def build_and_compare_resume(
         raise HTTPException(status_code=500, detail=f"Gemini Processing Failed: {str(ai_error)}")
     
     resume_data = analysis_result.get("resume", {})
+    public_url = ""
 
+    # 🗂️ SAFE INFRASTRUCTURE PIPELINE
     try:
         pdf_filename = f"{full_name.replace(' ', '_')}_Resume.pdf"
         doc = SimpleDocTemplate(pdf_filename, pagesize=letter, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
@@ -133,19 +136,27 @@ async def build_and_compare_resume(
             file_data = f.read()
 
         storage_path = f"resumes/{pdf_filename}"
-        supabase.storage.from_("updated-resumes").upload(
-            path=storage_path,
-            file=file_data,
-            file_options={"content-type": "application/pdf"}
-        )
+        
+        # Safe Try/Except Wrapper: If Supabase Storage permissions or bucket names fail, 
+        # it catches the error here and preserves the rest of the application response data.
+        try:
+            supabase.storage.from_("updated-resumes").upload(
+                path=storage_path,
+                file=file_data,
+                file_options={"content-type": "application/pdf"}
+            )
+            public_url = supabase.storage.from_("updated-resumes").get_public_url(storage_path)
+        except Exception as storage_err:
+            print(f"--- SUPABASE STORAGE CONTINUITY WARNING: {str(storage_err)} ---")
+            public_url = "https://supabase.com (Bucket Connection Error)"
 
-        public_url = supabase.storage.from_("updated-resumes").get_public_url(storage_path)
         if os.path.exists(pdf_filename):
             os.remove(pdf_filename)
             
-    except Exception as infra_error:
-        print(f"--- STORAGE ENGINE CRASH LOG: {str(infra_error)} ---")
-        raise HTTPException(status_code=500, detail=f"Storage System Failed: {str(infra_error)}")
+    except Exception as pdf_error:
+        print(f"--- PDF SYSTEM BREAK: {str(pdf_error)} ---")
+        # Continues without breaking structural dashboard arrays
+        public_url = "PDF Generation Error"
 
     return {
         "match_score": analysis_result.get("match_score", 75),
