@@ -44,7 +44,7 @@ export default function Home() {
             {darkMode ? <><Sun className="w-3.5 h-3.5"/> Light Theme</> : <><Moon className="w-3.5 h-3.5"/> Dark Theme</>}
           </button>
           <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] uppercase tracking-wider font-semibold border ${darkMode ? 'bg-indigo-500/10 border-slate-800 text-indigo-400' : 'bg-indigo-50 border-indigo-100 text-indigo-700'}`}><Sparkles className="w-3 h-3 text-indigo-500" /> Engine Active: Gemini 2.5 Pro Tier</div>
-          <h1 className="text-3xl md:text-5xl font-black tracking-tight text-slate-900 dark:text-white">AI Career Intelligence Matrix</h1>
+          <h1 className="text-3xl md:text-5xl font-black tracking-tight text-slate-900 dark:text-amber-100">AI Career Intelligence Matrix</h1>
           <p className={`text-xs md:text-sm max-w-xl mx-auto leading-relaxed font-medium ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>Bridge the gap between your engineering experience profile and ATS screening rules to secure premium interview placement.</p>
         </header>
 
