@@ -3,7 +3,6 @@ import json
 from fastapi import FastAPI, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from google import genai
-from google.genai import types  # Required for modern Gemini configurations
 from supabase import create_client, Client
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
@@ -20,9 +19,6 @@ app.add_middleware(
 )
 
 supabase: Client = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
-
-# 🚀 PERMANENT FIX: Explicitly extract the environment key directly inside the constructor
-# This guarantees that the Google SDK captures your key on Render with zero background discovery failures.
 gemini_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 @app.post("/build-resume")
@@ -64,18 +60,12 @@ async def build_and_compare_resume(
     )
     
     try:
-        # Utilize official google-genai config schemas to force stable structural JSON mode
+        # Fetch data back natively via clean configuration profiles
         response = gemini_client.models.generate_content(
             model='gemini-2.5-flash',
-            contents=f"User Input Data:\n{user_prompt}",
-            config=types.GenerateContentConfig(
-                system_instruction=system_prompt,
-                response_mime_type="application/json",
-                temperature=0.3
-            )
+            contents=f"System Context: {system_prompt}\n\nUser Input Data:\n{user_prompt}"
         )
         
-        # Clean any potential manual formatting wrappers from response text
         cleaned_text = response.text.strip()
         if cleaned_text.startswith("```"):
             cleaned_text = cleaned_text.split("\n", 1)[1] if "\n" in cleaned_text else cleaned_text
@@ -119,9 +109,14 @@ async def build_and_compare_resume(
 
         doc.build(story)
 
+        # ✅ FIXED: Corrected positional parameter signature format for the Supabase python storage SDK
         storage_path = f"resumes/{pdf_filename}"
         with open(pdf_filename, "rb") as f:
-            supabase.storage.from_("updated-resumes").upload(storage_path, f, {"content-type": "application/pdf"})
+            supabase.storage.from_("updated-resumes").upload(
+                path=storage_path,
+                file=f,
+                file_options={"content-type": "application/pdf"}
+            )
 
         public_url = supabase.storage.from_("updated-resumes").get_public_url(storage_path)
         os.remove(pdf_filename)
