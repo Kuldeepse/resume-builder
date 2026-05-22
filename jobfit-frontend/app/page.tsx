@@ -29,8 +29,8 @@ export default function Home() {
       const timeoutId = setTimeout(() => controller.abort(), 90000);
       
       // ✅ Explicitly targets your backend instance AND the /build-resume route endpoint
-      const res = await fetch("https://resume-builder-backend-ph7b.onrender.com/resume-builder", { //  CORRECT SUBDOMAIN
-     // const res = await fetch("https://onrender.com", {
+     // const res = await fetch("https://resume-builder-backend-ph7b.onrender.com/resume-builder", { //  CORRECT SUBDOMAIN
+     const res = await fetch("https://onrender.com", {
         method: 'POST', 
         body: formData, 
         signal: controller.signal 
