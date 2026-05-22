@@ -2,7 +2,7 @@ import os
 import json
 from fastapi import FastAPI, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from google import genai  # 🚀 GEMINI INTEGRATION: Clean, native Google developer package
+from google import genai
 from supabase import create_client, Client
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
@@ -19,10 +19,6 @@ app.add_middleware(
 )
 
 supabase: Client = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
-
-# Initialize the official, free-tier native Google Gemini client
-# We reuse your existing OPENAI_API_KEY environment variable slot on Render to save your Gemini Key
-# gemini_client = genai.Client(api_key=os.environ.get("OPENAI_API_KEY"))
 gemini_client = genai.Client()
 
 @app.post("/build-resume")
@@ -64,7 +60,6 @@ async def build_and_compare_resume(
     )
     
     try:
-        # Generate text safely using Gemini's native structured JSON layout mode for FREE
         response = gemini_client.models.generate_content(
             model='gemini-2.5-flash',
             contents=user_prompt,
@@ -73,7 +68,16 @@ async def build_and_compare_resume(
                 response_mime_type="application/json",
             ),
         )
-        analysis_result = json.loads(response.text)
+        
+        # 🚀 CLEANING MATRIX: Strip markdown ```json backticks if Gemini accidentally inserts them
+        cleaned_text = response.text.strip()
+        if cleaned_text.startswith("```"):
+            cleaned_text = cleaned_text.split("\n", 1)[1]
+        if cleaned_text.endswith("```"):
+            cleaned_text = cleaned_text.rsplit("\n", 1)[0]
+        cleaned_text = cleaned_text.strip("`").strip()
+        
+        analysis_result = json.loads(cleaned_text)
     except Exception as ai_error:
         print(f"--- GEMINI EXECUTION CRASH ERROR LOG: {str(ai_error)} ---")
         raise HTTPException(status_code=500, detail=f"Gemini Generation Failed: {str(ai_error)}")
