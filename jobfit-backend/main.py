@@ -9,7 +9,6 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from google import genai
 from google.genai import types
-import httpx
 from PyPDF2 import PdfReader
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
@@ -39,9 +38,6 @@ supabase: Client = create_client(supabase_url, supabase_key)
 gemini_client = genai.Client()
 
 SEARCH_MODEL = "gemini-2.5-flash"
-OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "https://ollama.com").rstrip("/")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "kimi-k2.5:cloud")
-OLLAMA_API_KEY = os.getenv("OLLAMA_API_KEY", "")
 
 
 def strip_code_fences(text: str) -> str:
@@ -68,18 +64,6 @@ def is_quota_error(exc: Exception) -> bool:
         or "quota" in message
         or "rate limit" in message
     )
-
-
-def is_ollama_configured() -> bool:
-    return bool(OLLAMA_BASE_URL and OLLAMA_API_KEY and OLLAMA_MODEL)
-
-
-def get_ollama_chat_url() -> str:
-    if OLLAMA_BASE_URL.endswith("/api/chat"):
-        return OLLAMA_BASE_URL
-    if OLLAMA_BASE_URL.endswith("/api/generate"):
-        return OLLAMA_BASE_URL.rsplit("/api/generate", 1)[0] + "/api/chat"
-    return f"{OLLAMA_BASE_URL}/api/chat"
 
 
 def extract_text_from_pdf(file_bytes: bytes) -> str:
@@ -205,47 +189,6 @@ def filter_jobs(jobs: list[dict], location_city: str) -> list[dict]:
     return filtered
 
 
-async def generate_builder_response_with_ollama(system_prompt: str, user_prompt: str) -> dict:
-    if not is_ollama_configured():
-        raise HTTPException(
-            status_code=500,
-            detail="Ollama is not configured. Please set OLLAMA_BASE_URL, OLLAMA_API_KEY, and OLLAMA_MODEL.",
-        )
-
-    payload = {
-        "model": OLLAMA_MODEL,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-        "stream": False,
-        "format": "json",
-    }
-    headers = {
-        "Authorization": f"Bearer {OLLAMA_API_KEY}",
-        "Content-Type": "application/json",
-    }
-
-    try:
-        async with httpx.AsyncClient(timeout=180.0) as client:
-            response = await client.post(get_ollama_chat_url(), headers=headers, json=payload)
-    except httpx.HTTPError as exc:
-        raise HTTPException(status_code=502, detail=f"Ollama connection error: {str(exc)}") from exc
-
-    if response.status_code == 401:
-        raise HTTPException(status_code=500, detail="Ollama authentication failed. Check OLLAMA_API_KEY.")
-    if response.status_code == 429:
-        raise HTTPException(status_code=429, detail="Ollama cloud quota is exhausted right now. Please try again later.")
-    if response.status_code >= 400:
-        raise HTTPException(status_code=500, detail=f"Ollama request failed: {response.text}")
-
-    raw = response.json()
-    parsed = safe_json_loads(raw.get("message", {}).get("content", ""))
-    if not parsed:
-        raise HTTPException(status_code=500, detail="Ollama returned invalid JSON for build-resume.")
-    return parsed
-
-
 @app.get("/health/")
 @app.get("/health")
 async def health_check():
@@ -323,22 +266,28 @@ CRITICAL:
 
     linkedin_context = f"\nCandidate LinkedIn URL: {linkedin_profile}" if linkedin_profile else ""
 
-    user_prompt = (
-        f"Candidate Name: {full_name}\nTarget: {target_role}{linkedin_context}\n"
-        f"History: {career_history}\nJD:\n{job_description}"
-    )
-
     try:
-        analysis_result = await generate_builder_response_with_ollama(system_prompt, user_prompt)
+        response = gemini_client.models.generate_content(
+            model=SEARCH_MODEL,
+            contents=(
+                f"Candidate Name: {full_name}\nTarget: {target_role}{linkedin_context}\n"
+                f"History: {career_history}\nJD:\n{job_description}"
+            ),
+            config=types.GenerateContentConfig(
+                system_instruction=system_prompt,
+                response_mime_type="application/json",
+                temperature=0.1,
+            ),
+        )
+
+        analysis_result = safe_json_loads(response.text or "")
         if not analysis_result:
             raise ValueError("Model returned invalid JSON.")
-    except HTTPException:
-        raise
     except Exception as ai_err:
         if is_quota_error(ai_err):
             raise HTTPException(
                 status_code=429,
-                detail="Ollama cloud quota is currently exhausted for resume generation. Please wait a few minutes and try again.",
+                detail="Gemini free-tier quota is currently exhausted for resume generation. Please wait a few minutes and try again.",
             )
         raise HTTPException(status_code=500, detail=f"AI Data Map Extraction Crash Error: {str(ai_err)}")
 
