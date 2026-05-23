@@ -89,19 +89,22 @@ async def build_and_compare_resume(
         f"  \"missing_skills\": [\"list\", \"of\", \"skills\"],\n"
         f"  \"tailoring_tips\": [\"bullet\", \"points\"],\n"
         f"  \"tell_me_about_yourself\": \"STAR structured narrative elevator pitch text statement\",\n"
-        f"  \"interview_questions\": [ {{\"question\": \"string text\", \"response\": \"string text\"}} ],\n"
+        f"  \"interview_questions\": [ {{\n"
+        f"     \"question\": \"string text\",\n"
+        f"     \"response\": \"- Situation: ...\\n- Task: ...\\n- Action: ...\\n- Result: ...\"\n"
+        f"  }} ],\n"
         f"  \"follow_up_questions\": [\"question 1\", \"question 2\"],\n"
         f"  \"resume\": {{\n"
         f"    \"full_name\": \"string\",\n"
         f"    \"professional_summary\": \"string\",\n"
         f"    \"skills\": [\"skill1\", \"skill2\"],\n"
-        f"    \"experience\": [ {{\"company\": \"str\", \"role\": \"str\", \"duration\": \"str\", \"bullet_points\": [\"bullet\"]}} ]\n"
+        f"    \"experience\": [ {Impos}} ]\n"
         f"  }}\n"
         f"}}\n\n"
         f"CRITICAL RULES:\n"
         f"- interview_questions: {distribution_prompt}\n"
-        f"- Every answer inside the 'response' key MUST be structured clearly in the STAR framework, explicitly labeled inside the text block matching this layout: "
-        f"Situation: [...] Task: [...] Action: [...] Result: [...]\n"
+        f"- Every answer string inside the 'response' key MUST be structured clearly in the STAR framework, explicitly labeled matching this layout exactly inside the text: "
+        f"- Situation: ... \\n- Task: ... \\n- Action: ... \\n- Result: ...\n"
         f"- follow_up_questions: Generate 3 to 5 highly intelligent questions for the candidate to ask the interviewer at the end."
     )
 
@@ -117,18 +120,18 @@ async def build_and_compare_resume(
                 temperature=0.1
             )
         )
-        # Parse text string content with structural safety verification filters
+        
+        # 🎯 BULLETPROOF TEXT PARSING FILTER
         clean_text = response.text.strip()
-        if clean_text.startswith("```json"):
-            clean_text = clean_text.split("```json")[-1].split("```")[0].strip()
-        elif clean_text.startswith("```"):
-            clean_text = clean_text.split("```")[1].split("```")[0].strip()
+        if "```" in clean_text:
+            clean_text = clean_text.split("```json")[-1] if "```json" in clean_text else clean_text.split("```")[-1]
+            clean_text = clean_text.split("```")[0].strip()
             
         analysis_result = json.loads(clean_text)
     except Exception as ai_err:
-        raise HTTPException(status_code=500, detail=f"AI Data Map Extraction Crash Error: {str(ai_err)}")
+        raise HTTPException(status_code=500, detail=f"AI Data Extraction Exception Error: {str(ai_err)}")
 
-    # 🛡️ DEFENSIVE ATTRIBUTE CASTING FALLBACK LAYER
+    # 🛡️ DEFENSIVE DICTIONARY MAPPING
     resume_data = analysis_result.get("resume", {})
     if not isinstance(resume_data, dict):
         resume_data = {}
@@ -158,7 +161,6 @@ async def build_and_compare_resume(
         story.append(Paragraph(skills_str, body_style))
         story.append(Paragraph("<b>Professional Experience</b>", section_style))
         
-        # 🛡️ Hard-locked dictionary validation type check block loop
         exp_list = resume_data.get('experience', [])
         if isinstance(exp_list, list):
             for exp in exp_list:
@@ -189,7 +191,6 @@ async def build_and_compare_resume(
     except Exception:
         pass
 
-    # Extract interview fields safely matching raw list patterns
     raw_questions = analysis_result.get("interview_questions", analysis_result.get("questions", []))
     if not isinstance(raw_questions, list):
         raw_questions = []
