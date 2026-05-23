@@ -35,6 +35,7 @@ supabase: Client = create_client(supabase_url, supabase_key)
 # 🚀 INITIALIZE THE GOOGLE GENAI CLIENT
 gemini_client = genai.Client()
 
+
 @app.get("/health/")
 async def health_check():
     return {"status": "healthy"}
@@ -61,19 +62,20 @@ async def build_and_compare_resume(
     except (ValueError, TypeError):
         requested_count = 5
 
-    # Defensive validation to handle case changes or empty track selections smoothly
-    current_type = str(interview_type).strip().lower() if interview_type else "technical"
+    current_type = str(interview_type).lower() if interview_type else "technical"
 
     if current_type == "technical":
         tech_count = math.ceil(requested_count / 2)
         hr_count = math.floor(requested_count / 2)
         distribution_prompt = (
-            f"Generate exactly {requested_count} items total: the first {tech_count} must be deep technical/system design questions, "
-            f"and the remaining {hr_count} must be behavioral/HR questions relevant to this engineering target."
+            f"Generate exactly {requested_count} question/response objects total: "
+            f"the first {tech_count} must be deep technical coding or system design questions, and "
+            f"the remaining {hr_count} must be behavioral/HR/company culture questions relevant to this engineering target."
         )
     else:
         distribution_prompt = (
-            f"Generate exactly {requested_count} items total focusing 100% strictly on HR, behavioral, core values, and cultural fit scenarios."
+            f"Generate exactly {requested_count} question/response objects total focusing "
+            f"100% strictly on HR, behavioral, core corporate values, cultural fit, and situational team management scenarios."
         )
 
     system_prompt = f"""You are an expert tech recruiter and automated ATS tracking system.
@@ -87,15 +89,10 @@ REQUIRED JSON FORMAT SCHEMA EXACTLY:
   "missing_skills": ["list", "of", "skills"],
   "tailoring_tips": ["bullet", "points"],
   "tell_me_about_yourself": "STAR structured narrative elevator pitch text statement matching the candidate background",
-  "interview_questions": [ 
-    {{
-      "question": "The question string text",
-      "situation": "Detailed Context/Situation parameter analysis matching candidate profile",
-      "task": "Core objective, goal, or technical challenge responsibility",
-      "action": "What specific tools, steps, engineering execution, or behavioral action was performed",
-      "result": "Quantifiable metrics, structural outcomes, business value result achieved"
-    }} 
-  ],
+  "interview_questions": [ {{
+     "question": "string text",
+     "response": "- Situation: ...\\n- Task: ...\\n- Action: ...\\n- Result: ..."
+  }} ],
   "follow_up_questions": ["question 1", "question 2"],
   "resume": {{
     "full_name": "string",
@@ -107,7 +104,11 @@ REQUIRED JSON FORMAT SCHEMA EXACTLY:
 
 CRITICAL INSTRUCTIONS:
 - interview_questions: {distribution_prompt}
-- Every single question item inside the 'interview_questions' list MUST fill out all the 'situation', 'task', 'action', and 'result' keys completely with hyper-tailored professional text content.
+- Every answer string inside the 'response' key MUST be structured clearly in the STAR framework, explicitly labeled matching this layout exactly inside the text block string:
+  - Situation: [Context details]
+  - Task: [Core objective/responsibility]
+  - Action: [What specific engineering execution was performed]
+  - Result: [Quantifiable technical metrics metrics outcome]
 - follow_up_questions: Generate 3 to 5 highly intelligent questions for the candidate to ask the interviewer at the end."""
 
     linkedin_context = f"\nCandidate LinkedIn URL: {linkedin_profile}" if linkedin_profile else ""
@@ -125,9 +126,9 @@ CRITICAL INSTRUCTIONS:
         
         clean_text = response.text.strip()
         if "```json" in clean_text:
-            clean_text = clean_text.split("```json")[-1].split("```")[0].strip()
+            clean_text = clean_text.split("```json")[-1].split("```").strip()
         elif "```" in clean_text:
-            clean_text = clean_text.split("```")[-1].split("```")[0].strip()
+            clean_text = clean_text.split("```")[-1].split("```").strip()
             
         analysis_result = json.loads(clean_text)
     except Exception as ai_err:
@@ -199,16 +200,9 @@ CRITICAL INSTRUCTIONS:
     final_questions = []
     for item in raw_questions:
         if isinstance(item, dict):
-            # Formats each part of the STAR response on a new line with bold headers using clean HTML line breaks
-            formatted_star_response = (
-                f"<b>Situation:</b> {str(item.get('situation', ''))}<br/>"
-                f"<b>Task:</b> {str(item.get('task', ''))}<br/>"
-                f"<b>Action:</b> {str(item.get('action', ''))}<br/>"
-                f"<b>Result:</b> {str(item.get('result', ''))}"
-            )
             final_questions.append({
                 "question": str(item.get("question", "")),
-                "response": formatted_star_response
+                "response": str(item.get("response", ""))
             })
             
     final_questions = final_questions[:requested_count]
@@ -223,4 +217,80 @@ CRITICAL INSTRUCTIONS:
         "resume": resume_data, 
         "shareable_url": public_url
     }
+@app.post("/search-jobs")
+async def search_jobs(
+    target_role: str = Form(...),
+    location_city: str = Form(...),
+    resume_skills: str = Form(...)
+):
+    # Dynamic live search querying across open web structures using official search tool rules
+    search_query = f'"{target_role}" jobs in "{location_city}" site:://linkedin.com OR site:://indeed.com OR site:lever.co OR site:greenhouse.io'
+    
+    system_prompt = """You are an automated live job matching extraction tool.
+Analyze the parameters to return up to 40 active, real job listings posted in the last 10 days.
 
+REQUIRED OUTPUT JSON STRUCTURE EXACTLY:
+{{
+  "jobs": [
+    {{
+      "title": "Job Title String",
+      "company": "Company Name String",
+      "location": "City, State or Remote String",
+      "salary": "\$Range or Not Disclosed String",
+      "skills": ["skill1", "skill2"],
+      "link": "The real open source link url or 'search on company website'"
+    }}
+  ],
+  "best_match_summary": "A high-density one-line statement analyzing which 3 jobs are top matches for this user based on their input skills and why."
+}}
+
+CRITICAL DATA RETRIEVAL RULES:
+1. Compile up to 40 unique listings matching the parameters.
+2. If real tracking URLs are unavailable, write 'search on company website'. Never guess or fabricate links.
+3. Your output must be pure raw valid JSON string content only. Do not wrap in markdown or backticks."""
+
+    try:
+        # Executes dynamic web-grounded extraction utilizing modern Google Search framework grounding checks
+        response = gemini_client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=f"Query Constraints: {search_query}\nUser Skills Context: {resume_skills}\nTarget Role Context: {target_role}",
+            config=types.GenerateContentConfig(
+                system_instruction=system_prompt,
+                response_mime_type="application/json",
+                tools=[{"google_search": {}}],  # 🌐 Enables the native Google Search grounding tool layer
+                temperature=0.2
+            )
+        )
+        
+        clean_text = response.text.strip()
+        if "```json" in clean_text:
+            clean_text = clean_text.split("```json")[-1].split("```").strip()
+        elif "```" in clean_text:
+            clean_text = clean_text.split("```")[-1].split("```").strip()
+            
+        jobs_result = json.loads(clean_text)
+    except Exception as search_error:
+        raise HTTPException(status_code=500, detail=f"Web Grounding Compilation Exception: {str(search_error)}")
+
+    raw_jobs = jobs_result.get("jobs", [])
+    if not isinstance(raw_jobs, list):
+        raw_jobs = []
+        
+    sanitized_jobs = []
+    for job in raw_jobs:
+        if isinstance(job, dict):
+            skills_raw = job.get("skills", [])
+            skills_arr = skills_raw if isinstance(skills_raw, list) else [str(skills_raw)]
+            sanitized_jobs.append({
+                "title": str(job.get("title", "Opportunities Tracker")),
+                "company": str(job.get("company", "Enterprise Resource")),
+                "location": str(job.get("location", location_city)),
+                "salary": str(job.get("salary", "Not Disclosed")),
+                "skills": [str(s) for s in skills_arr],
+                "link": str(job.get("link", "search on company website"))
+            })
+
+    return {
+        "jobs": sanitized_jobs,
+        "best_match_summary": str(jobs_result.get("best_match_summary", "Review the table matrix results above to locate best technical alignments."))
+    }
