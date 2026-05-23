@@ -281,3 +281,96 @@ export default function Home() {
             )}
           </div>
         )}
+        {tab === 'job_search' && (
+          <div className={`border p-6 rounded-2xl shadow-sm space-y-6 ${darkMode ? 'bg-stone-900/40 border-stone-800/60 shadow-2xl' : 'bg-white border-amber-900/10'}`}>
+            <div className="border-b pb-3 flex justify-between items-center dark:border-stone-800">
+              <h2 className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${darkMode ? 'text-amber-400' : 'text-amber-900'}`}>
+                <Target className="w-4 h-4"/> Real-Time Job Discovery Node
+              </h2>
+            </div>
+            
+            <form className="grid grid-cols-1 sm:grid-cols-2 gap-4" onSubmit={(e) => { e.preventDefault(); handleSearchJobs(); }}>
+              <div className="space-y-1.5">
+                <label className="font-bold text-xxs uppercase tracking-wider text-slate-500">Target Location City</label>
+                <input type="text" required className={`w-full border p-3 rounded-xl focus:outline-none transition-all text-xs ${darkMode ? 'bg-stone-950 border-stone-800 text-slate-200' : 'bg-stone-50 border-stone-200 text-stone-800'}`} placeholder="e.g. San Francisco or Remote" value={searchCity} onChange={(e) => setSearchCity(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <label className="font-bold text-xxs uppercase tracking-wider text-slate-500">Resume / Skills Summary Profile</label>
+                <input type="text" required className={`w-full border p-3 rounded-xl focus:outline-none transition-all text-xs ${darkMode ? 'bg-stone-950 border-stone-800 text-slate-200' : 'bg-stone-50 border-stone-200 text-stone-800'}`} placeholder="e.g. React, Next.js, Node, TypeScript, Python" value={searchSkills} onChange={(e) => setSearchSkills(e.target.value)} />
+              </div>
+              <button type="submit" disabled={searchLoading} className="sm:col-span-2 w-full bg-amber-900 hover:bg-amber-800 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 cursor-pointer text-xxs uppercase tracking-widest transition-all shadow-md">
+                {searchLoading ? <><RefreshCw className="animate-spin w-4 h-4 text-amber-200" /> Grounding Live Open Web Matrices...</></> : <><Sparkles className="w-4 h-4 text-amber-400" /> Fetch 40 Active Postings</>}
+              </button>
+            </form>
+
+            {/* Dynamic Job Tracker Real-time Layout Grid Data Matrix Panel */}
+            {jobResults && (
+              <div className="space-y-6 pt-2 border-t border-dashed border-amber-900/10 dark:border-slate-800">
+                <div className="overflow-x-auto rounded-xl border border-stone-200 dark:border-stone-800 shadow-inner">
+                  <table className="w-full text-left border-collapse text-xxs leading-relaxed">
+                    <thead>
+                      <tr className={`font-black uppercase tracking-wider ${darkMode ? 'bg-slate-950 border-b border-stone-800 text-amber-400' : 'bg-stone-100 border-b border-stone-200 text-amber-950'}`}>
+                        <th className="p-3">Job Title</th>
+                        <th className="p-3">Company Name</th>
+                        <th className="p-3">Location</th>
+                        <th className="p-3">Salary Range</th>
+                        <th className="p-3">Required Skills</th>
+                        <th className="p-3">Application Link</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-stone-100 dark:divide-stone-800 font-medium">
+                      {jobResults.jobs?.map((job: any, index: number) => (
+                        <tr key={index} className={`transition-colors ${darkMode ? 'hover:bg-stone-900/40 text-slate-300' : 'hover:bg-stone-50 text-slate-800'}`}>
+                          <td className="p-3 font-bold text-slate-900 dark:text-white max-w-[150px] truncate">{job.title}</td>
+                          <td className="p-3 max-w-[120px] truncate">{job.company}</td>
+                          <td className="p-3 max-w-[100px] truncate">
+                            <span className={`px-2 py-0.5 rounded-md font-bold text-[10px] ${job.location?.toLowerCase().includes('remote') ? 'bg-green-500/10 text-green-500 border border-green-500/20' : 'bg-stone-500/10 text-stone-500'}`}>
+                              {job.location}
+                            </span>
+                          </td>
+                          <td className="p-3 whitespace-nowrap">{job.salary}</td>
+                          <td className="p-3 max-w-[180px]">
+                            <div className="flex flex-wrap gap-1">
+                              {job.skills?.slice(0, 3).map((s: string, idx: number) => (
+                                <span key={idx} className="bg-amber-500/10 text-amber-600 dark:text-amber-400 px-1.5 py-0.5 rounded text-[9px] font-bold border border-amber-500/10">{s}</span>
+                              ))}
+                            </div>
+                          </td>
+                          <td className="p-3 whitespace-nowrap">
+                            {job.link && job.link.startsWith('http') ? (
+                              <a href={job.link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-bold text-indigo-600 dark:text-indigo-400 hover:underline">Apply Here <ArrowRight className="w-3 h-3"/></a>
+                            ) : (
+                              <span className="text-stone-400 dark:text-stone-500 italic">search on company website</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Algorithmic Best-Match Analysis One-liner Statement Header Node */}
+                {jobResults.best_match_summary && (
+                  <div className={`p-4 rounded-xl border flex items-start gap-2 text-xs font-semibold leading-relaxed shadow-sm ${darkMode ? 'bg-indigo-950/20 border-indigo-900/40 text-slate-200' : 'bg-indigo-50 border-indigo-100 text-indigo-900'}`}>
+                    <Sparkles className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-extrabold uppercase text-xxs tracking-wider bg-indigo-500/20 px-2 py-0.5 rounded mr-2 text-indigo-600 dark:text-indigo-400">Match Strategy Insights</span>
+                      {jobResults.best_match_summary}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Unified Professional Layout Sandbox Brand Execution Footer Block Node */}
+      <footer className="w-full text-center py-6 mt-12 border-t border-dashed border-amber-900/10 dark:border-slate-800">
+        <p className="text-[11px] font-bold tracking-widest text-stone-400 dark:text-stone-500 uppercase flex items-center justify-center gap-1.5">
+          Crafted with <Heart className="w-3.5 h-3.5 text-rose-600 fill-rose-600 animate-pulse" /> & Developed by <span className="text-amber-900 dark:text-indigo-400 font-extrabold font-mono">Kuldeep Sharma</span>
+        </p>
+      </footer>
+    </main>
+  );
+}
