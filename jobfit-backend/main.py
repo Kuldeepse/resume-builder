@@ -37,6 +37,9 @@ if not supabase_url or not supabase_key:
 supabase: Client = create_client(supabase_url, supabase_key)
 gemini_client = genai.Client()
 
+SEARCH_MODEL = "gemini-2.5-flash"
+RESUME_MODEL = "gemini-2.5-flash"
+
 
 def extract_text_from_pdf(file_bytes: bytes) -> str:
     reader = PdfReader(io.BytesIO(file_bytes))
@@ -62,6 +65,88 @@ async def extract_resume_text(resume_file: UploadFile) -> str:
         return extract_text_from_docx(content)
 
     raise HTTPException(status_code=400, detail="Unsupported file format. Upload PDF or DOCX.")
+
+
+def strip_code_fences(text: str) -> str:
+    cleaned = (text or "").strip()
+    if "```json" in cleaned:
+      cleaned = cleaned.split("```json")[-1].split("```")[0].strip()
+    elif "```" in cleaned:
+      cleaned = cleaned.split("```")[-1].split("```")[0].strip()
+    return cleaned
+
+
+def safe_json_loads(text: str) -> dict:
+    try:
+        return json.loads(strip_code_fences(text))
+    except Exception:
+        return {}
+
+
+def normalize_job(job: dict, fallback_location: str) -> Optional[dict]:
+    if not isinstance(job, dict):
+        return None
+
+    title = str(job.get("title", "")).strip()
+    company = str(job.get("company", "")).strip()
+    location = str(job.get("location", fallback_location)).strip() or fallback_location
+    salary = str(job.get("salary", "Not Disclosed")).strip() or "Not Disclosed"
+
+    skills_raw = job.get("skills", [])
+    if isinstance(skills_raw, list):
+        skills = [str(s).strip() for s in skills_raw if str(s).strip()]
+    elif skills_raw:
+        skills = [str(skills_raw).strip()]
+    else:
+        skills = []
+
+    link = str(job.get("link", "")).strip()
+    if not link.startswith("http"):
+        link = "search on company website"
+
+    posted_date = str(job.get("posted_date", "")).strip()
+    source = str(job.get("source", "")).strip()
+
+    if not title or not company:
+        return None
+
+    return {
+        "title": title,
+        "company": company,
+        "location": location,
+        "salary": salary,
+        "skills": skills,
+        "link": link,
+        "posted_date": posted_date,
+        "source": source,
+    }
+
+
+def dedupe_jobs(jobs: list[dict]) -> list[dict]:
+    seen = set()
+    unique = []
+
+    for job in jobs:
+        title = job.get("title", "").strip().lower()
+        company = job.get("company", "").strip().lower()
+        location = job.get("location", "").strip().lower()
+        link = job.get("link", "").strip().lower()
+
+        key = (title, company, location, link)
+        alt_key = (title, company, location)
+
+        if key in seen or alt_key in seen:
+            continue
+
+        seen.add(key)
+        seen.add(alt_key)
+        unique.append(job)
+
+    return unique
+
+
+def chunk_list(items: list, size: int) -> list[list]:
+    return [items[i:i + size] for i in range(0, len(items), size)]
 
 
 @app.get("/health/")
@@ -102,25 +187,24 @@ async def build_and_compare_resume(
         distribution_prompt = (
             f"Generate exactly {requested_count} question/response objects total: "
             f"the first {tech_count} must be deep technical coding or system design questions, and "
-            f"the remaining {hr_count} must be behavioral/HR/company culture questions relevant to this engineering target."
+            f"the remaining {hr_count} must be HR/company culture questions relevant to this engineering target."
         )
     else:
         distribution_prompt = (
             f"Generate exactly {requested_count} question/response objects total focusing "
-            f"100% strictly on HR, behavioral, core corporate values, cultural fit, and situational team management scenarios."
+            f"100% on HR, behavioral, corporate values, cultural fit, and situational team scenarios."
         )
 
-    system_prompt = f"""You are an expert tech recruiter and automated ATS tracking system.
-Analyze the candidate parameters explicitly against the provided job description requirements.
-You must return a single, valid JSON object containing exactly the listed keys.
-Do not wrap your output in markdown backticks or any trailing text.
+    system_prompt = f"""You are an expert tech recruiter and ATS evaluator.
+Analyze the candidate against the job description.
+Return one valid JSON object only.
 
-REQUIRED JSON FORMAT SCHEMA EXACTLY:
+REQUIRED JSON:
 {{
   "match_score": 75,
   "missing_skills": ["list", "of", "skills"],
   "tailoring_tips": ["bullet", "points"],
-  "tell_me_about_yourself": "STAR structured narrative elevator pitch text statement matching the candidate background",
+  "tell_me_about_yourself": "STAR structured elevator pitch",
   "interview_questions": [ {{
      "question": "string text",
      "response": "- Situation: ...\\n- Task: ...\\n- Action: ...\\n- Result: ..."
@@ -134,20 +218,16 @@ REQUIRED JSON FORMAT SCHEMA EXACTLY:
   }}
 }}
 
-CRITICAL INSTRUCTIONS:
+CRITICAL:
 - interview_questions: {distribution_prompt}
-- Every answer string inside the 'response' key MUST be structured clearly in the STAR framework:
-  - Situation: [Context details]
-  - Task: [Core objective/responsibility]
-  - Action: [What specific engineering execution was performed]
-  - Result: [Quantifiable outcome]
-- follow_up_questions: Generate 3 to 5 intelligent questions for the candidate to ask the interviewer at the end."""
+- Every response must use STAR format exactly.
+- Generate 3 to 5 follow_up_questions."""
 
     linkedin_context = f"\nCandidate LinkedIn URL: {linkedin_profile}" if linkedin_profile else ""
 
     try:
         response = gemini_client.models.generate_content(
-            model="gemini-2.5-flash",
+            model=RESUME_MODEL,
             contents=f"Candidate Name: {full_name}\nTarget: {target_role}{linkedin_context}\nHistory: {career_history}\nJD:\n{job_description}",
             config=types.GenerateContentConfig(
                 system_instruction=system_prompt,
@@ -156,13 +236,9 @@ CRITICAL INSTRUCTIONS:
             ),
         )
 
-        raw_text = (response.text or "").strip()
-        if "```json" in raw_text:
-            raw_text = raw_text.split("```json")[-1].split("```")[0].strip()
-        elif "```" in raw_text:
-            raw_text = raw_text.split("```")[-1].split("```")[0].strip()
-
-        analysis_result = json.loads(raw_text)
+        analysis_result = safe_json_loads(response.text or "")
+        if not analysis_result:
+            raise ValueError("Model returned invalid JSON.")
     except Exception as ai_err:
         raise HTTPException(status_code=500, detail=f"AI Data Map Extraction Crash Error: {str(ai_err)}")
 
@@ -275,6 +351,96 @@ CRITICAL INSTRUCTIONS:
     }
 
 
+def grounded_search_pass(query: str, candidate_context: str) -> list[dict]:
+    system_prompt = """You are a job listing discovery tool.
+Use web search to find real current job openings.
+Return valid raw JSON only with this shape:
+
+{
+  "jobs": [
+    {
+      "title": "Job Title",
+      "company": "Company Name",
+      "location": "City, State or Remote",
+      "salary": "$Range or Not Disclosed",
+      "skills": ["skill1", "skill2"],
+      "link": "real apply url or 'search on company website'",
+      "posted_date": "date string if visible",
+      "source": "linkedin|indeed|greenhouse|lever|workday|company"
+    }
+  ]
+}
+
+Rules:
+- Return only real job openings you can infer from search results.
+- Prefer active jobs posted in the last 10 days.
+- Never invent links.
+- If a reliable application link is not visible, use exactly "search on company website".
+- Do not return markdown fences or commentary."""
+
+    response = gemini_client.models.generate_content(
+        model=SEARCH_MODEL,
+        contents=f"Search Query: {query}\nCandidate Context:\n{candidate_context}",
+        config=types.GenerateContentConfig(
+            system_instruction=system_prompt,
+            tools=[types.Tool(google_search=types.GoogleSearch())],
+            temperature=0.2,
+        ),
+    )
+
+    parsed = safe_json_loads(response.text or "")
+    jobs = parsed.get("jobs", [])
+    if not isinstance(jobs, list):
+        return []
+    return jobs
+
+
+def rank_jobs_with_gemini(candidate_context: str, jobs: list[dict]) -> dict:
+    ranking_prompt = """You are an expert recruiting analyst.
+Given a candidate profile and a list of jobs, choose the best matches.
+
+Return valid JSON only:
+{
+  "jobs": [
+    {
+      "title": "Job Title",
+      "company": "Company Name",
+      "location": "City, State or Remote",
+      "salary": "$Range or Not Disclosed",
+      "skills": ["skill1", "skill2"],
+      "link": "real link or 'search on company website'"
+    }
+  ],
+  "best_match_summary": "One-line summary of the 3 best jobs and why."
+}
+
+Rules:
+- Keep only genuinely relevant jobs.
+- Prefer jobs that best match role, seniority, domain, and skills.
+- Keep up to 40 jobs.
+- Preserve real links if present.
+- Never invent fields.
+"""
+
+    response = gemini_client.models.generate_content(
+        model=SEARCH_MODEL,
+        contents=f"Candidate Context:\n{candidate_context}\n\nJobs:\n{json.dumps(jobs, ensure_ascii=False)}",
+        config=types.GenerateContentConfig(
+            system_instruction=ranking_prompt,
+            response_mime_type="application/json",
+            temperature=0.1,
+        ),
+    )
+
+    ranked = safe_json_loads(response.text or "")
+    if not ranked:
+        return {
+            "jobs": jobs[:40],
+            "best_match_summary": "Top matches were selected based on closest role and skill overlap."
+        }
+    return ranked
+
+
 @app.post("/search-jobs/")
 @app.post("/search-jobs")
 async def search_jobs(
@@ -288,101 +454,81 @@ async def search_jobs(
     if resume_file is not None:
         extracted_resume_text = await extract_resume_text(resume_file)
 
-    combined_profile_context = "\n".join(
-        x for x in [
+    candidate_context = "\n".join(
+        part for part in [
             f"Target Role: {target_role}",
             f"Preferred Location: {location_city}",
             f"Resume Skills Summary: {resume_skills}",
             f"Extracted Resume Text: {extracted_resume_text}",
-        ] if x.strip()
+        ] if part.strip()
     )
 
-    search_query = (
-        f'"{target_role}" jobs in "{location_city}" '
-        f'(site:linkedin.com/jobs OR site:indeed.com OR site:greenhouse.io OR site:lever.co OR site:workdayjobs.com)'
-    )
+    search_queries = [
+        f'"{target_role}" jobs in "{location_city}" site:linkedin.com/jobs',
+        f'"{target_role}" jobs in "{location_city}" site:indeed.com',
+        f'"{target_role}" jobs in "{location_city}" site:greenhouse.io',
+        f'"{target_role}" jobs in "{location_city}" site:lever.co',
+        f'"{target_role}" jobs in "{location_city}" site:workdayjobs.com',
+        f'"{target_role}" remote jobs site:linkedin.com/jobs',
+        f'"{target_role}" remote jobs site:indeed.com',
+        f'"{target_role}" remote jobs site:greenhouse.io OR site:lever.co OR site:workdayjobs.com',
+    ]
 
-    system_prompt = """You are an automated live job matching extraction tool.
-Return up to 40 real, active job listings posted in the last 10 days.
-
-Return only valid raw JSON with this exact shape:
-{
-  "jobs": [
-    {
-      "title": "Job Title",
-      "company": "Company Name",
-      "location": "City, State or Remote",
-      "salary": "$Range or Not Disclosed",
-      "skills": ["skill1", "skill2"],
-      "link": "real url or 'search on company website'"
-    }
-  ],
-  "best_match_summary": "One-line summary of the 3 best matches and why."
-}
-
-Rules:
-1. Only include genuinely relevant jobs.
-2. Only include jobs that appear active and posted within the last 10 days.
-3. Search across LinkedIn, Indeed, company career pages, and major job boards.
-4. Never invent or hallucinate links.
-5. If no reliable application link exists, return exactly "search on company website".
-6. Do not return markdown fences or commentary.
-"""
+    collected_jobs = []
 
     try:
-        response = gemini_client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=f"Search Query Constraints: {search_query}\nCandidate Context:\n{combined_profile_context}",
-            config=types.GenerateContentConfig(
-                system_instruction=system_prompt,
-                tools=[types.Tool(google_search=types.GoogleSearch())],
-                temperature=0.2,
-            ),
+        for query in search_queries:
+            raw_jobs = grounded_search_pass(query, candidate_context)
+            for raw_job in raw_jobs:
+                normalized = normalize_job(raw_job, location_city)
+                if normalized:
+                    collected_jobs.append(normalized)
+
+        collected_jobs = dedupe_jobs(collected_jobs)
+
+        if not collected_jobs:
+            return {
+                "jobs": [],
+                "best_match_summary": "No verified matching jobs were found from the current search sources."
+            }
+
+        ranked_chunks = []
+        for chunk in chunk_list(collected_jobs, 20):
+            ranked_result = rank_jobs_with_gemini(candidate_context, chunk)
+            ranked_jobs = ranked_result.get("jobs", [])
+            if isinstance(ranked_jobs, list):
+                for job in ranked_jobs:
+                    normalized = normalize_job(job, location_city)
+                    if normalized:
+                        ranked_chunks.append(normalized)
+
+        ranked_chunks = dedupe_jobs(ranked_chunks)
+
+        final_ranked = rank_jobs_with_gemini(candidate_context, ranked_chunks[:60])
+        final_jobs = final_ranked.get("jobs", [])
+        best_match_summary = str(
+            final_ranked.get(
+                "best_match_summary",
+                "Top matches were selected based on closest role, domain, and skill alignment."
+            )
         )
 
-        clean_text = (response.text or "").strip()
+        sanitized_final_jobs = []
+        if isinstance(final_jobs, list):
+            for job in final_jobs:
+                normalized = normalize_job(job, location_city)
+                if normalized:
+                    sanitized_final_jobs.append(normalized)
 
-        if "```json" in clean_text:
-            clean_text = clean_text.split("```json")[-1].split("```")[0].strip()
-        elif "```" in clean_text:
-            clean_text = clean_text.split("```")[-1].split("```")[0].strip()
+        sanitized_final_jobs = dedupe_jobs(sanitized_final_jobs)[:40]
 
-        jobs_result = json.loads(clean_text)
+        if not sanitized_final_jobs:
+            sanitized_final_jobs = ranked_chunks[:40]
+
+        return {
+            "jobs": sanitized_final_jobs,
+            "best_match_summary": best_match_summary,
+        }
+
     except Exception as search_error:
         raise HTTPException(status_code=500, detail=f"Web Grounding Compilation Exception: {str(search_error)}")
-
-    raw_jobs = jobs_result.get("jobs", [])
-    if not isinstance(raw_jobs, list):
-        raw_jobs = []
-
-    sanitized_jobs = []
-    for job in raw_jobs[:40]:
-        if not isinstance(job, dict):
-            continue
-
-        skills_raw = job.get("skills", [])
-        if not isinstance(skills_raw, list):
-            skills_raw = [str(skills_raw)]
-
-        link = str(job.get("link", "")).strip()
-        if not link.startswith("http"):
-            link = "search on company website"
-
-        sanitized_jobs.append({
-            "title": str(job.get("title", "Not Available")),
-            "company": str(job.get("company", "Not Available")),
-            "location": str(job.get("location", location_city)),
-            "salary": str(job.get("salary", "Not Disclosed")),
-            "skills": [str(s) for s in skills_raw],
-            "link": link,
-        })
-
-    return {
-        "jobs": sanitized_jobs,
-        "best_match_summary": str(
-            jobs_result.get(
-                "best_match_summary",
-                "Top matches were selected based on role alignment, experience fit, and closest skill overlap."
-            )
-        ),
-    }
