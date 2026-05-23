@@ -67,7 +67,7 @@ export default function Home() {
 
         {tab === 'builder' && (
           <div className={`border p-6 rounded-2xl shadow-sm space-y-6 ${darkMode ? 'bg-stone-900/40 border-slate-800/60 shadow-2xl' : 'bg-white border-amber-900/10'}`}>
-            <div className={`flex justify-between items-center border-b pb-3 ${darkMode ? 'border-stone-800/60' : 'border-stone-100'}`}>
+            <div className={`flex justify-between items-center border-b pb-3 ${darkMode ? 'border-slate-800/60' : 'border-stone-100'}`}>
               <h2 className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${darkMode ? 'text-amber-400' : 'text-amber-900'}`}><ArrowLeftRight className="w-4 h-4"/> Core Variable Mapping</h2>
               {results && <button type="button" onClick={() => { setFullName(''); setTargetRole(''); setLinkedin(''); setDuration('30 minutes'); setTotalQuestions(5); setInterviewType('technical'); setCareerHistory(''); setJobDescription(''); setResults(null); setTab('builder'); }} className={`flex items-center gap-1 font-bold px-3 py-1 rounded-xl border text-xxs tracking-wide cursor-pointer ${darkMode ? 'bg-rose-950 text-rose-400 border-rose-500/20' : 'bg-rose-50 text-rose-700 border-rose-200'}`}><RotateCcw className="w-3 h-3"/> Reset Form</button>}
             </div>
@@ -75,22 +75,22 @@ export default function Home() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="font-bold text-xxs uppercase tracking-wider text-slate-500">Applicant Full Name</label>
-                  <input type="text" className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-200 focus:border-amber-800' : 'bg-stone-50 border-stone-200 text-stone-800'}`} placeholder="e.g. Alex Mercer" value={fullName} onChange={(e) => setFullName(e.target.value)} />
+                  <input type="text" className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-200 focus:border-amber-800' : 'bg-stone-50 border-stone-200 text-slate-800'}`} placeholder="e.g. Alex Mercer" value={fullName} onChange={(e) => setFullName(e.target.value)} />
                 </div>
                 <div className="space-y-1.5">
                   <label className="font-bold text-xxs uppercase tracking-wider text-slate-500">Target Role Objective</label>
-                  <input type="text" className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-200 focus:border-amber-800' : 'bg-stone-50 border-stone-200 text-stone-800'}`} placeholder="e.g. Senior Frontend Architect" value={targetRole} onChange={(e) => setTargetRole(e.target.value)} />
+                  <input type="text" className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-200 focus:border-amber-800' : 'bg-stone-50 border-stone-200 text-slate-800'}`} placeholder="e.g. Senior Frontend Architect" value={targetRole} onChange={(e) => setTargetRole(e.target.value)} />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 border-t border-b border-dashed border-slate-200 dark:border-slate-800 py-4">
                 <div className="space-y-1.5">
                   <label className="font-bold text-xxs uppercase tracking-wider text-slate-500 flex items-center gap-1"><Link className="w-3 h-3 text-indigo-500"/> LinkedIn Profile URL</label>
-                  <input type="url" className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-200 focus:border-amber-800' : 'bg-stone-50 border-stone-200 text-stone-800'}`} placeholder="e.g. https://linkedin.com" value={linkedin} onChange={(e) => setLinkedin(e.target.value)} />
+                  <input type="url" className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-200 focus:border-amber-800' : 'bg-stone-50 border-stone-200 text-slate-800'}`} placeholder="e.g. https://linkedin.com" value={linkedin} onChange={(e) => setLinkedin(e.target.value)} />
                 </div>
                 <div className="space-y-1.5">
                   <label className="font-bold text-xxs uppercase tracking-wider text-slate-500 flex items-center gap-1"><Clock className="w-3 h-3 text-indigo-500"/> Interview Duration</label>
-                  <select className={`w-full border p-3 rounded-xl focus:outline-none transition-all cursor-pointer ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-200 focus:border-amber-800' : 'bg-stone-50 border-stone-200 text-stone-800'}`} value={duration} onChange={(e) => setDuration(e.target.value)}>
+                  <select className={`w-full border p-3 rounded-xl focus:outline-none transition-all cursor-pointer ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-200 focus:border-amber-800' : 'bg-stone-50 border-stone-200 text-slate-800'}`} value={duration} onChange={(e) => setDuration(e.target.value)}>
                     <option value="30 minutes">30 Minutes</option>
                     <option value="45 minutes">45 Minutes</option>
                     <option value="60 minutes">60 Minutes</option>
@@ -98,7 +98,7 @@ export default function Home() {
                 </div>
                 <div className="space-y-1.5">
                   <label className="font-bold text-xxs uppercase tracking-wider text-slate-500 flex items-center gap-1"><UserCheck className="w-3 h-3 text-indigo-500"/> Interview Category</label>
-                  <select className={`w-full border p-3 rounded-xl focus:outline-none transition-all cursor-pointer ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-200 focus:border-amber-800' : 'bg-stone-50 border-stone-200 text-stone-800'}`} value={interviewType} onChange={(e) => { setInterviewType(e.target.value as 'hr' | 'technical'); setResults(null); }}>
+                  <select className={`w-full border p-3 rounded-xl focus:outline-none transition-all cursor-pointer ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-200 focus:border-amber-800' : 'bg-stone-50 border-stone-200 text-slate-800'}`} value={interviewType} onChange={(e) => { setInterviewType(e.target.value as 'hr' | 'technical'); setResults(null); }}>
                     <option value="technical">Technical Interview Track</option>
                     <option value="hr">HR / Behavioral Interview Track</option>
                   </select>
@@ -114,12 +114,12 @@ export default function Home() {
                 <div className={`space-y-1.5 p-4 rounded-xl border ${darkMode ? 'bg-stone-950/40 border-slate-800/60' : 'bg-stone-50/60 border-stone-200/60'}`}>
                   <label className="font-bold text-xxs uppercase tracking-wider flex items-center gap-1 text-amber-900 dark:text-amber-400"><FileText className="w-3.5 h-3.5"/> Legacy Career Profile</label>
                   <p className="text-[10px] text-slate-400 mb-2 font-medium">Hint: List positions, technology stack tools used, or clip history.</p>
-                  <textarea rows={6} className={`w-full border p-3 rounded-xl focus:outline-none font-mono text-[11px] leading-relaxed ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-300 focus:border-amber-800' : 'bg-white border-stone-200 text-slate-800'}`} placeholder="Frontend Dev at TechCorp. Managed React architecture, optimizing layout loops..." value={careerHistory} onChange={(e) => setCareerHistory(e.target.value)} />
+                  <textarea rows={6} className={`w-full border p-3 rounded-xl focus:outline-none font-mono text-[11px] leading-relaxed ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-300' : 'bg-white border-stone-200 text-slate-800'}`} placeholder="Frontend Dev at TechCorp. Managed React architecture, optimizing layout loops..." value={careerHistory} onChange={(e) => setCareerHistory(e.target.value)} />
                 </div>
                 <div className={`space-y-1.5 p-4 rounded-xl border ${darkMode ? 'bg-stone-950/40 border-slate-800/60' : 'bg-stone-50/60 border-stone-200/60'}`}>
                   <label className="font-bold text-xxs uppercase tracking-wider flex items-center gap-1 text-amber-900 dark:text-amber-400"><Target className="w-3.5 h-3.5"/> Job Description Target</label>
                   <p className="text-[10px] text-slate-400 mb-2">Hint: Paste the complete responsibilities checklist text from your target listing.</p>
-                  <textarea rows={6} className={`w-full border p-3 rounded-xl focus:outline-none font-mono text-[11px] leading-relaxed ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-300 focus:border-amber-800' : 'bg-white border-stone-200 text-slate-800'}`} placeholder="Seeking an engineer with deep runtime comprehension of cloud topologies..." value={jobDescription} onChange={(e) => setJobDescription(e.target.value)} />
+                  <textarea rows={6} className={`w-full border p-3 rounded-xl focus:outline-none font-mono text-[11px] leading-relaxed ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-300' : 'bg-white border-stone-200 text-slate-800'}`} placeholder="Seeking an engineer with deep runtime comprehension of cloud topologies..." value={jobDescription} onChange={(e) => setJobDescription(e.target.value)} />
                 </div>
               </div>
               <button type="button" onClick={handleGenerate} disabled={loading} className="w-full bg-amber-900 hover:bg-amber-800 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 cursor-pointer text-xxs uppercase tracking-widest disabled:bg-stone-300 dark:disabled:bg-stone-900 shadow-md">
@@ -185,7 +185,6 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Profile Intro Bio Card (Tell Me About Yourself) */}
             {results.tell_me_about_yourself && (
               <div className={`p-5 rounded-xl border space-y-3 shadow-inner ${darkMode ? 'bg-slate-950 border-slate-800 text-slate-100' : 'bg-amber-50/20 border-amber-200 text-slate-900'}`}>
                 <h4 className="text-xxs font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 flex items-center gap-1"><UserCheck className="w-4 h-4"/> Primary Pitch: Tell Me About Yourself Blueprint</h4>
@@ -193,7 +192,6 @@ export default function Home() {
               </div>
             )}
 
-            {/* Primary Dynamic Target Question and Response Matrix Node */}
             <div className="space-y-4">
               <h4 className="text-xxs font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400 border-b pb-2 flex items-center gap-1.5 border-amber-900/10 dark:border-slate-800">
                 <HelpCircle className="w-4 h-4"/> Core Target Interview Question Matrices ({results.interview_questions?.length || 0} Evaluated Items)
@@ -205,23 +203,22 @@ export default function Home() {
                       <HelpCircle className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5"/> <span>Q{i+1}: {item.question}</span>
                     </div>
                     
-                    {/* ✅ FIXED: STAR Framework Renderer - Bold headers and crisp linebreaks */}
+                    {/* ✅ FIXED: Strips raw <b> tags and forces Situation, Task, Action, Result on separate bold lines */}
                     <div className="text-[11px] pl-5 space-y-1.5 leading-relaxed opacity-95 font-medium">
                       {String(item.response || '').split('\n').map((line, lineIdx) => {
-                        const trimmed = line.trim();
+                        const trimmed = line.replace(/<\/?[^>]+(>|$)/g, "").trim();
                         if (!trimmed) return null;
                         
-                        // Captures standard key indicators to perform high-visibility bold layouts
-                        if (trimmed.toLowerCase().startswith('situation:') || trimmed.startswith('- situation:')) {
+                        if (trimmed.toLowerCase().startsWith('situation:') || trimmed.startsWith('- situation:')) {
                           return <div key={lineIdx} className="pt-0.5"><strong>Situation:</strong> {trimmed.replace(/^(-\s*)?situation:\s*/i, '')}</div>;
                         }
-                        if (trimmed.toLowerCase().startswith('task:') || trimmed.startswith('- task:')) {
+                        if (trimmed.toLowerCase().startsWith('task:') || trimmed.startsWith('- task:')) {
                           return <div key={lineIdx}><strong>Task:</strong> {trimmed.replace(/^(-\s*)?task:\s*/i, '')}</div>;
                         }
-                        if (trimmed.toLowerCase().startswith('action:') || trimmed.startswith('- action:')) {
+                        if (trimmed.toLowerCase().startsWith('action:') || trimmed.startsWith('- action:')) {
                           return <div key={lineIdx}><strong>Action:</strong> {trimmed.replace(/^(-\s*)?action:\s*/i, '')}</div>;
                         }
-                        if (trimmed.toLowerCase().startswith('result:') || trimmed.startswith('- result:')) {
+                        if (trimmed.toLowerCase().startsWith('result:') || trimmed.startsWith('- result:')) {
                           return <div key={lineIdx} className="pb-0.5"><strong>Result:</strong> {trimmed.replace(/^(-\s*)?result:\s*/i, '')}</div>;
                         }
                         
@@ -233,7 +230,6 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Strategic Follow-Up Questions (Questions to Ask the Interviewer) */}
             {results.follow_up_questions && results.follow_up_questions.length > 0 && (
               <div className="space-y-3 pt-2">
                 <h4 className="text-xxs font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400 border-b pb-2 flex items-center gap-1.5 border-amber-900/10 dark:border-slate-800">
@@ -256,7 +252,7 @@ export default function Home() {
 
       <footer className="w-full text-center py-6 mt-12 border-t border-dashed border-amber-900/10 dark:border-slate-800">
         <p className="text-[11px] font-bold tracking-widest text-stone-400 dark:text-stone-500 uppercase flex items-center justify-center gap-1.5">
-          Crafted with <Heart className="w-3.5 h-3.5 text-rose-600 fill-rose-600 " /> & Developed by <span className="text-amber-900 dark:text-indigo-400 font-extrabold font-mono">Kuldeep Sharma</span>
+          Crafted with <Heart className="w-3.5 h-3.5 text-rose-600 fill-rose-600 animate-pulse" /> & Developed by <span className="text-amber-900 dark:text-indigo-400 font-extrabold font-mono">Kuldeep Sharma</span>
         </p>
       </footer>
     </main>
