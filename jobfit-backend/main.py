@@ -2,7 +2,7 @@ import os
 import io
 import json
 import math
-from typing import List, Optional, Any
+from typing import Optional, Any
 
 from fastapi import FastAPI, Form, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
@@ -39,48 +39,29 @@ gemini_client = genai.Client()
 
 
 def extract_text_from_pdf(file_bytes: bytes) -> str:
-    try:
-        reader = PdfReader(io.BytesIO(file_bytes))
-        pages = []
-        for page in reader.pages:
-            pages.append(page.extract_text() or "")
-        return "\n".join(pages).strip()
-    except Exception as exc:
-        raise HTTPException(status_code=400, detail=f"Unable to parse PDF resume: {str(exc)}")
+    reader = PdfReader(io.BytesIO(file_bytes))
+    return "\n".join((page.extract_text() or "") for page in reader.pages).strip()
 
 
 def extract_text_from_docx(file_bytes: bytes) -> str:
-    try:
-        document = Document(io.BytesIO(file_bytes))
-        paragraphs = [p.text for p in document.paragraphs if p.text.strip()]
-        return "\n".join(paragraphs).strip()
-    except Exception as exc:
-        raise HTTPException(status_code=400, detail=f"Unable to parse DOCX resume: {str(exc)}")
+    doc = Document(io.BytesIO(file_bytes))
+    return "\n".join(p.text for p in doc.paragraphs if p.text.strip()).strip()
 
 
 async def extract_resume_text(resume_file: UploadFile) -> str:
     filename = (resume_file.filename or "").lower()
-    file_bytes = await resume_file.read()
+    content = await resume_file.read()
 
-    if not file_bytes:
+    if not content:
         raise HTTPException(status_code=400, detail="Uploaded resume file is empty.")
 
     if filename.endswith(".pdf"):
-        return extract_text_from_pdf(file_bytes)
+        return extract_text_from_pdf(content)
 
     if filename.endswith(".docx"):
-        return extract_text_from_docx(file_bytes)
+        return extract_text_from_docx(content)
 
-    if filename.endswith(".doc"):
-        raise HTTPException(
-            status_code=400,
-            detail="Legacy .doc files are not supported by this backend yet. Please upload PDF or DOCX."
-        )
-
-    raise HTTPException(
-        status_code=400,
-        detail="Unsupported resume format. Please upload a PDF or DOCX file."
-    )
+    raise HTTPException(status_code=400, detail="Unsupported file format. Upload PDF or DOCX.")
 
 
 @app.get("/health/")
@@ -155,12 +136,12 @@ REQUIRED JSON FORMAT SCHEMA EXACTLY:
 
 CRITICAL INSTRUCTIONS:
 - interview_questions: {distribution_prompt}
-- Every answer string inside the 'response' key MUST be structured clearly in the STAR framework, explicitly labeled matching this layout exactly inside the text block string:
+- Every answer string inside the 'response' key MUST be structured clearly in the STAR framework:
   - Situation: [Context details]
   - Task: [Core objective/responsibility]
   - Action: [What specific engineering execution was performed]
-  - Result: [Quantifiable technical metrics metrics outcome]
-- follow_up_questions: Generate 3 to 5 highly intelligent questions for the candidate to ask the interviewer at the end."""
+  - Result: [Quantifiable outcome]
+- follow_up_questions: Generate 3 to 5 intelligent questions for the candidate to ask the interviewer at the end."""
 
     linkedin_context = f"\nCandidate LinkedIn URL: {linkedin_profile}" if linkedin_profile else ""
 
@@ -175,7 +156,7 @@ CRITICAL INSTRUCTIONS:
             ),
         )
 
-        raw_text = response.text.strip()
+        raw_text = (response.text or "").strip()
         if "```json" in raw_text:
             raw_text = raw_text.split("```json")[-1].split("```")[0].strip()
         elif "```" in raw_text:
@@ -308,46 +289,44 @@ async def search_jobs(
         extracted_resume_text = await extract_resume_text(resume_file)
 
     combined_profile_context = "\n".join(
-        part for part in [
+        x for x in [
             f"Target Role: {target_role}",
             f"Preferred Location: {location_city}",
             f"Resume Skills Summary: {resume_skills}",
             f"Extracted Resume Text: {extracted_resume_text}",
-        ] if part.strip()
+        ] if x.strip()
     )
 
     search_query = (
         f'"{target_role}" jobs in "{location_city}" '
-        f'(site:linkedin.com/jobs OR site:indeed.com OR site:greenhouse.io OR site:lever.co OR site:workdayjobs.com) '
-        f'"posted" OR "days ago" OR "recent" OR "active"'
+        f'(site:linkedin.com/jobs OR site:indeed.com OR site:greenhouse.io OR site:lever.co OR site:workdayjobs.com)'
     )
 
     system_prompt = """You are an automated live job matching extraction tool.
-Analyze the candidate profile and return up to 40 active, real job listings posted in the last 10 days.
+Return up to 40 real, active job listings posted in the last 10 days.
 
-REQUIRED OUTPUT JSON STRUCTURE EXACTLY:
+Return only valid raw JSON with this exact shape:
 {
   "jobs": [
     {
-      "title": "Job Title String",
-      "company": "Company Name String",
-      "location": "City, State or Remote String",
-      "salary": "$Range or Not Disclosed String",
+      "title": "Job Title",
+      "company": "Company Name",
+      "location": "City, State or Remote",
+      "salary": "$Range or Not Disclosed",
       "skills": ["skill1", "skill2"],
-      "link": "The real open source link url or 'search on company website'"
+      "link": "real url or 'search on company website'"
     }
   ],
-  "best_match_summary": "A high-density one-line statement analyzing which 3 jobs are top matches for this user based on their input skills and why."
+  "best_match_summary": "One-line summary of the 3 best matches and why."
 }
 
-CRITICAL DATA RETRIEVAL RULES:
-1. Return only genuinely relevant jobs matching the candidate profile, skills, and background.
-2. Include only roles that appear active and posted within the last 10 days.
-3. Search across multiple sources including LinkedIn, Indeed, company career pages, and major job boards.
-4. If a trustworthy application link is unavailable, write exactly 'search on company website'.
-5. Never guess, invent, or hallucinate links, salary, employers, or recency.
-6. Deduplicate listings aggressively.
-7. Return pure valid JSON only, with no markdown or commentary.
+Rules:
+1. Only include genuinely relevant jobs.
+2. Only include jobs that appear active and posted within the last 10 days.
+3. Search across LinkedIn, Indeed, company career pages, and major job boards.
+4. Never invent or hallucinate links.
+5. If no reliable application link exists, return exactly "search on company website".
+6. Do not return markdown fences or commentary.
 """
 
     try:
@@ -356,13 +335,13 @@ CRITICAL DATA RETRIEVAL RULES:
             contents=f"Search Query Constraints: {search_query}\nCandidate Context:\n{combined_profile_context}",
             config=types.GenerateContentConfig(
                 system_instruction=system_prompt,
-                response_mime_type="application/json",
                 tools=[types.Tool(google_search=types.GoogleSearch())],
                 temperature=0.2,
             ),
         )
 
-        clean_text = response.text.strip()
+        clean_text = (response.text or "").strip()
+
         if "```json" in clean_text:
             clean_text = clean_text.split("```json")[-1].split("```")[0].strip()
         elif "```" in clean_text:
@@ -377,30 +356,33 @@ CRITICAL DATA RETRIEVAL RULES:
         raw_jobs = []
 
     sanitized_jobs = []
-    for job in raw_jobs:
-        if isinstance(job, dict):
-            skills_raw = job.get("skills", [])
-            skills_arr = skills_raw if isinstance(skills_raw, list) else [str(skills_raw)]
+    for job in raw_jobs[:40]:
+        if not isinstance(job, dict):
+            continue
 
-            link_value = str(job.get("link", "search on company website")).strip()
-            if not link_value or not link_value.startswith("http"):
-                link_value = "search on company website"
+        skills_raw = job.get("skills", [])
+        if not isinstance(skills_raw, list):
+            skills_raw = [str(skills_raw)]
 
-            sanitized_jobs.append({
-                "title": str(job.get("title", "Opportunities Tracker")),
-                "company": str(job.get("company", "Enterprise Resource")),
-                "location": str(job.get("location", location_city)),
-                "salary": str(job.get("salary", "Not Disclosed")),
-                "skills": [str(s) for s in skills_arr],
-                "link": link_value,
-            })
+        link = str(job.get("link", "")).strip()
+        if not link.startswith("http"):
+            link = "search on company website"
+
+        sanitized_jobs.append({
+            "title": str(job.get("title", "Not Available")),
+            "company": str(job.get("company", "Not Available")),
+            "location": str(job.get("location", location_city)),
+            "salary": str(job.get("salary", "Not Disclosed")),
+            "skills": [str(s) for s in skills_raw],
+            "link": link,
+        })
 
     return {
-        "jobs": sanitized_jobs[:40],
+        "jobs": sanitized_jobs,
         "best_match_summary": str(
             jobs_result.get(
                 "best_match_summary",
-                "Review the table matrix results above to locate the three strongest profile matches."
+                "Top matches were selected based on role alignment, experience fit, and closest skill overlap."
             )
         ),
     }
