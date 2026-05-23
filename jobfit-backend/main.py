@@ -1,20 +1,20 @@
-import os
 import io
 import json
 import math
-from typing import Optional, Any
+import os
+from typing import Any, Optional
 
-from fastapi import FastAPI, Form, HTTPException, UploadFile, File
+from docx import Document
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from google import genai
 from google.genai import types
-from supabase import create_client, Client
-from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib import colors
 from PyPDF2 import PdfReader
-from docx import Document
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
+from supabase import Client, create_client
 
 app = FastAPI()
 
@@ -39,6 +39,32 @@ gemini_client = genai.Client()
 
 SEARCH_MODEL = "gemini-2.5-flash"
 RESUME_MODEL = "gemini-2.5-flash"
+
+
+def strip_code_fences(text: str) -> str:
+    cleaned = (text or "").strip()
+    if "```json" in cleaned:
+        cleaned = cleaned.split("```json")[-1].split("```")[0].strip()
+    elif "```" in cleaned:
+        cleaned = cleaned.split("```")[-1].split("```")[0].strip()
+    return cleaned
+
+
+def safe_json_loads(text: str) -> dict:
+    try:
+        return json.loads(strip_code_fences(text))
+    except Exception:
+        return {}
+
+
+def is_quota_error(exc: Exception) -> bool:
+    message = str(exc).lower()
+    return (
+        "429" in message
+        or "resource_exhausted" in message
+        or "quota" in message
+        or "rate limit" in message
+    )
 
 
 def extract_text_from_pdf(file_bytes: bytes) -> str:
@@ -67,20 +93,22 @@ async def extract_resume_text(resume_file: UploadFile) -> str:
     raise HTTPException(status_code=400, detail="Unsupported file format. Upload PDF or DOCX.")
 
 
-def strip_code_fences(text: str) -> str:
-    cleaned = (text or "").strip()
-    if "```json" in cleaned:
-      cleaned = cleaned.split("```json")[-1].split("```")[0].strip()
-    elif "```" in cleaned:
-      cleaned = cleaned.split("```")[-1].split("```")[0].strip()
-    return cleaned
-
-
-def safe_json_loads(text: str) -> dict:
-    try:
-        return json.loads(strip_code_fences(text))
-    except Exception:
-        return {}
+def build_candidate_context(
+    target_role: str,
+    location_city: str,
+    resume_skills: str,
+    extracted_resume_text: str,
+) -> str:
+    return "\n".join(
+        part
+        for part in [
+            f"Target Role: {target_role}",
+            f"Preferred Location: {location_city}",
+            f"Resume Skills Summary: {resume_skills}",
+            f"Extracted Resume Text: {extracted_resume_text}",
+        ]
+        if part.strip()
+    )
 
 
 def normalize_job(job: dict, fallback_location: str) -> Optional[dict]:
@@ -106,6 +134,7 @@ def normalize_job(job: dict, fallback_location: str) -> Optional[dict]:
 
     posted_date = str(job.get("posted_date", "")).strip()
     source = str(job.get("source", "")).strip()
+    description = str(job.get("description", "")).strip()
 
     if not title or not company:
         return None
@@ -119,6 +148,7 @@ def normalize_job(job: dict, fallback_location: str) -> Optional[dict]:
         "link": link,
         "posted_date": posted_date,
         "source": source,
+        "description": description,
     }
 
 
@@ -145,8 +175,19 @@ def dedupe_jobs(jobs: list[dict]) -> list[dict]:
     return unique
 
 
-def chunk_list(items: list, size: int) -> list[list]:
-    return [items[i:i + size] for i in range(0, len(items), size)]
+def location_matches(job_location: str, preferred_location: str) -> bool:
+    jl = (job_location or "").lower()
+    pl = (preferred_location or "").lower()
+    return "remote" in jl or pl in jl or jl in pl
+
+
+def filter_jobs(jobs: list[dict], location_city: str) -> list[dict]:
+    filtered = []
+    for job in jobs:
+        if not location_matches(job.get("location", ""), location_city):
+            continue
+        filtered.append(job)
+    return filtered
 
 
 @app.get("/health/")
@@ -170,7 +211,7 @@ async def build_and_compare_resume(
     if "placeholder" in supabase_url or "placeholder" in supabase_key:
         raise HTTPException(
             status_code=500,
-            detail="Configuration Error: Missing SUPABASE_URL variables on Render."
+            detail="Configuration Error: Missing SUPABASE_URL variables on Render.",
         )
 
     try:
@@ -221,14 +262,18 @@ REQUIRED JSON:
 CRITICAL:
 - interview_questions: {distribution_prompt}
 - Every response must use STAR format exactly.
-- Generate 3 to 5 follow_up_questions."""
+- Generate 3 to 5 follow_up_questions.
+"""
 
     linkedin_context = f"\nCandidate LinkedIn URL: {linkedin_profile}" if linkedin_profile else ""
 
     try:
         response = gemini_client.models.generate_content(
             model=RESUME_MODEL,
-            contents=f"Candidate Name: {full_name}\nTarget: {target_role}{linkedin_context}\nHistory: {career_history}\nJD:\n{job_description}",
+            contents=(
+                f"Candidate Name: {full_name}\nTarget: {target_role}{linkedin_context}\n"
+                f"History: {career_history}\nJD:\n{job_description}"
+            ),
             config=types.GenerateContentConfig(
                 system_instruction=system_prompt,
                 response_mime_type="application/json",
@@ -240,6 +285,11 @@ CRITICAL:
         if not analysis_result:
             raise ValueError("Model returned invalid JSON.")
     except Exception as ai_err:
+        if is_quota_error(ai_err):
+            raise HTTPException(
+                status_code=429,
+                detail="Gemini free-tier quota is currently exhausted for resume generation. Please wait a few minutes and try again.",
+            )
         raise HTTPException(status_code=500, detail=f"AI Data Map Extraction Crash Error: {str(ai_err)}")
 
     resume_data = analysis_result.get("resume", {})
@@ -292,7 +342,8 @@ CRITICAL:
                 if isinstance(exp, dict):
                     story.append(
                         Paragraph(
-                            f"<b>{str(exp.get('role', 'Engineer'))}</b> — {str(exp.get('company', 'Company'))} ({str(exp.get('duration', 'Present'))})",
+                            f"<b>{str(exp.get('role', 'Engineer'))}</b> — "
+                            f"{str(exp.get('company', 'Company'))} ({str(exp.get('duration', 'Present'))})",
                             styles["Heading4"],
                         )
                     )
@@ -332,19 +383,19 @@ CRITICAL:
     final_questions = []
     for item in raw_questions:
         if isinstance(item, dict):
-            final_questions.append({
-                "question": str(item.get("question", "")),
-                "response": str(item.get("response", "")),
-            })
-
-    final_questions = final_questions[:requested_count]
+            final_questions.append(
+                {
+                    "question": str(item.get("question", "")),
+                    "response": str(item.get("response", "")),
+                }
+            )
 
     return {
         "match_score": int(analysis_result.get("match_score", 70)),
         "missing_skills": list(analysis_result.get("missing_skills", [])),
         "tailoring_tips": list(analysis_result.get("tailoring_tips", [])),
         "tell_me_about_yourself": str(analysis_result.get("tell_me_about_yourself", "")),
-        "interview_questions": final_questions,
+        "interview_questions": final_questions[:requested_count],
         "follow_up_questions": list(analysis_result.get("follow_up_questions", [])),
         "resume": resume_data,
         "shareable_url": public_url,
@@ -366,7 +417,8 @@ Return valid raw JSON only with this shape:
       "skills": ["skill1", "skill2"],
       "link": "real apply url or 'search on company website'",
       "posted_date": "date string if visible",
-      "source": "linkedin|indeed|greenhouse|lever|workday|company"
+      "source": "linkedin|indeed|greenhouse|lever|workday|company",
+      "description": "short snippet"
     }
   ]
 }
@@ -376,7 +428,8 @@ Rules:
 - Prefer active jobs posted in the last 10 days.
 - Never invent links.
 - If a reliable application link is not visible, use exactly "search on company website".
-- Do not return markdown fences or commentary."""
+- Do not return markdown fences or commentary.
+"""
 
     response = gemini_client.models.generate_content(
         model=SEARCH_MODEL,
@@ -424,7 +477,7 @@ Rules:
 
     response = gemini_client.models.generate_content(
         model=SEARCH_MODEL,
-        contents=f"Candidate Context:\n{candidate_context}\n\nJobs:\n{json.dumps(jobs, ensure_ascii=False)}",
+        contents=f"Candidate Context:\n{candidate_context}\n\nJobs:\n{json.dumps(jobs[:60], ensure_ascii=False)}",
         config=types.GenerateContentConfig(
             system_instruction=ranking_prompt,
             response_mime_type="application/json",
@@ -436,7 +489,7 @@ Rules:
     if not ranked:
         return {
             "jobs": jobs[:40],
-            "best_match_summary": "Top matches were selected based on closest role and skill overlap."
+            "best_match_summary": "Top matches were selected based on closest role and skill overlap.",
         }
     return ranked
 
@@ -454,23 +507,17 @@ async def search_jobs(
     if resume_file is not None:
         extracted_resume_text = await extract_resume_text(resume_file)
 
-    candidate_context = "\n".join(
-        part for part in [
-            f"Target Role: {target_role}",
-            f"Preferred Location: {location_city}",
-            f"Resume Skills Summary: {resume_skills}",
-            f"Extracted Resume Text: {extracted_resume_text}",
-        ] if part.strip()
+    candidate_context = build_candidate_context(
+        target_role=target_role,
+        location_city=location_city,
+        resume_skills=resume_skills,
+        extracted_resume_text=extracted_resume_text,
     )
 
     search_queries = [
-        f'"{target_role}" jobs in "{location_city}" site:linkedin.com/jobs',
-        f'"{target_role}" jobs in "{location_city}" site:indeed.com',
-        f'"{target_role}" jobs in "{location_city}" site:greenhouse.io',
-        f'"{target_role}" jobs in "{location_city}" site:lever.co',
-        f'"{target_role}" jobs in "{location_city}" site:workdayjobs.com',
-        f'"{target_role}" remote jobs site:linkedin.com/jobs',
-        f'"{target_role}" remote jobs site:indeed.com',
+        f'"{target_role}" jobs in "{location_city}" site:linkedin.com/jobs OR site:indeed.com',
+        f'"{target_role}" jobs in "{location_city}" site:greenhouse.io OR site:lever.co OR site:workdayjobs.com',
+        f'"{target_role}" remote jobs site:linkedin.com/jobs OR site:indeed.com',
         f'"{target_role}" remote jobs site:greenhouse.io OR site:lever.co OR site:workdayjobs.com',
     ]
 
@@ -485,31 +532,20 @@ async def search_jobs(
                     collected_jobs.append(normalized)
 
         collected_jobs = dedupe_jobs(collected_jobs)
+        filtered_jobs = filter_jobs(collected_jobs, location_city)
 
-        if not collected_jobs:
+        if not filtered_jobs:
             return {
                 "jobs": [],
-                "best_match_summary": "No verified matching jobs were found from the current search sources."
+                "best_match_summary": "No verified matching jobs were found from the current search sources.",
             }
 
-        ranked_chunks = []
-        for chunk in chunk_list(collected_jobs, 20):
-            ranked_result = rank_jobs_with_gemini(candidate_context, chunk)
-            ranked_jobs = ranked_result.get("jobs", [])
-            if isinstance(ranked_jobs, list):
-                for job in ranked_jobs:
-                    normalized = normalize_job(job, location_city)
-                    if normalized:
-                        ranked_chunks.append(normalized)
-
-        ranked_chunks = dedupe_jobs(ranked_chunks)
-
-        final_ranked = rank_jobs_with_gemini(candidate_context, ranked_chunks[:60])
+        final_ranked = rank_jobs_with_gemini(candidate_context, filtered_jobs[:60])
         final_jobs = final_ranked.get("jobs", [])
         best_match_summary = str(
             final_ranked.get(
                 "best_match_summary",
-                "Top matches were selected based on closest role, domain, and skill alignment."
+                "Top matches were selected based on closest role, domain, and skill alignment.",
             )
         )
 
@@ -523,7 +559,7 @@ async def search_jobs(
         sanitized_final_jobs = dedupe_jobs(sanitized_final_jobs)[:40]
 
         if not sanitized_final_jobs:
-            sanitized_final_jobs = ranked_chunks[:40]
+            sanitized_final_jobs = filtered_jobs[:40]
 
         return {
             "jobs": sanitized_final_jobs,
@@ -531,4 +567,9 @@ async def search_jobs(
         }
 
     except Exception as search_error:
+        if is_quota_error(search_error):
+            raise HTTPException(
+                status_code=429,
+                detail="Gemini free-tier quota is exhausted for job search right now. Please wait a few minutes and try again, or reduce repeated searches.",
+            )
         raise HTTPException(status_code=500, detail=f"Web Grounding Compilation Exception: {str(search_error)}")
