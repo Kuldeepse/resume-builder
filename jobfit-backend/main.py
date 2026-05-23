@@ -14,8 +14,7 @@ from reportlab.lib import colors
 
 app = FastAPI()
 
-# 🎯 FIXED: Set allow_credentials to False when using wildcard allow_origins=["*"] 
-# This enforces proper cross-origin compliance on Render's firewall layer.
+# Configure cross-origin sharing policies defensively
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -35,7 +34,7 @@ if not supabase_url or not supabase_key:
 
 supabase: Client = create_client(supabase_url, supabase_key)
 
-# 🚀 INITIALIZE THE GOOGLE GENAI CLIENT
+# 🚀 INITIALIZE THE NATIVE GOOGLE GENAI TIER CLIENT LAYER
 gemini_client = genai.Client()
 
 
@@ -129,7 +128,6 @@ CRITICAL INSTRUCTIONS:
             )
         )
         
-        # 🎯 FIXED: Robust text slicing logic block eliminates method split/strip exception errors completely
         raw_text = response.text.strip()
         if "```json" in raw_text:
             raw_text = raw_text.split("```json")[-1].split("```")[0].strip()
@@ -223,8 +221,6 @@ CRITICAL INSTRUCTIONS:
         "resume": resume_data, 
         "shareable_url": public_url
     }
-
-
 @app.post("/search-jobs/")
 @app.post("/search-jobs")
 async def search_jobs(
@@ -238,19 +234,19 @@ async def search_jobs(
 Analyze the parameters to return up to 40 active, real job listings posted in the last 10 days.
 
 REQUIRED OUTPUT JSON STRUCTURE EXACTLY:
-{{
+{
   "jobs": [
-    {{
+    {
       "title": "Job Title String",
       "company": "Company Name String",
       "location": "City, State or Remote String",
-      "salary": "\$Range or Not Disclosed String",
+      "salary": "$Range or Not Disclosed String",
       "skills": ["skill1", "skill2"],
       "link": "The real open source link url or 'search on company website'"
-    }}
+    }
   ],
   "best_match_summary": "A high-density one-line statement analyzing which 3 jobs are top matches for this user based on their input skills and why."
-}}
+}
 
 CRITICAL DATA RETRIEVAL RULES:
 1. Compile up to 40 unique listings matching the parameters.
@@ -258,8 +254,48 @@ CRITICAL DATA RETRIEVAL RULES:
 3. Your output must be pure raw valid JSON string content only. Do not wrap in markdown or backticks."""
 
     try:
+        # 🌐 FIXED: Replaced legacy string tool mapping with official modern Google Search tool SDK configuration layout blocks
         response = gemini_client.models.generate_content(
             model='gemini-2.5-flash',
             contents=f"Query Constraints: {search_query}\nUser Skills Context: {resume_skills}\nTarget Role Context: {target_role}",
             config=types.GenerateContentConfig(
-system_instruction=system_prompt,response_mime_type="application/json",tools=[{"google_search": {}}],temperature=0.2))clean_text = response.text.strip()if "json" in clean_text: clean_text = clean_text.split("json")[-1].split("")[0].strip() elif "" in clean_text:clean_text = clean_text.split("")[-1].split("")[0].strip()jobs_result = json.loads(clean_text)except Exception as search_error:raise HTTPException(status_code=500, detail=f"Web Grounding Compilation Exception: {str(search_error)}")raw_jobs = jobs_result.get("jobs", [])if not isinstance(raw_jobs, list):raw_jobs = []sanitized_jobs = []for job in raw_jobs:if isinstance(job, dict):skills_raw = job.get("skills", [])skills_arr = skills_raw if isinstance(skills_raw, list) else [str(skills_raw)]sanitized_jobs.append({"title": str(job.get("title", "Opportunities Tracker")),"company": str(job.get("company", "Enterprise Resource")),"location": str(job.get("location", location_city)),"salary": str(job.get("salary", "Not Disclosed")),"skills": [str(s) for s in skills_arr],"link": str(job.get("link", "search on company website"))})return {"jobs": sanitized_jobs,"best_match_summary": str(jobs_result.get("best_match_summary", "Review the table matrix results above to locate best technical alignments."))}
+                system_instruction=system_prompt,
+                response_mime_type="application/json",
+                tools=[types.Tool(google_search=types.GoogleSearch())],
+                temperature=0.2
+            )
+        )
+        
+        # ✅ FIXED: Placed extraction loops safely into separate structural lines to eliminate layout parsing exceptions
+        clean_text = response.text.strip()
+        if "```json" in clean_text:
+            clean_text = clean_text.split("```json")[-1].split("```")[0].strip()
+        elif "```" in clean_text:
+            clean_text = clean_text.split("```")[-1].split("```")[0].strip()
+            
+        jobs_result = json.loads(clean_text)
+    except Exception as search_error:
+        raise HTTPException(status_code=500, detail=f"Web Grounding Compilation Exception: {str(search_error)}")
+
+    raw_jobs = jobs_result.get("jobs", [])
+    if not isinstance(raw_jobs, list):
+        raw_jobs = []
+        
+    sanitized_jobs = []
+    for job in raw_jobs:
+        if isinstance(job, dict):
+            skills_raw = job.get("skills", [])
+            skills_arr = skills_raw if isinstance(skills_raw, list) else [str(skills_raw)]
+            sanitized_jobs.append({
+                "title": str(job.get("title", "Opportunities Tracker")),
+                "company": str(job.get("company", "Enterprise Resource")),
+                "location": str(job.get("location", location_city)),
+                "salary": str(job.get("salary", "Not Disclosed")),
+                "skills": [str(s) for s in skills_arr],
+                "link": str(job.get("link", "search on company website"))
+            })
+
+    return {
+        "jobs": sanitized_jobs,
+        "best_match_summary": str(jobs_result.get("best_match_summary", "Review the table matrix results above to locate best technical alignments."))
+    }
