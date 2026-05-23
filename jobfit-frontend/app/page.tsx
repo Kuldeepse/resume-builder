@@ -184,7 +184,7 @@ export default function Home() {
               darkMode ? 'bg-indigo-500/10 border-stone-800 text-indigo-300' : 'bg-amber-50 border-amber-200 text-amber-900'
             }`}
           >
-            <Sparkles className="w-3 h-3" /> Engine Active: Gemini 2.5 Flash
+            <Sparkles className="w-3 h-3" /> Builder: Ollama | Search: Gemini Flash
           </div>
 
           <h1 className="text-3xl md:text-5xl font-black tracking-tight">AI Career Intelligence Matrix</h1>
@@ -576,5 +576,3 @@ export default function Home() {
         </p>
       </footer>
     </main>
-  );
-}
