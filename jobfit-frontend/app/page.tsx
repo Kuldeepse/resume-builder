@@ -86,42 +86,44 @@ export default function Home() {
     }
   };
 
-  const handleSearchJobs = async () => {
-    if (!targetRole.trim() || !searchCity.trim()) {
-      return alert('Please enter Target Role and Search City before running job search.');
-    }
+ const handleSearchJobs = async () => {
+  if (!searchCity.trim()) {
+    return alert('Please enter Search City before running job search.');
+  }
 
-    if (!searchSkills.trim() && !searchFile) {
-      return alert('Please enter Resume / Skills Summary Profile or upload a CV.');
-    }
+  if (!searchSkills.trim() && !searchFile) {
+    return alert('Please enter Resume / Skills Summary Profile or upload a CV.');
+  }
 
-    setSearchLoading(true);
-    setJobResults(null);
+  setSearchLoading(true);
+  setJobResults(null);
 
-    const formData = new FormData();
-    formData.append('target_role', targetRole.trim());
-    formData.append('location_city', searchCity.trim());
-    formData.append('resume_skills', searchSkills.trim());
+  const inferredTargetRole = searchSkills.trim() || targetRole.trim() || 'Software Engineer';
 
-    if (searchFile) {
-      formData.append('resume_file', searchFile);
-    }
+  const formData = new FormData();
+  formData.append('target_role', inferredTargetRole);
+  formData.append('location_city', searchCity.trim());
+  formData.append('resume_skills', searchSkills.trim());
 
-    try {
-      const res = await fetch('https://resume-builder-backend-ph7b.onrender.com/search-jobs', {
-        method: 'POST',
-        body: formData,
-      });
+  if (searchFile) {
+    formData.append('resume_file', searchFile);
+  }
 
-      if (!res.ok) throw new Error();
+  try {
+    const res = await fetch('https://resume-builder-backend-ph7b.onrender.com/search-jobs', {
+      method: 'POST',
+      body: formData,
+    });
 
-      setJobResults(await res.json());
-    } catch {
-      alert('Live open web query pipeline timing mismatch. Verify backend endpoint channels.');
-    } finally {
-      setSearchLoading(false);
-    }
-  };
+    if (!res.ok) throw new Error();
+
+    setJobResults(await res.json());
+  } catch {
+    alert('Live open web query pipeline timing mismatch. Verify backend endpoint channels.');
+  } finally {
+    setSearchLoading(false);
+  }
+};
 
   const handleCopyLink = () => {
     if (!results?.shareable_url) return;
