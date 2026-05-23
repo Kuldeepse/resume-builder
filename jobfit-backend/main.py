@@ -29,7 +29,8 @@ if not supabase_url or not supabase_key:
     raise ValueError("CRITICAL FAILURE: Missing required Supabase credentials.")
 supabase: Client = create_client(supabase_url, supabase_key)
 
-# 🚀 HIGHEST ACCURACY FREE LOGIC ENGINE (GEMINI 1.5 PRO)
+# 🚀 INITIALIZE THE CORRECT GOOGLE GENAI CLIENT VIA ENVIRONMENT VARIABLE
+# Ensure GEMINI_API_KEY is configured in your Render settings panel!
 gemini_client = genai.Client()
 
 # 📋 Pydantic Architectural Blueprints (Guarantees Strict Output Validation)
@@ -84,7 +85,7 @@ async def build_and_compare_resume(
 
     system_prompt = (
         f"You are an expert tech recruiter and automated ATS tracking system script.\n"
-        f"Analyze the candidate parameters explicitly against the provided job description criteria.\n"
+        f"Analyze the candidate parameters explicitly against the provided job description requirements.\n"
         f"CRITICAL COMPLIANCE TARGETS:\n"
         f"1. match_score: Grade technical fit critically from 0 to 100 based strictly on overlap.\n"
         f"2. missing_skills: Isolate explicit hard tools/languages omitted in the experience profile text.\n"
@@ -96,8 +97,9 @@ async def build_and_compare_resume(
     linkedin_context = f"\nCandidate LinkedIn URL Profile Data: {linkedin_profile}" if linkedin_profile else ""
 
     try:
+        # Enforce structured validation output tracking utilizing gemini-2.5-pro
         response = gemini_client.models.generate_content(
-            model='gemini-1.5-pro',
+            model='gemini-2.5-pro',
             contents=f"Candidate Name: {full_name}\nTarget: {target_role}{linkedin_context}\nHistory: {career_history}\nJD:\n{job_description}",
             config=types.GenerateContentConfig(
                 system_instruction=system_prompt,
