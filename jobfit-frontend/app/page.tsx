@@ -100,7 +100,7 @@ export default function Home() {
                   <label className="font-bold text-xxs uppercase tracking-wider flex items-center gap-1 text-amber-900 dark:text-amber-400"><UserCheck className="w-3 h-3 text-indigo-500"/> Interview Category</label>
                   <select className={`w-full border p-3 rounded-xl focus:outline-none transition-all cursor-pointer ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-200 focus:border-amber-800' : 'bg-stone-50 border-stone-200 text-slate-800'}`} value={interviewType} onChange={(e) => setInterviewType(e.target.value as 'hr' | 'technical')}>
                     <option value="technical">Technical Interview Track</option>
-                    <option value="hr">HR / Behavioral Interview Track</option>
+                    <option value="hr">HR Interview Track</option>
                   </select>
                 </div>
                 <div className="space-y-1.5">
