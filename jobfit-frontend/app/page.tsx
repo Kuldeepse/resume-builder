@@ -184,7 +184,7 @@ export default function Home() {
               darkMode ? 'bg-indigo-500/10 border-stone-800 text-indigo-300' : 'bg-amber-50 border-amber-200 text-amber-900'
             }`}
           >
-            <Sparkles className="w-3 h-3" /> Builder: Ollama | Search: Gemini Flash
+            <Sparkles className="w-3 h-3" /> Engine Active: Gemini 2.5 Flash
           </div>
 
           <h1 className="text-3xl md:text-5xl font-black tracking-tight">AI Career Intelligence Matrix</h1>
@@ -411,9 +411,86 @@ export default function Home() {
               </button>
             </div>
 
-            <div className={`border p-6 rounded-xl space-y-4 max-h-[500px] overflow-y-auto ${darkMode ? 'border-stone-800 bg-stone-950' : 'border-stone-200 bg-white'}`}>
-              <h2 className="text-xl font-extrabold">{results.resume?.full_name}</h2>
-              <p>{results.resume?.professional_summary}</p>
+            <div className={`border p-6 rounded-xl space-y-6 max-h-[640px] overflow-y-auto ${darkMode ? 'border-stone-800 bg-stone-950' : 'border-stone-200 bg-white'}`}>
+              <div className="space-y-3 border-b border-dashed border-stone-200 dark:border-stone-800 pb-4">
+                <h2 className="text-2xl font-extrabold tracking-tight">{results.resume?.full_name}</h2>
+                <div className={`text-[11px] uppercase tracking-[0.14em] font-bold ${darkMode ? 'text-indigo-400' : 'text-indigo-700'}`}>
+                  Tailored Resume Draft for {targetRole || 'Target Role'}
+                </div>
+                <p className="text-sm leading-7">{results.resume?.professional_summary}</p>
+              </div>
+
+              <section className="space-y-3">
+                <div className={`text-[11px] uppercase tracking-[0.14em] font-black ${darkMode ? 'text-amber-400' : 'text-amber-900'}`}>
+                  Core Skills
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {results.resume?.skills?.length ? (
+                    results.resume.skills.map((s: string, i: number) => (
+                      <span
+                        key={i}
+                        className={`font-bold px-2.5 py-1 rounded-md border text-[10px] tracking-wide ${
+                          darkMode ? 'bg-slate-900 border-slate-800 text-indigo-400' : 'bg-slate-50 border-slate-200 text-indigo-700'
+                        }`}
+                      >
+                        {s}
+                      </span>
+                    ))
+                  ) : (
+                    <p className={`text-xs ${darkMode ? 'text-stone-400' : 'text-stone-500'}`}>Skills will appear here once returned by the model.</p>
+                  )}
+                </div>
+              </section>
+
+              <section className="space-y-4">
+                <div className={`text-[11px] uppercase tracking-[0.14em] font-black ${darkMode ? 'text-amber-400' : 'text-amber-900'}`}>
+                  Professional Experience
+                </div>
+                {results.resume?.experience?.length ? (
+                  results.resume.experience.map((exp: any, i: number) => (
+                    <div key={i} className="space-y-2.5 border-l-2 border-amber-600/50 pl-4 relative">
+                      <div className="absolute w-2 h-2 rounded-full bg-amber-600 -left-[5px] top-1 shadow-sm" />
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="space-y-0.5">
+                          <div className="font-extrabold text-sm">{exp.role}</div>
+                          <div className={`text-xs font-semibold ${darkMode ? 'text-stone-300' : 'text-stone-700'}`}>{exp.company}</div>
+                        </div>
+                        <div className="text-indigo-600 dark:text-indigo-400 text-[10px] tracking-wider font-mono whitespace-nowrap">
+                          {exp.duration}
+                        </div>
+                      </div>
+                      <ul className="list-none space-y-1.5 text-[12px] pl-0 leading-6">
+                        {exp.bullet_points?.map((b: string, idx: number) => (
+                          <li key={idx} className="flex items-start gap-2">
+                            <span className="mt-[2px]">▪</span>
+                            <span>{b}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))
+                ) : (
+                  <p className={`text-xs ${darkMode ? 'text-stone-400' : 'text-stone-500'}`}>Experience details will appear here once returned by the model.</p>
+                )}
+              </section>
+
+              <section className="space-y-3 border-t border-dashed border-stone-200 dark:border-stone-800 pt-4">
+                <div className={`text-[11px] uppercase tracking-[0.14em] font-black ${darkMode ? 'text-amber-400' : 'text-amber-900'}`}>
+                  Tailoring Notes
+                </div>
+                <ul className="space-y-2">
+                  {results.tailoring_tips?.length ? (
+                    results.tailoring_tips.map((tip: string, idx: number) => (
+                      <li key={idx} className="flex items-start gap-2 text-xs leading-6">
+                        <CheckCircle2 className="w-4 h-4 shrink-0 mt-1 text-amber-700 dark:text-amber-400" />
+                        <span>{tip}</span>
+                      </li>
+                    ))
+                  ) : (
+                    <li className={`text-xs ${darkMode ? 'text-stone-400' : 'text-stone-500'}`}>No additional tailoring notes were returned.</li>
+                  )}
+                </ul>
+              </section>
             </div>
           </div>
         )}
