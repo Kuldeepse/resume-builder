@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { Sparkles, RefreshCw, BarChart3, AlertTriangle, Target, FileText, User, Code, HelpCircle, RotateCcw, ClipboardCheck, ArrowRight, ArrowLeftRight, CheckCircle2, Sun, Moon, Heart, Link, Clock, ListOrdered, UserCheck, MessageSquarePlus } from 'lucide-react';
+import { Sparkles, RefreshCw, BarChart3, AlertTriangle, Target, FileText, User, Code, HelpCircle, RotateCcw, ClipboardCheck, ArrowRight, ArrowLeftRight, CheckCircle2, Sun, Moon, Heart, Link, Clock, ListOrdered, UserCheck, MessageSquarePlus, UploadCloud, Trash2 } from 'lucide-react';
 
 export default function Home() {
   const [mounted, setMounted] = useState(false);
@@ -18,7 +18,7 @@ export default function Home() {
   const [tab, setTab] = useState<'builder' | 'validation' | 'updated_resume' | 'prep' | 'job_search'>('builder');
   const [darkMode, setDarkMode] = useState(false);
 
-  // Job Search Tab Specific Custom States
+  // Job Search Tab Specific States
   const [searchCity, setSearchCity] = useState('');
   const [searchFile, setSearchFile] = useState<File | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
@@ -40,7 +40,7 @@ export default function Home() {
     formData.append('career_history', careerHistory); 
     formData.append('job_description', jobDescription);
     try {
-      const res = await fetch('https://onrender.com', { method: 'POST', body: formData });
+      const res = await fetch('https://resume-builder-backend-ph7b.onrender.com/build-resume', { method: 'POST', body: formData });
       if (!res.ok) throw new Error();
       setResults(await res.json());
       setTab('validation');
@@ -50,7 +50,7 @@ export default function Home() {
   };
 
   const handleSearchJobs = async () => {
-    if (!searchCity || !searchFile) return alert("Please specify target location and upload a Resume file.");
+    if (!searchCity || !searchFile) return alert("Please specify target location and attach your CV file.");
     setSearchLoading(true); setJobResults(null);
     const formData = new FormData();
     formData.append('target_role', targetRole || "Software Engineer");
@@ -87,7 +87,13 @@ export default function Home() {
 
         {results && (
           <div className={`flex flex-wrap border p-1.5 gap-1.5 backdrop-blur-md rounded-2xl shadow-sm overflow-x-auto ${darkMode ? 'bg-stone-900/80 border-slate-800' : 'bg-white border-amber-900/10'}`}>
-            {([['builder', 'Pipeline Builder', Sparkles], ['validation', 'Resume Validation', ClipboardCheck], ['updated_resume', 'Tailored Output', FileText], ['prep', 'Interview Vectors', User], ['job_search', 'Active Openings', Target]] as const).map(([t, label, Icon]) => (
+            {([
+              ['builder', 'Pipeline Builder', Sparkles], 
+              ['validation', 'Resume Validation', ClipboardCheck], 
+              ['updated_resume', 'Tailored Output', FileText], 
+              ['prep', 'Interview Vectors', User],
+              ['job_search', 'Job Openings Tracker', Target]
+            ] as const).map(([t, label, Icon]) => (
               <button key={t} onClick={() => setTab(t)} className={`px-4 py-2 font-bold rounded-xl flex items-center gap-1.5 cursor-pointer transition-all duration-200 text-xxs tracking-wide ${tab === t ? 'bg-amber-900 text-white shadow-md scale-[1.01]' : darkMode ? 'text-stone-400 hover:bg-stone-800' : 'text-stone-600 hover:bg-amber-50'}`}><Icon className="w-3.5 h-3.5"/> {label}</button>
             ))}
           </div>
@@ -96,17 +102,17 @@ export default function Home() {
           <div className={`border p-6 rounded-2xl shadow-sm space-y-6 ${darkMode ? 'bg-stone-900/40 border-slate-800/60 shadow-2xl' : 'bg-white border-amber-900/10'}`}>
             <div className={`flex justify-between items-center border-b pb-3 ${darkMode ? 'border-stone-800/60' : 'border-stone-100'}`}>
               <h2 className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${darkMode ? 'text-amber-400' : 'text-amber-900'}`}><ArrowLeftRight className="w-4 h-4"/> Core Variable Mapping</h2>
-              {results && <button type="button" onClick={() => { setFullName(''); setTargetRole(''); setLinkedin(''); setDuration('30 minutes'); setTotalQuestions(5); setInterviewType('technical'); setCareerHistory(''); setJobDescription(''); setResults(null); setJobResults(null); setSearchCity(''); setSearchFile(null); setTab('builder'); }} className={`flex items-center gap-1 font-bold px-3 py-1 rounded-xl border text-xxs tracking-wide cursor-pointer ${darkMode ? 'bg-rose-950 text-rose-400 border-rose-900/40' : 'bg-rose-50 text-rose-700 border-rose-200'}`}><RotateCcw className="w-3 h-3"/> Reset Form</button>}
+              {results && <button type="button" onClick={() => { setFullName(''); setTargetRole(''); setLinkedin(''); setDuration('30 minutes'); setTotalQuestions(5); setInterviewType('technical'); setCareerHistory(''); setJobDescription(''); setResults(null); setJobResults(null); setSearchFile(null); setSearchCity(''); setTab('builder'); }} className={`flex items-center gap-1 font-bold px-3 py-1 rounded-xl border text-xxs tracking-wide cursor-pointer ${darkMode ? 'bg-rose-950 text-rose-400 border-rose-900/40' : 'bg-rose-50 text-rose-700 border-rose-200'}`}><RotateCcw className="w-3 h-3"/> Reset Form</button>}
             </div>
             <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="font-bold text-xxs uppercase tracking-wider text-slate-500">Applicant Full Name</label>
-                  <input type="text" className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${darkMode ? 'bg-stone-950 border-stone-800 text-slate-200 focus:border-amber-800' : 'bg-stone-50 border-stone-200 text-stone-800'}`} placeholder="e.g. Alex Mercer" value={fullName} onChange={(e) => setFullName(e.target.value)} />
+                  <input type="text" className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-200 focus:border-amber-800' : 'bg-stone-50 border-stone-200 text-stone-800'}`} placeholder="e.g. Alex Mercer" value={fullName} onChange={(e) => setFullName(e.target.value)} />
                 </div>
                 <div className="space-y-1.5">
                   <label className="font-bold text-xxs uppercase tracking-wider text-slate-500">Target Role Objective</label>
-                  <input type="text" className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${darkMode ? 'bg-stone-950 border-stone-800 text-slate-200 focus:border-amber-800' : 'bg-stone-50 border-stone-200 text-stone-800'}`} placeholder="e.g. Senior Frontend Architect" value={targetRole} onChange={(e) => setTargetRole(e.target.value)} />
+                  <input type="text" className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-200 focus:border-amber-800' : 'bg-stone-50 border-stone-200 text-stone-800'}`} placeholder="e.g. Senior Frontend Architect" value={targetRole} onChange={(e) => setTargetRole(e.target.value)} />
                 </div>
               </div>
 
@@ -131,13 +137,12 @@ export default function Home() {
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="font-bold text-xxs uppercase tracking-wider text-slate-500 flex items-center gap-1"><ListOrdered className="w-3 h-3 text-indigo-500"/> Total Questions Needed: <span className="text-indigo-600 dark:text-indigo-400 font-extrabold ml-1">{totalQuestions}</span></label>
+                  <label className="font-bold text-xxs uppercase tracking-wider text-slate-500 flex items-center gap-1"><ListOrdered className="w-3 h-3 text-indigo-500"/> Questions Total Cap: <span className="text-indigo-600 dark:text-indigo-400 font-extrabold ml-1">{totalQuestions}</span></label>
                   <div className="flex items-center gap-2 pt-2">
                     <input type="range" min="5" max="25" className="w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-800" value={totalQuestions} onChange={(e) => setTotalQuestions(parseInt(e.target.value))} />
                   </div>
                 </div>
               </div>
-
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className={`space-y-1.5 p-4 rounded-xl border ${darkMode ? 'bg-stone-950/40 border-slate-800/60' : 'bg-stone-50/60 border-stone-200/60'}`}>
                   <label className="font-bold text-xxs uppercase tracking-wider flex items-center gap-1 text-amber-900 dark:text-amber-400"><FileText className="w-3.5 h-3.5"/> Legacy Career Profile</label>
@@ -150,7 +155,7 @@ export default function Home() {
                   <textarea rows={6} className={`w-full border p-3 rounded-xl focus:outline-none font-mono text-[11px] leading-relaxed ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-300 focus:border-amber-800' : 'bg-white border-stone-200 text-slate-800'}`} placeholder="Seeking an engineer with deep runtime comprehension of cloud topologies..." value={jobDescription} onChange={(e) => setJobDescription(e.target.value)} />
                 </div>
               </div>
-              <button type="button" onClick={handleGenerate} disabled={loading} className="w-full bg-amber-900 hover:bg-amber-800 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 cursor-pointer text-xxs uppercase tracking-widest disabled:bg-stone-300 dark:disabled:bg-stone-900 shadow-md">
+              <button type="button" onClick={handleGenerate} disabled={loading} className="w-full bg-amber-900 hover:bg-amber-800 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 cursor-pointer text-xxs uppercase tracking-widest disabled:bg-stone-300 dark:disabled:bg-stone-800 shadow-md">
                 {loading ? <><RefreshCw className="animate-spin w-4 h-4 text-amber-200" /> Computing Neural Vectors...</> : <><Sparkles className="w-4 h-4 text-amber-400" /> Execute Generation Cycle</>}
               </button>
             </form>
@@ -174,7 +179,7 @@ export default function Home() {
               </div>
               <div className={`p-6 rounded-2xl border flex flex-col ${darkMode ? 'bg-slate-950 border-slate-800' : 'bg-[#F2ECE4] border-amber-200/80 text-stone-900'}`}>
                 <h4 className="text-amber-800 dark:text-amber-400 font-black uppercase tracking-widest text-xs flex items-center gap-1.5 border-b pb-2 border-amber-800/10 mb-4"><Target className="w-4 h-4 text-amber-800 dark:text-amber-400 shrink-0"/> Optimization Strategy Advice</h4>
-                <ul className="space-y-2.5 text-xs font-semibold leading-relaxed overflow-y-auto pr-1 max-h-48 pl-0 list-none">{results.tailoring_tips?.map((t: string, i: number) => <li key={i} className="flex items-start gap-2 border-b border-dashed border-amber-900/10 dark:border-slate-800/40 pb-1.5 last:border-0"><CheckCircle2 className="w-4 h-4 text-amber-800 dark:text-amber-500 shrink-0 mt-0.5"/> <span>{t}</span></li>)}</ul>
+                <ul className="space-y-2.5 text-xs font-semibold leading-relaxed overflow-y-auto pr-1 max-h-48 pl-0 list-none">{results.tailoring_tips?.map((t: string, i: number) => <li key={i} className={`flex items-start gap-2 border-b border-dashed pb-1.5 last:border-0 ${darkMode ? 'border-slate-800' : 'border-amber-900/10'}`}><CheckCircle2 className="w-4 h-4 text-amber-800 dark:text-amber-500 shrink-0 mt-0.5"/> <span>{t}</span></li>)}</ul>
               </div>
             </div>
           </div>
@@ -185,7 +190,7 @@ export default function Home() {
               <div className="flex items-center gap-1.5 font-bold text-xxs tracking-wider uppercase text-amber-100"><FileText className="w-4 h-4"/> Tailored Optimization Resume Output Map</div>
               <button onClick={handleCopyLink} className="bg-white text-amber-900 px-3 py-1.5 rounded-xl font-bold cursor-pointer text-[10px] uppercase tracking-wider border border-amber-100">{copied ? "Blueprint Linked!" : "Copy Public PDF Link"}</button>
             </div>
-            <div className={`border p-6 rounded-xl space-y-4 max-h-[500px] overflow-y-auto shadow-inner leading-relaxed ${darkMode ? 'border-stone-800 bg-slate-950 text-slate-100' : 'border-slate-200 bg-white text-slate-900'}`}>
+            <div className={`border p-6 rounded-xl space-y-4 max-h-[500px] overflow-y-auto shadow-inner leading-relaxed ${darkMode ? 'border-slate-800 bg-slate-950 text-slate-100' : 'border-slate-200 bg-white text-slate-900'}`}>
               <h2 className="text-xl font-extrabold tracking-tight border-b pb-2 border-slate-200 dark:border-slate-800">{results.resume?.full_name}</h2>
               <p className="text-xs font-medium tracking-wide leading-relaxed">{results.resume?.professional_summary}</p>
               <div className="flex flex-wrap gap-1.5 pt-1">
@@ -272,8 +277,8 @@ export default function Home() {
             )}
           </div>
         )}
-        {tab === 'job_search' && results && (
-          <div className={`border p-6 rounded-2xl shadow-sm space-y-6 transition-all duration-300 ${darkMode ? 'bg-stone-900/40 border-stone-800/60 shadow-2xl' : 'bg-white border-amber-900/10'}`}>
+{tab === 'job_search' && results && (
+            <div className={`border p-6 rounded-2xl shadow-sm space-y-6 transition-all duration-300 ${darkMode ? 'bg-stone-900/40 border-stone-800/60 shadow-2xl' : 'bg-white border-amber-900/10'}`}>
             <div className="border-b pb-3 flex justify-between items-center dark:border-stone-800">
               <h2 className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${darkMode ? 'text-amber-400' : 'text-amber-900'}`}>
                 <Target className="w-4 h-4"/> Real-Time Grounded Job Discovery Node
@@ -351,7 +356,6 @@ export default function Home() {
                     </tbody>
                   </table>
                 </div>
-
                 {jobResults.best_match_summary && (
                   <div className={`p-4 rounded-xl border flex items-start gap-2 text-xs font-semibold leading-relaxed shadow-sm ${darkMode ? 'bg-indigo-950/20 border-indigo-900/40 text-slate-200' : 'bg-indigo-50 border-indigo-100 text-indigo-900'}`}>
                     <Sparkles className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5" />
@@ -369,7 +373,7 @@ export default function Home() {
 
       <footer className="w-full text-center py-6 mt-12 border-t border-dashed border-amber-900/10 dark:border-slate-800">
         <p className="text-[11px] font-bold tracking-widest text-stone-400 dark:text-stone-500 uppercase flex items-center justify-center gap-1.5">
-          Crafted with <Heart className="w-3.5 h-3.5 text-rose-600 fill-rose-600 animate-pulse" /> & Developed by <span className="text-amber-900 dark:text-indigo-400 font-extrabold font-mono">Kuldeep Sharma</span>
+          Crafted with <Heart className="w-3.5 h-3.5 text-rose-600 fill-rose-600" /> & Developed by <span className="text-amber-900 dark:text-indigo-400 font-extrabold font-mono">Kuldeep Sharma</span>
         </p>
       </footer>
     </main>
