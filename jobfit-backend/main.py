@@ -1,3 +1,71 @@
+import os
+import json
+import math
+from fastapi import FastAPI, Form, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from google import genai
+from google.genai import types
+from pydantic import BaseModel, Field
+from typing import List, Optional, Any
+from supabase import create_client, Client
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib import colors
+
+app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# 🔐 CLOUD STORAGE SECURE CONNECTION
+supabase_url = os.getenv("SUPABASE_URL")
+supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY")
+
+if not supabase_url or not supabase_key:
+    supabase_url = supabase_url or "https://supabase.co"
+    supabase_key = supabase_key or "placeholder-key"
+
+supabase: Client = create_client(supabase_url, supabase_key)
+
+# 🚀 INITIALIZE THE GOOGLE GENAI CLIENT
+gemini_client = genai.Client()
+
+# 📋 Highly Resilient Pydantic v2 Blueprints
+class ExperienceItem(BaseModel):
+    company: str = Field(default="Company")
+    role: str = Field(default="Engineer")
+    duration: str = Field(default="Present")
+    bullet_points: List[str] = Field(default_factory=list)
+
+class ResumeData(BaseModel):
+    full_name: str = Field(default="")
+    professional_summary: str = Field(default="")
+    skills: List[str] = Field(default_factory=list)
+    experience: List[ExperienceItem] = Field(default_factory=list)
+
+class InterviewItem(BaseModel):
+    question: str = Field(default="")
+    response: str = Field(default="")
+
+class CareerDashboardSchema(BaseModel):
+    match_score: int = Field(default=70)
+    missing_skills: List[str] = Field(default_factory=list)
+    tailoring_tips: List[str] = Field(default_factory=list)
+    tell_me_about_yourself: str = Field(default="")
+    interview_questions: List[InterviewItem] = Field(default_factory=list)
+    follow_up_questions: List[str] = Field(default_factory=list)
+    resume: ResumeData
+
+
+@app.get("/health/")
+async def health_check():
+    return {"status": "healthy"}
 @app.post("/build-resume")
 async def build_and_compare_resume(
     full_name: str = Form(...),
@@ -12,7 +80,7 @@ async def build_and_compare_resume(
     if "placeholder" in supabase_url or "placeholder" in supabase_key:
         raise HTTPException(
             status_code=500, 
-            detail="Deployment Configuration Error: Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY on Render."
+            detail="Configuration Error: Missing SUPABASE_URL variables on Render."
         )
 
     try:
@@ -69,8 +137,11 @@ async def build_and_compare_resume(
                 temperature=0.1
             )
         )
+        
+        # 🎯 RESILIENT DE-SERIALIZATION BLOCK
+        # Checks parsed outputs first, then cleanly handles text blocks if parsing hiccups occur
         if response.parsed:
-            analysis_result = response.parsed.model_dump()
+            analysis_result = response.parsed.model_dump() if hasattr(response.parsed, 'model_dump') else response.parsed.dict()
         else:
             analysis_result = json.loads(response.text.strip())
             
@@ -78,6 +149,9 @@ async def build_and_compare_resume(
         raise HTTPException(status_code=500, detail=f"AI Engine Extraction Crash Error: {str(ai_err)}")
 
     resume_data = analysis_result.get("resume", {})
+    if not resume_data:
+        resume_data = {}
+        
     public_url = "Cloud Storage Connection Mismatch"
 
     try:
