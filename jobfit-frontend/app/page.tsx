@@ -17,18 +17,15 @@ export default function Home() {
   const [darkMode, setDarkMode] = useState(false);
 
   const handleGenerate = async () => {
-    if (!fullName || !targetRole || !careerHistory || !jobDescription) return alert("Please fill out all mandatory metrics fields.");
+    if (!fullName || !targetRole || !careerHistory || !jobDescription) return alert("Please fill out all mandatory fields.");
     setLoading(true); setResults(null);
     const formData = new FormData();
-    formData.append('full_name', fullName); 
-    formData.append('target_role', targetRole);
-    formData.append('linkedin_profile', linkedin);
-    formData.append('interview_duration', duration);
+    formData.append('full_name', fullName); formData.append('target_role', targetRole);
+    formData.append('linkedin_profile', linkedin); formData.append('interview_duration', duration);
     formData.append('total_questions_requested', totalQuestions.toString());
-    formData.append('career_history', careerHistory); 
-    formData.append('job_description', jobDescription);
+    formData.append('career_history', careerHistory); formData.append('job_description', jobDescription);
     try {
-      const res = await fetch('https://onrender.com', { method: 'POST', body: formData });
+      const res = await fetch('https://resume-builder-backend-ph7b.onrender.com/build-resume', { method: 'POST', body: formData });
       if (!res.ok) throw new Error();
       setResults(await res.json());
       setTab('validation');
@@ -36,23 +33,15 @@ export default function Home() {
       alert("AI optimization cycle broken. Refocusing backend container parameters.");
     } finally { setLoading(false); }
   };
-
-  const handleCopyLink = () => {
-    if (!results?.shareable_url) return;
-    navigator.clipboard.writeText(results.shareable_url);
-    setCopied(true); setTimeout(() => setCopied(false), 2000);
-  };
-
   return (
     <main className={`min-h-screen p-4 md:p-8 font-sans antialiased transition-colors duration-300 ${darkMode ? 'bg-stone-950 text-slate-100' : 'bg-[#FAF8F5] text-slate-900'}`}>
       <div className="max-w-5xl mx-auto space-y-6">
-        
         <header className="relative flex flex-col items-center text-center space-y-3 py-4 border-b border-dashed border-amber-900/20 dark:border-slate-800">
           <button type="button" onClick={() => setDarkMode(!darkMode)} className={`absolute top-2 right-2 p-2 rounded-xl border flex items-center gap-1.5 font-bold text-[10px] uppercase tracking-wider cursor-pointer shadow-sm transition-all ${darkMode ? 'bg-stone-900 border-stone-800 text-amber-500' : 'bg-white border-stone-200 text-stone-800'}`}>
             {darkMode ? <><Sun className="w-3.5 h-3.5"/> Light Theme</> : <><Moon className="w-3.5 h-3.5"/> Dark Theme</>}
           </button>
-          <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] uppercase tracking-wider font-semibold border ${darkMode ? 'bg-indigo-500/10 border-slate-800 text-indigo-400' : 'bg-indigo-50 border-indigo-100 text-indigo-700'}`}><Sparkles className="w-3 h-3 text-indigo-500" /> Engine Active: Gemini 2.5 Pro Tier</div>
-          <h1 className="text-3xl md:text-5xl font-black tracking-tight text-slate-900 dark:text-white">AI Career Intelligence Matrix</h1>
+          <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] uppercase tracking-wider font-semibold border ${darkMode ? 'bg-indigo-500/10 border-slate-800 text-indigo-400' : 'bg-indigo-50 border-indigo-100 text-indigo-700'}`}><Sparkles className="w-3 h-3 text-indigo-500" /> Engine Active: Gemini 2.5 Pro</div>
+          <h1 className="text-3xl md:text-5xl font-black tracking-tight">AI Career Intelligence Matrix</h1>
           <p className={`text-xs md:text-sm max-w-xl mx-auto leading-relaxed font-medium ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>Bridge the gap between your engineering experience profile and ATS screening rules to secure premium interview placement.</p>
         </header>
 
@@ -66,7 +55,7 @@ export default function Home() {
 
         {tab === 'builder' && (
           <div className={`border p-6 rounded-2xl shadow-sm space-y-6 ${darkMode ? 'bg-stone-900/40 border-slate-800/60 shadow-2xl' : 'bg-white border-amber-900/10'}`}>
-            <div className={`flex justify-between items-center border-b pb-3 ${darkMode ? 'border-slate-800/60' : 'border-stone-100'}`}>
+            <div className={`flex justify-between items-center border-b pb-3 ${darkMode ? 'border-stone-800/60' : 'border-stone-100'}`}>
               <h2 className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${darkMode ? 'text-amber-400' : 'text-amber-900'}`}><ArrowLeftRight className="w-4 h-4"/> Core Variable Mapping</h2>
               {results && <button type="button" onClick={() => { setFullName(''); setTargetRole(''); setLinkedin(''); setDuration('30 minutes'); setTotalQuestions(5); setCareerHistory(''); setJobDescription(''); setResults(null); setTab('builder'); }} className={`flex items-center gap-1 font-bold px-3 py-1 rounded-xl border text-xxs tracking-wide cursor-pointer ${darkMode ? 'bg-rose-950 text-rose-400 border-rose-900/40' : 'bg-rose-50 text-rose-700 border-rose-200'}`}><RotateCcw className="w-3 h-3"/> Reset Form</button>}
             </div>
@@ -74,22 +63,22 @@ export default function Home() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="font-bold text-xxs uppercase tracking-wider text-slate-500">Applicant Full Name</label>
-                  <input type="text" className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-200 focus:border-amber-800' : 'bg-stone-50 border-stone-200 text-slate-800 focus:border-amber-900'}`} placeholder="e.g. Alex Mercer" value={fullName} onChange={(e) => setFullName(e.target.value)} />
+                  <input type="text" className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-200' : 'bg-stone-50 border-stone-200 text-slate-800'}`} placeholder="e.g. Alex Mercer" value={fullName} onChange={(e) => setFullName(e.target.value)} />
                 </div>
                 <div className="space-y-1.5">
                   <label className="font-bold text-xxs uppercase tracking-wider text-slate-500">Target Role Objective</label>
-                  <input type="text" className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-200 focus:border-amber-800' : 'bg-stone-50 border-stone-200 text-slate-800 focus:border-amber-900'}`} placeholder="e.g. Senior Frontend Architect" value={targetRole} onChange={(e) => setTargetRole(e.target.value)} />
+                  <input type="text" className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-200' : 'bg-stone-50 border-stone-200 text-slate-800'}`} placeholder="e.g. Senior Frontend Architect" value={targetRole} onChange={(e) => setTargetRole(e.target.value)} />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 border-t border-b border-dashed border-slate-200 dark:border-slate-800 py-4">
                 <div className="space-y-1.5">
                   <label className="font-bold text-xxs uppercase tracking-wider text-slate-500 flex items-center gap-1"><Link className="w-3 h-3 text-indigo-500"/> LinkedIn Profile (Optional)</label>
-                  <input type="url" className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-200 focus:border-amber-800' : 'bg-stone-50 border-stone-200 text-stone-800 focus:border-amber-900'}`} placeholder="e.g. https://linkedin.com" value={linkedin} onChange={(e) => setLinkedin(e.target.value)} />
+                  <input type="url" className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-200' : 'bg-stone-50 border-stone-200 text-slate-800'}`} placeholder="e.g. https://linkedin.com" value={linkedin} onChange={(e) => setLinkedin(e.target.value)} />
                 </div>
                 <div className="space-y-1.5">
                   <label className="font-bold text-xxs uppercase tracking-wider text-slate-500 flex items-center gap-1"><Clock className="w-3 h-3 text-indigo-500"/> Interview Duration</label>
-                  <select className={`w-full border p-3 rounded-xl focus:outline-none transition-all cursor-pointer ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-200 focus:border-amber-800' : 'bg-stone-50 border-stone-200 text-stone-800 focus:border-amber-900'}`} value={duration} onChange={(e) => setDuration(e.target.value)}>
+                  <select className={`w-full border p-3 rounded-xl focus:outline-none transition-all cursor-pointer ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-200' : 'bg-stone-50 border-stone-200 text-slate-800'}`} value={duration} onChange={(e) => setDuration(e.target.value)}>
                     <option value="30 minutes">30 Minutes</option>
                     <option value="45 minutes">45 Minutes</option>
                     <option value="60 minutes">60 Minutes</option>
@@ -106,15 +95,15 @@ export default function Home() {
                 <div className={`space-y-1.5 p-4 rounded-xl border ${darkMode ? 'bg-stone-950/40 border-slate-800/60' : 'bg-stone-50/60 border-stone-200/60'}`}>
                   <label className="font-bold text-xxs uppercase tracking-wider flex items-center gap-1 text-amber-900 dark:text-amber-400"><FileText className="w-3.5 h-3.5"/> Legacy Career Profile</label>
                   <p className="text-[10px] text-slate-400 mb-2 font-medium">Hint: List positions, technology stack tools used, or clip history.</p>
-                  <textarea rows={6} className={`w-full border p-3 rounded-xl focus:outline-none font-mono text-[11px] leading-relaxed ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-300 focus:border-amber-800' : 'bg-white border-stone-200 text-slate-800'}`} placeholder="Frontend Dev at TechCorp. Managed React architecture, optimizing layout loops..." value={careerHistory} onChange={(e) => setCareerHistory(e.target.value)} />
+                  <textarea rows={6} className={`w-full border p-3 rounded-xl focus:outline-none font-mono text-[11px] leading-relaxed ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-300' : 'bg-white border-stone-200 text-slate-800'}`} placeholder="Frontend Dev at TechCorp. Managed React architecture..." value={careerHistory} onChange={(e) => setCareerHistory(e.target.value)} />
                 </div>
                 <div className={`space-y-1.5 p-4 rounded-xl border ${darkMode ? 'bg-stone-950/40 border-slate-800/60' : 'bg-stone-50/60 border-stone-200/60'}`}>
                   <label className="font-bold text-xxs uppercase tracking-wider flex items-center gap-1 text-amber-900 dark:text-amber-400"><Target className="w-3.5 h-3.5"/> Job Description Target</label>
                   <p className="text-[10px] text-slate-400 mb-2">Hint: Paste the complete responsibilities checklist text from your target listing.</p>
-                  <textarea rows={6} className={`w-full border p-3 rounded-xl focus:outline-none font-mono text-[11px] leading-relaxed ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-300 focus:border-amber-800' : 'bg-white border-stone-200 text-slate-800'}`} placeholder="Seeking an engineer with deep runtime comprehension of cloud topologies..." value={jobDescription} onChange={(e) => setJobDescription(e.target.value)} />
+                  <textarea rows={6} className={`w-full border p-3 rounded-xl focus:outline-none font-mono text-[11px] leading-relaxed ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-300' : 'bg-white border-stone-200 text-slate-800'}`} placeholder="Seeking an engineer with deep runtime comprehension of cloud topologies..." value={jobDescription} onChange={(e) => setJobDescription(e.target.value)} />
                 </div>
               </div>
-              <button type="button" onClick={handleGenerate} disabled={loading} className="w-full bg-amber-900 hover:bg-amber-800 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all text-xxs uppercase tracking-widest disabled:bg-stone-300 dark:disabled:bg-stone-900 shadow-md">
+              <button type="button" onClick={handleGenerate} disabled={loading} className="w-full bg-amber-900 hover:bg-amber-800 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 cursor-pointer text-xxs uppercase tracking-widest disabled:bg-stone-300 dark:disabled:bg-stone-900 shadow-md">
                 {loading ? <><RefreshCw className="animate-spin w-4 h-4 text-amber-200" /> Computing Neural Vectors...</> : <><Sparkles className="w-4 h-4 text-amber-400" /> Execute Generation Cycle</>}
               </button>
             </form>
@@ -134,12 +123,12 @@ export default function Home() {
               <div className={`p-6 rounded-2xl border flex flex-col ${darkMode ? 'bg-slate-950 border-slate-800' : 'bg-slate-900 text-slate-100 border-slate-950 shadow-inner'}`}>
                 <h4 className="text-amber-400 font-black uppercase tracking-widest text-xs flex items-center gap-1.5 border-b pb-2 border-amber-500/20 mb-4"><AlertTriangle className="w-4 h-4 text-amber-500 shrink-0"/> Critical Keyword Gaps Isolate</h4>
                 <div className="flex flex-wrap gap-2 overflow-y-auto pr-1 max-h-48">
-                  {results.missing_skills?.map((s: string, i: number) => <span key={i} className="bg-amber-400/20 text-amber-300 font-bold px-3 py-1.5 rounded-xl border border-amber-400/30 text-[11px] tracking-wide shadow-sm">{s}</span>) || <span className="text-stone-400 italic text-xs">None</span>}
+                  {results.missing_skills?.map((s: string, i: number) => <span key={i} className="bg-amber-500/20 text-amber-300 font-bold px-3 py-1.5 rounded-xl border border-amber-400/30 text-[11px] tracking-wide shadow-sm">{s}</span>) || <span className="text-stone-400 italic text-xs">None</span>}
                 </div>
               </div>
               <div className={`p-6 rounded-2xl border flex flex-col ${darkMode ? 'bg-slate-950 border-slate-800' : 'bg-[#F2ECE4] border-amber-200/80 text-stone-900'}`}>
                 <h4 className="text-amber-800 dark:text-amber-400 font-black uppercase tracking-widest text-xs flex items-center gap-1.5 border-b pb-2 border-amber-800/10 mb-4"><Target className="w-4 h-4 text-amber-800 dark:text-amber-400 shrink-0"/> Optimization Strategy Advice</h4>
-                <ul className="space-y-2.5 text-xs font-semibold leading-relaxed overflow-y-auto pr-1 max-h-48 pl-0 list-none">{results.tailoring_tips?.map((t: string, i: number) => <li key={i} className="flex items-start gap-2 border-b border-dashed border-amber-900/10 dark:border-stone-800 pb-1.5 last:border-0"><CheckCircle2 className="w-4 h-4 text-amber-800 dark:text-amber-500 shrink-0 mt-0.5"/> <span>{t}</span></li>)}</ul>
+                <ul className="space-y-2.5 text-xs font-semibold leading-relaxed overflow-y-auto pr-1 max-h-48 pl-0 list-none">{results.tailoring_tips?.map((t: string, i: number) => <li key={i} className={`flex items-start gap-2 border-b border-dashed pb-1.5 last:border-0 ${darkMode ? 'border-slate-800' : 'border-amber-900/10'}`}><CheckCircle2 className="w-4 h-4 text-amber-800 dark:text-amber-500 shrink-0 mt-0.5"/> <span>{t}</span></li>)}</ul>
               </div>
             </div>
           </div>
@@ -149,7 +138,7 @@ export default function Home() {
           <div className={`border p-6 rounded-2xl shadow-sm space-y-5 ${darkMode ? 'bg-stone-900/40 border-slate-800/60' : 'bg-white border-amber-900/10'}`}>
             <div className="bg-amber-800 p-4 rounded-xl text-white flex justify-between items-center shadow-md">
               <div className="flex items-center gap-1.5 font-bold text-xxs tracking-wider uppercase text-amber-100"><FileText className="w-4 h-4"/> Tailored Optimization Resume Output Map</div>
-              <button onClick={handleCopyLink} className="bg-white text-amber-900 px-3 py-1.5 rounded-xl font-bold cursor-pointer text-[10px] uppercase tracking-wider transition-all hover:bg-slate-100 shadow-sm border border-amber-100">{copied ? "Blueprint Linked!" : "Copy Public PDF Link"}</button>
+              <button onClick={() => { if(results?.shareable_url) { navigator.clipboard.writeText(results.shareable_url); setCopied(true); setTimeout(() => setCopied(false), 2000); } }} className="bg-white text-amber-900 px-3 py-1.5 rounded-xl font-bold cursor-pointer text-[10px] uppercase tracking-wider border border-amber-100">{copied ? "Blueprint Linked!" : "Copy Public PDF Link"}</button>
             </div>
             <div className={`border p-6 rounded-xl space-y-4 max-h-[500px] overflow-y-auto shadow-inner leading-relaxed ${darkMode ? 'border-slate-800 bg-slate-950 text-slate-100' : 'border-slate-200 bg-white text-slate-900'}`}>
               <h2 className="text-xl font-extrabold tracking-tight border-b pb-2 border-slate-200 dark:border-slate-800">{results.resume?.full_name}</h2>
@@ -174,10 +163,11 @@ export default function Home() {
           <div className={`border p-6 rounded-2xl shadow-sm space-y-5 ${darkMode ? 'bg-stone-900/40 border-slate-800/60' : 'bg-white border-amber-900/10'}`}>
             <div className={`p-4 rounded-xl text-white flex justify-between items-center shadow-md ${darkMode ? 'bg-slate-950 border border-slate-800' : 'bg-stone-800'}`}>
               <div className="flex items-center gap-1.5 font-bold text-xxs tracking-wider uppercase text-amber-100"><User className="w-4 h-4"/> Recruitment Readiness Training Matrix</div>
-              <button onClick={handleCopyLink} className="bg-amber-700 text-white px-3 py-1.5 rounded-xl font-bold cursor-pointer text-[10px] uppercase tracking-wider transition-all hover:bg-amber-600 shadow-sm border border-amber-600/40">{copied ? "Link Copied!" : "Copy Public PDF Link"}</button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 max-h-[500px] overflow-y-auto pr-1">
               <div className="space-y-4">
                 <h4 className="text-xxs font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400 border-b pb-2 flex items-center gap-1.5 border-amber-900/10 dark:border-slate-800"><User className="w-4 h-4"/> Behavioral Strategy Vectors</h4>
                 {results.hr_interview?.map((item: any, i: number) => (
-<div key={i} className={p-4 rounded-xl border space-y-2 transition-all ${darkMode ? 'bg-slate-950 border-slate-800/80 text-slate-100' : 'bg-amber-50/40 border-amber-200 text-slate-900'}}> Q: {item.question}Response Logic: {item.response}))} Domain Execution Vectors{results.technical_interview?.map((item: any, i: number) => (<div key={i} className={p-4 rounded-xl border space-y-2 transition-all ${darkMode ? 'bg-slate-950 border-slate-800/80 text-slate-100' : 'bg-amber-50/40 border-amber-200 text-slate-900'}}> Q: {item.question}Technical Strategy: {item.response}))})}Crafted with  & Developed by Kuldeep Sharma);}
+                  <div key={i} className={`p-4 rounded-xl border space-y-2 transition-all ${darkMode ? 'bg-slate-950 border-slate-800/80 text-slate-100' : 'bg-amber-50/40 border-amber-200 text-slate-900'}`}>
+                    <div className="font-bold flex items-start gap-1.5 text-xs"><HelpCircle className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5"/> <span>Q: {item.question}</span></div>
+ {item.response}))} Domain Execution Vectors{results.technical_interview?.map((item: any, i: number) => (<div key={i} className={p-4 rounded-xl border space-y-2 transition-all ${darkMode ? 'bg-slate-950 border-slate-800/80 text-slate-100' : 'bg-amber-50/40 border-amber-200 text-slate-900'}}> Q: {item.question}Technical Strategy: {item.response}))})}Crafted with  & Developed by Kuldeep Sharma);}
