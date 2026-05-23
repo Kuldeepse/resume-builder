@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { Sparkles, RefreshCw, BarChart3, AlertTriangle, Target, FileText, User, Code, HelpCircle, RotateCcw, ClipboardCheck, ArrowRight, ArrowLeftRight, CheckCircle2, Sun, Moon, Heart, Link, Clock, ListOrdered } from 'lucide-react';
+import { Sparkles, RefreshCw, BarChart3, AlertTriangle, Target, FileText, User, Code, HelpCircle, RotateCcw, ClipboardCheck, ArrowRight, ArrowLeftRight, CheckCircle2, Sun, Moon, Heart, Link, Clock, ListOrdered, UserCheck, MessageSquarePlus } from 'lucide-react';
 
 export default function Home() {
   const [fullName, setFullName] = useState('');
@@ -8,6 +8,7 @@ export default function Home() {
   const [linkedin, setLinkedin] = useState('');
   const [duration, setDuration] = useState('30 minutes');
   const [totalQuestions, setTotalQuestions] = useState(5);
+  const [interviewType, setInterviewType] = useState<'hr' | 'technical'>('technical');
   const [careerHistory, setCareerHistory] = useState('');
   const [jobDescription, setJobDescription] = useState('');
   const [loading, setLoading] = useState(false);
@@ -25,6 +26,7 @@ export default function Home() {
     formData.append('linkedin_profile', linkedin);
     formData.append('interview_duration', duration);
     formData.append('total_questions_requested', totalQuestions.toString());
+    formData.append('interview_type', interviewType);
     formData.append('career_history', careerHistory); 
     formData.append('job_description', jobDescription);
     try {
@@ -50,7 +52,7 @@ export default function Home() {
           <button type="button" onClick={() => setDarkMode(!darkMode)} className={`absolute top-2 right-2 p-2 rounded-xl border flex items-center gap-1.5 font-bold text-[10px] uppercase tracking-wider cursor-pointer shadow-sm transition-all ${darkMode ? 'bg-stone-900 border-stone-800 text-amber-500' : 'bg-white border-stone-200 text-stone-800'}`}>
             {darkMode ? <><Sun className="w-3.5 h-3.5"/> Light Theme</> : <><Moon className="w-3.5 h-3.5"/> Dark Theme</>}
           </button>
-          <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] uppercase tracking-wider font-semibold border ${darkMode ? 'bg-indigo-500/10 border-slate-800 text-indigo-400' : 'bg-indigo-50 border-indigo-100 text-indigo-700'}`}><Sparkles className="w-3 h-3 text-indigo-500" /> Engine Active: Gemini 2.5 Pro</div>
+          <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] uppercase tracking-wider font-semibold border ${darkMode ? 'bg-indigo-500/10 border-slate-800 text-indigo-400' : 'bg-indigo-50 border-indigo-100 text-indigo-700'}`}><Sparkles className="w-3 h-3 text-indigo-500" /> Engine Active: Gemini 2.5 Pro Tier</div>
           <h1 className="text-3xl md:text-5xl font-black tracking-tight">AI Career Intelligence Matrix</h1>
           <p className={`text-xs md:text-sm max-w-xl mx-auto leading-relaxed font-medium ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>Bridge the gap between your engineering experience profile and ATS screening rules to secure premium interview placement.</p>
         </header>
@@ -67,23 +69,23 @@ export default function Home() {
           <div className={`border p-6 rounded-2xl shadow-sm space-y-6 ${darkMode ? 'bg-stone-900/40 border-slate-800/60 shadow-2xl' : 'bg-white border-amber-900/10'}`}>
             <div className={`flex justify-between items-center border-b pb-3 ${darkMode ? 'border-slate-800/60' : 'border-stone-100'}`}>
               <h2 className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${darkMode ? 'text-amber-400' : 'text-amber-900'}`}><ArrowLeftRight className="w-4 h-4"/> Core Variable Mapping</h2>
-              {results && <button type="button" onClick={() => { setFullName(''); setTargetRole(''); setLinkedin(''); setDuration('30 minutes'); setTotalQuestions(5); setCareerHistory(''); setJobDescription(''); setResults(null); setTab('builder'); }} className={`flex items-center gap-1 font-bold px-3 py-1 rounded-xl border text-xxs tracking-wide cursor-pointer ${darkMode ? 'bg-rose-950 text-rose-400 border-rose-900/40' : 'bg-rose-50 text-rose-700 border-rose-200'}`}><RotateCcw className="w-3 h-3"/> Reset Form</button>}
+              {results && <button type="button" onClick={() => { setFullName(''); setTargetRole(''); setLinkedin(''); setDuration('30 minutes'); setTotalQuestions(5); setInterviewType('technical'); setCareerHistory(''); setJobDescription(''); setResults(null); setTab('builder'); }} className={`flex items-center gap-1 font-bold px-3 py-1 rounded-xl border text-xxs tracking-wide cursor-pointer ${darkMode ? 'bg-rose-950 text-rose-400 border-rose-900/40' : 'bg-rose-50 text-rose-700 border-rose-200'}`}><RotateCcw className="w-3 h-3"/> Reset Form</button>}
             </div>
             <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="font-bold text-xxs uppercase tracking-wider flex items-center gap-1 text-amber-900 dark:text-amber-400">Applicant Full Name</label>
-                  <input type="text" className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-200 focus:border-amber-800' : 'bg-stone-50 border-stone-200 text-slate-800'}`} placeholder="e.g. Alex Mercer" value={fullName} onChange={(e) => setFullName(e.target.value)} />
+                  <input type="text" className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-200 focus:border-amber-800' : 'bg-stone-50 border-stone-200 text-stone-800'}`} placeholder="e.g. Alex Mercer" value={fullName} onChange={(e) => setFullName(e.target.value)} />
                 </div>
                 <div className="space-y-1.5">
                   <label className="font-bold text-xxs uppercase tracking-wider flex items-center gap-1 text-amber-900 dark:text-amber-400">Target Role Objective</label>
-                  <input type="text" className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-200 focus:border-amber-800' : 'bg-stone-50 border-stone-200 text-slate-800'}`} placeholder="e.g. Senior Frontend Architect" value={targetRole} onChange={(e) => setTargetRole(e.target.value)} />
+                  <input type="text" className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-200 focus:border-amber-800' : 'bg-stone-50 border-stone-200 text-stone-800'}`} placeholder="e.g. Senior Frontend Architect" value={targetRole} onChange={(e) => setTargetRole(e.target.value)} />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 border-t border-b border-dashed border-slate-200 dark:border-slate-800 py-4">
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 border-t border-b border-dashed border-slate-200 dark:border-slate-800 py-4">
                 <div className="space-y-1.5">
-                 <label className="font-bold text-xxs uppercase tracking-wider flex items-center gap-1 text-amber-900 dark:text-amber-400"><Link className="w-3 h-3 text-indigo-500"/> LinkedIn Profile URL</label>
+                  <label className="font-bold text-xxs uppercase tracking-wider flex items-center gap-1 text-amber-900 dark:text-amber-400"><Link className="w-3 h-3 text-indigo-500"/> LinkedIn Profile URL</label>
                   <input type="url" className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-200 focus:border-amber-800' : 'bg-stone-50 border-stone-200 text-slate-800'}`} placeholder="e.g. https://linkedin.com" value={linkedin} onChange={(e) => setLinkedin(e.target.value)} />
                 </div>
                 <div className="space-y-1.5">
@@ -95,9 +97,16 @@ export default function Home() {
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="font-bold text-xxs uppercase tracking-wider flex items-center gap-1 text-amber-900 dark:text-amber-400"><ListOrdered className="w-3 h-3 text-indigo-500"/> Questions Total Cap: <span className="text-indigo-600 dark:text-indigo-400 font-extrabold ml-1">{totalQuestions}</span></label>
+                  <label className="font-bold text-xxs uppercase tracking-wider flex items-center gap-1 text-amber-900 dark:text-amber-400"><UserCheck className="w-3 h-3 text-indigo-500"/> Interview Category</label>
+                  <select className={`w-full border p-3 rounded-xl focus:outline-none transition-all cursor-pointer ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-200 focus:border-amber-800' : 'bg-stone-50 border-stone-200 text-slate-800'}`} value={interviewType} onChange={(e) => setInterviewType(e.target.value as 'hr' | 'technical')}>
+                    <option value="technical">Technical Interview Track</option>
+                    <option value="hr">HR / Behavioral Interview Track</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="font-bold text-xxs uppercase tracking-wider text-slate-500 flex items-center gap-1"><ListOrdered className="w-3 h-3 text-indigo-500"/> Total Questions Needed: <span className="text-indigo-600 dark:text-indigo-400 font-extrabold ml-1">{totalQuestions}</span></label>
                   <div className="flex items-center gap-2 pt-2">
-                    <input type="range" min="1" max="25" className="w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-800" value={totalQuestions} onChange={(e) => setTotalQuestions(parseInt(e.target.value))} />
+                    <input type="range" min="5" max="25" className="w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-800" value={totalQuestions} onChange={(e) => setTotalQuestions(parseInt(e.target.value))} />
                   </div>
                 </div>
               </div>
@@ -105,12 +114,12 @@ export default function Home() {
                 <div className={`space-y-1.5 p-4 rounded-xl border ${darkMode ? 'bg-stone-950/40 border-slate-800/60' : 'bg-stone-50/60 border-stone-200/60'}`}>
                   <label className="font-bold text-xxs uppercase tracking-wider flex items-center gap-1 text-amber-900 dark:text-amber-400"><FileText className="w-3.5 h-3.5"/> Legacy Career Profile</label>
                   <p className="text-[10px] text-slate-400 mb-2 font-medium">Hint: List positions, technology stack tools used, or clip history.</p>
-                  <textarea rows={6} className={`w-full border p-3 rounded-xl focus:outline-none font-mono text-[11px] leading-relaxed ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-300 focus:border-amber-800' : 'bg-white border-stone-200 text-slate-800'}`} placeholder="Frontend Dev at TechCorp. Managed React architecture, optimizing layout loops..." value={careerHistory} onChange={(e) => setCareerHistory(e.target.value)} />
+                  <textarea rows={6} className={`w-full border p-3 rounded-xl focus:outline-none font-mono text-[11px] leading-relaxed ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-300' : 'bg-white border-stone-200 text-slate-800'}`} placeholder="Frontend Dev at TechCorp. Managed React architecture, optimizing layout loops..." value={careerHistory} onChange={(e) => setCareerHistory(e.target.value)} />
                 </div>
                 <div className={`space-y-1.5 p-4 rounded-xl border ${darkMode ? 'bg-stone-950/40 border-slate-800/60' : 'bg-stone-50/60 border-stone-200/60'}`}>
                   <label className="font-bold text-xxs uppercase tracking-wider flex items-center gap-1 text-amber-900 dark:text-amber-400"><Target className="w-3.5 h-3.5"/> Job Description Target</label>
                   <p className="text-[10px] text-slate-400 mb-2">Hint: Paste the complete responsibilities checklist text from your target listing.</p>
-                  <textarea rows={6} className={`w-full border p-3 rounded-xl focus:outline-none font-mono text-[11px] leading-relaxed ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-300 focus:border-amber-800' : 'bg-white border-stone-200 text-slate-800'}`} placeholder="Seeking an engineer with deep runtime comprehension of cloud topologies..." value={jobDescription} onChange={(e) => setJobDescription(e.target.value)} />
+                  <textarea rows={6} className={`w-full border p-3 rounded-xl focus:outline-none font-mono text-[11px] leading-relaxed ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-300' : 'bg-white border-stone-200 text-slate-800'}`} placeholder="Seeking an engineer with deep runtime comprehension of cloud topologies..." value={jobDescription} onChange={(e) => setJobDescription(e.target.value)} />
                 </div>
               </div>
               <button type="button" onClick={handleGenerate} disabled={loading} className="w-full bg-amber-900 hover:bg-amber-800 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 cursor-pointer text-xxs uppercase tracking-widest disabled:bg-stone-300 dark:disabled:bg-stone-900 shadow-md">
@@ -143,6 +152,7 @@ export default function Home() {
             </div>
           </div>
         )}
+
         {tab === 'updated_resume' && results && (
           <div className={`border p-6 rounded-2xl shadow-sm space-y-5 ${darkMode ? 'bg-stone-900/40 border-slate-800/60' : 'bg-white border-amber-900/10'}`}>
             <div className="bg-amber-800 p-4 rounded-xl text-white flex justify-between items-center shadow-md">
@@ -167,32 +177,58 @@ export default function Home() {
             </div>
           </div>
         )}
-
         {tab === 'prep' && results && (
-          <div className={`border p-6 rounded-2xl shadow-sm space-y-5 ${darkMode ? 'bg-stone-900/40 border-slate-800/60' : 'bg-white border-amber-900/10'}`}>
+          <div className={`border p-6 rounded-2xl shadow-sm space-y-6 ${darkMode ? 'bg-stone-900/40 border-slate-800/60' : 'bg-white border-amber-900/10'}`}>
             <div className={`p-4 rounded-xl text-white flex justify-between items-center shadow-md ${darkMode ? 'bg-slate-950 border border-slate-800' : 'bg-stone-800'}`}>
-              <div className="flex items-center gap-1.5 font-bold text-xxs tracking-wider uppercase text-amber-100"><User className="w-4 h-4"/> Recruitment Readiness Training Matrix</div>
+              <div className="flex items-center gap-1.5 font-bold text-xxs tracking-wider uppercase text-amber-100">
+                <User className="w-4 h-4 text-amber-500"/> Active Vector Focus: {interviewType === 'hr' ? 'HR / Behavioral' : 'Technical / Architecture'}
+              </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 max-h-[500px] overflow-y-auto pr-1">
-              <div className="space-y-4">
-                <h4 className="text-xxs font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400 border-b pb-2 flex items-center gap-1.5 border-amber-900/10 dark:border-slate-800"><User className="w-4 h-4"/> Behavioral Strategy Vectors</h4>
-                {results.hr_interview?.map((item: any, i: number) => (
+
+            {/* Profile Intro Bio Card (Tell Me About Yourself) */}
+            {results.tell_me_about_yourself && (
+              <div className={`p-5 rounded-xl border space-y-3 shadow-inner ${darkMode ? 'bg-slate-950 border-slate-800 text-slate-100' : 'bg-amber-50/20 border-amber-200 text-slate-900'}`}>
+                <h4 className="text-xxs font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 flex items-center gap-1"><UserCheck className="w-4 h-4"/> Primary Pitch: Tell Me About Yourself Blueprint</h4>
+                <p className="text-xs leading-relaxed opacity-95 whitespace-pre-wrap">{results.tell_me_about_yourself}</p>
+              </div>
+            )}
+
+            {/* Primary Dynamic Target Question and Response Matrix Node */}
+            <div className="space-y-4">
+              <h4 className="text-xxs font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400 border-b pb-2 flex items-center gap-1.5 border-amber-900/10 dark:border-slate-800">
+                <HelpCircle className="w-4 h-4"/> Core Target Interview Question Matrices ({results.interview_questions?.length || 0} Evaluated Items)
+              </h4>
+              <div className="grid grid-cols-1 gap-4 max-h-[400px] overflow-y-auto pr-1">
+                {results.interview_questions?.map((item: any, i: number) => (
                   <div key={i} className={`p-4 rounded-xl border space-y-2 transition-all ${darkMode ? 'bg-slate-950 border-slate-800 text-slate-100' : 'bg-amber-50/40 border-amber-200 text-slate-900'}`}>
-                    <div className="font-bold flex items-start gap-1.5 text-xs"><HelpCircle className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5"/> <span>Q: {item.question}</span></div>
-                    <div className="text-[11px] pl-5 leading-relaxed opacity-90"><span className="font-bold text-indigo-600 dark:text-indigo-400">Response Logic:</span> {item.response}</div>
+                    <div className="font-bold flex items-start gap-1.5 text-xs">
+                      <HelpCircle className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5"/> <span>Q{i+1}: {item.question}</span>
+                    </div>
+                    <div className="text-[11px] pl-5 leading-relaxed opacity-90">
+                      <span className="font-bold text-indigo-600 dark:text-indigo-400">Response Blueprint Strategy:</span> {item.response}
+                    </div>
                   </div>
                 ))}
               </div>
-              <div className="space-y-4">
-                <h4 className="text-xxs font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400 border-b pb-2 flex items-center gap-1.5 border-amber-900/10 dark:border-slate-800"><Code className="w-4 h-4"/> Domain Execution Vectors</h4>
-                {results.technical_interview?.map((item: any, i: number) => (
-                  <div key={i} className={`p-4 rounded-xl border space-y-2 transition-all ${darkMode ? 'bg-slate-950 border-slate-800 text-slate-100' : 'bg-amber-50/40 border-amber-200 text-slate-900'}`}>
-                    <div className="font-bold flex items-start gap-1.5 text-xs"><Code className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5"/> <span>Q: {item.question}</span></div>
-                    <div className="text-[11px] pl-5 leading-relaxed opacity-90"><span className="font-bold text-indigo-600 dark:text-indigo-400">Technical Strategy:</span> {item.response}</div>
-                  </div>
-                ))}
-              </div>
             </div>
+
+            {/* Strategic Follow-Up Questions (Questions to Ask the Interviewer) */}
+            {results.follow_up_questions && results.follow_up_questions.length > 0 && (
+              <div className="space-y-3 pt-2">
+                <h4 className="text-xxs font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400 border-b pb-2 flex items-center gap-1.5 border-amber-900/10 dark:border-slate-800">
+                  <MessageSquarePlus className="w-4 h-4"/> Tactical Follow-up Questions To Ask the Interviewer
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {results.follow_up_questions.map((q: string, idx: number) => (
+                    <div key={idx} className={`p-3 rounded-xl border text-xs font-semibold flex items-start gap-2 ${darkMode ? 'bg-stone-900 border-slate-800' : 'bg-stone-50 border-stone-200'}`}>
+                      <span className="text-indigo-500 font-mono">#{idx+1}</span>
+                      <span>{q}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
           </div>
         )}
       </div>
