@@ -20,10 +20,13 @@ export default function Home() {
     if (!fullName || !targetRole || !careerHistory || !jobDescription) return alert("Please fill out all mandatory fields.");
     setLoading(true); setResults(null);
     const formData = new FormData();
-    formData.append('full_name', fullName); formData.append('target_role', targetRole);
-    formData.append('linkedin_profile', linkedin); formData.append('interview_duration', duration);
+    formData.append('full_name', fullName); 
+    formData.append('target_role', targetRole);
+    formData.append('linkedin_profile', linkedin);
+    formData.append('interview_duration', duration);
     formData.append('total_questions_requested', totalQuestions.toString());
-    formData.append('career_history', careerHistory); formData.append('job_description', jobDescription);
+    formData.append('career_history', careerHistory); 
+    formData.append('job_description', jobDescription);
     try {
       const res = await fetch('https://resume-builder-backend-ph7b.onrender.com/build-resume', { method: 'POST', body: formData });
       if (!res.ok) throw new Error();
@@ -33,9 +36,16 @@ export default function Home() {
       alert("AI optimization cycle broken. Refocusing backend container parameters.");
     } finally { setLoading(false); }
   };
+
+  const handleCopyLink = () => {
+    if (!results?.shareable_url) return;
+    navigator.clipboard.writeText(results.shareable_url);
+    setCopied(true); setTimeout(() => setCopied(false), 2000);
+  };
   return (
     <main className={`min-h-screen p-4 md:p-8 font-sans antialiased transition-colors duration-300 ${darkMode ? 'bg-stone-950 text-slate-100' : 'bg-[#FAF8F5] text-slate-900'}`}>
       <div className="max-w-5xl mx-auto space-y-6">
+        
         <header className="relative flex flex-col items-center text-center space-y-3 py-4 border-b border-dashed border-amber-900/20 dark:border-slate-800">
           <button type="button" onClick={() => setDarkMode(!darkMode)} className={`absolute top-2 right-2 p-2 rounded-xl border flex items-center gap-1.5 font-bold text-[10px] uppercase tracking-wider cursor-pointer shadow-sm transition-all ${darkMode ? 'bg-stone-900 border-stone-800 text-amber-500' : 'bg-white border-stone-200 text-stone-800'}`}>
             {darkMode ? <><Sun className="w-3.5 h-3.5"/> Light Theme</> : <><Moon className="w-3.5 h-3.5"/> Dark Theme</>}
@@ -63,29 +73,29 @@ export default function Home() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="font-bold text-xxs uppercase tracking-wider text-slate-500">Applicant Full Name</label>
-                  <input type="text" className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-200' : 'bg-stone-50 border-stone-200 text-slate-800'}`} placeholder="e.g. Alex Mercer" value={fullName} onChange={(e) => setFullName(e.target.value)} />
+                  <input type="text" className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-200 focus:border-amber-800' : 'bg-stone-50 border-stone-200 text-slate-800'}`} placeholder="e.g. Alex Mercer" value={fullName} onChange={(e) => setFullName(e.target.value)} />
                 </div>
                 <div className="space-y-1.5">
                   <label className="font-bold text-xxs uppercase tracking-wider text-slate-500">Target Role Objective</label>
-                  <input type="text" className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-200' : 'bg-stone-50 border-stone-200 text-slate-800'}`} placeholder="e.g. Senior Frontend Architect" value={targetRole} onChange={(e) => setTargetRole(e.target.value)} />
+                  <input type="text" className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-200 focus:border-amber-800' : 'bg-stone-50 border-stone-200 text-slate-800'}`} placeholder="e.g. Senior Frontend Architect" value={targetRole} onChange={(e) => setTargetRole(e.target.value)} />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 border-t border-b border-dashed border-slate-200 dark:border-slate-800 py-4">
                 <div className="space-y-1.5">
-                  <label className="font-bold text-xxs uppercase tracking-wider text-slate-500 flex items-center gap-1"><Link className="w-3 h-3 text-indigo-500"/> LinkedIn Profile (Optional)</label>
-                  <input type="url" className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-200' : 'bg-stone-50 border-stone-200 text-slate-800'}`} placeholder="e.g. https://linkedin.com" value={linkedin} onChange={(e) => setLinkedin(e.target.value)} />
+                  <label className="font-bold text-xxs uppercase tracking-wider text-slate-500 flex items-center gap-1"><Link className="w-3 h-3 text-indigo-500"/> LinkedIn Profile URL</label>
+                  <input type="url" className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-200 focus:border-amber-800' : 'bg-stone-50 border-stone-200 text-stone-800'}`} placeholder="e.g. https://linkedin.com" value={linkedin} onChange={(e) => setLinkedin(e.target.value)} />
                 </div>
                 <div className="space-y-1.5">
                   <label className="font-bold text-xxs uppercase tracking-wider text-slate-500 flex items-center gap-1"><Clock className="w-3 h-3 text-indigo-500"/> Interview Duration</label>
-                  <select className={`w-full border p-3 rounded-xl focus:outline-none transition-all cursor-pointer ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-200' : 'bg-stone-50 border-stone-200 text-slate-800'}`} value={duration} onChange={(e) => setDuration(e.target.value)}>
+                  <select className={`w-full border p-3 rounded-xl focus:outline-none transition-all cursor-pointer ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-200 focus:border-amber-800' : 'bg-stone-50 border-stone-200 text-stone-800'}`} value={duration} onChange={(e) => setDuration(e.target.value)}>
                     <option value="30 minutes">30 Minutes</option>
                     <option value="45 minutes">45 Minutes</option>
                     <option value="60 minutes">60 Minutes</option>
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="font-bold text-xxs uppercase tracking-wider text-slate-500 flex items-center gap-1"><ListOrdered className="w-3 h-3 text-indigo-500"/> Questions Total Cap: <span className="text-indigo-600 dark:text-indigo-400 font-extrabold ml-1">{totalQuestions}</span></label>
+                  <label className="font-bold text-xxs uppercase tracking-wider text-slate-500 flex items-center gap-1"><ListOrdered className="w-3 h-3 text-indigo-500"/> Questions Count Target: <span className="text-indigo-600 dark:text-indigo-400 font-extrabold ml-1">{totalQuestions}</span></label>
                   <div className="flex items-center gap-2 pt-2">
                     <input type="range" min="1" max="25" className="w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-600" value={totalQuestions} onChange={(e) => setTotalQuestions(parseInt(e.target.value))} />
                   </div>
@@ -118,7 +128,6 @@ export default function Home() {
                 <BarChart3 className="w-8 h-8 text-amber-800 dark:text-amber-500 mb-2"/>
                 <h4 className={`font-extrabold uppercase tracking-widest text-xs ${darkMode ? 'text-amber-400' : 'text-amber-900'}`}>ATS Alignment Score</h4>
                 <div className={`text-6xl font-black mt-3 tracking-tight ${darkMode ? 'text-stone-100' : 'text-amber-950'}`}>{results.match_score}%</div>
-                <p className={`text-[11px] mt-3 font-semibold leading-normal ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>Target evaluation calculated via total requirement coverage parameters.</p>
               </div>
               <div className={`p-6 rounded-2xl border flex flex-col ${darkMode ? 'bg-slate-950 border-slate-800' : 'bg-slate-900 text-slate-100 border-slate-950 shadow-inner'}`}>
                 <h4 className="text-amber-400 font-black uppercase tracking-widest text-xs flex items-center gap-1.5 border-b pb-2 border-amber-500/20 mb-4"><AlertTriangle className="w-4 h-4 text-amber-500 shrink-0"/> Critical Keyword Gaps Isolate</h4>
@@ -138,7 +147,7 @@ export default function Home() {
           <div className={`border p-6 rounded-2xl shadow-sm space-y-5 ${darkMode ? 'bg-stone-900/40 border-slate-800/60' : 'bg-white border-amber-900/10'}`}>
             <div className="bg-amber-800 p-4 rounded-xl text-white flex justify-between items-center shadow-md">
               <div className="flex items-center gap-1.5 font-bold text-xxs tracking-wider uppercase text-amber-100"><FileText className="w-4 h-4"/> Tailored Optimization Resume Output Map</div>
-              <button onClick={() => { if(results?.shareable_url) { navigator.clipboard.writeText(results.shareable_url); setCopied(true); setTimeout(() => setCopied(false), 2000); } }} className="bg-white text-amber-900 px-3 py-1.5 rounded-xl font-bold cursor-pointer text-[10px] uppercase tracking-wider border border-amber-100">{copied ? "Blueprint Linked!" : "Copy Public PDF Link"}</button>
+              <button onClick={handleCopyLink} className="bg-white text-amber-900 px-3 py-1.5 rounded-xl font-bold cursor-pointer text-[10px] uppercase tracking-wider border border-amber-100">{copied ? "Blueprint Linked!" : "Copy Public PDF Link"}</button>
             </div>
             <div className={`border p-6 rounded-xl space-y-4 max-h-[500px] overflow-y-auto shadow-inner leading-relaxed ${darkMode ? 'border-slate-800 bg-slate-950 text-slate-100' : 'border-slate-200 bg-white text-slate-900'}`}>
               <h2 className="text-xl font-extrabold tracking-tight border-b pb-2 border-slate-200 dark:border-slate-800">{results.resume?.full_name}</h2>
@@ -168,5 +177,11 @@ export default function Home() {
               <div className="space-y-4">
                 <h4 className="text-xxs font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400 border-b pb-2 flex items-center gap-1.5 border-amber-900/10 dark:border-slate-800"><User className="w-4 h-4"/> Behavioral Strategy Vectors</h4>
                 {results.hr_interview?.map((item: any, i: number) => (
-                  <div key={i} className={`p-4 rounded-xl border space-y-2 transition-all ${darkMode ? 'bg-slate-950 border-slate-800 text-slate-100' : 'bg-amber-50/40 border-amber-200 text-slate-900'}`}>
-                     {item.response}))} Domain Execution Vectors{results.technical_interview?.map((item: any, i: number) => (<div key={i} className={p-4 rounded-xl border space-y-2 transition-all ${darkMode ? 'bg-slate-950 border-slate-800 text-slate-100' : 'bg-amber-50/40 border-amber-200 text-slate-900'}}> Q: {item.question}Technical Strategy: {item.response}))})}Crafted with  & Developed by Kuldeep Sharma);}
+                  <div key={i} className={`p-4 rounded-xl border space-y-2 transition-all ${darkMode ? 'bg-slate-950 border-slate-800/80 text-slate-100' : 'bg-amber-50/40 border-amber-200 text-slate-900'}`}>
+                    <div className="font-bold flex items-start gap-1.5 text-xs"><HelpCircle className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5"/> <span>Q: {item.question}</span></div>
+                    <div className="text-[11px] pl-5 leading-relaxed opacity-90"><span className="font-bold text-indigo-600 dark:text-indigo-400">Response Logic:</span> {item.response}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="space-y-4">
+Domain Execution Vectors{results.technical_interview?.map((item: any, i: number) => (<div key={i} className={p-4 rounded-xl border space-y-2 transition-all ${darkMode ? 'bg-slate-950 border-slate-800/80 text-slate-100' : 'bg-amber-50/40 border-amber-200 text-slate-900'}}> Q: {item.question}Technical Strategy: {item.response}))})}Crafted with  & Developed by Kuldeep Sharma);}
