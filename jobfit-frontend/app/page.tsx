@@ -18,7 +18,6 @@ export default function Home() {
   const [tab, setTab] = useState<'builder' | 'validation' | 'updated_resume' | 'prep' | 'job_search'>('builder');
   const [darkMode, setDarkMode] = useState(false);
 
-  // 🎯 THE FIX: Explicitly declared missing job search states to clear TypeScript typechecking
   const [searchCity, setSearchCity] = useState('');
   const [searchSkills, setSearchSkills] = useState('');
   const [searchFile, setSearchFile] = useState<File | null>(null);
@@ -33,13 +32,13 @@ export default function Home() {
     if (!fullName || !targetRole || !careerHistory || !jobDescription) return alert("Please fill out all mandatory fields.");
     setLoading(true); setResults(null);
     const formData = new FormData();
-    formData.append('full_name', fullName); 
+    formData.append('full_name', fullName);
     formData.append('target_role', targetRole);
     formData.append('linkedin_profile', linkedin);
     formData.append('interview_duration', duration);
     formData.append('total_questions_requested', totalQuestions.toString());
     formData.append('interview_type', interviewType);
-    formData.append('career_history', careerHistory); 
+    formData.append('career_history', careerHistory);
     formData.append('job_description', jobDescription);
     try {
       const res = await fetch('https://resume-builder-backend-ph7b.onrender.com/build-resume', { method: 'POST', body: formData });
@@ -50,6 +49,7 @@ export default function Home() {
       alert("AI optimization cycle broken. Refocusing backend container parameters.");
     } finally { setLoading(false); }
   };
+
   const handleCopyLink = () => {
     if (!results?.shareable_url) return;
     navigator.clipboard.writeText(results.shareable_url);
@@ -58,6 +58,7 @@ export default function Home() {
 
   const handleSearchJobs = async () => {
     if (!searchCity) return alert("Please enter a target city location.");
+    if (!searchFile && !searchSkills.trim()) return alert("Please upload a resume/CV document or paste your core resume skills.");
     setSearchLoading(true); setJobResults(null);
     const formData = new FormData();
     formData.append('target_role', targetRole || "Software Engineer");
@@ -67,7 +68,7 @@ export default function Home() {
       formData.append('resume_file', searchFile);
     }
     try {
-      const res = await fetch('https://onrender.com', { method: 'POST', body: formData });
+      const res = await fetch('https://resume-builder-backend-ph7b.onrender.com/search-jobs', { method: 'POST', body: formData });
       if (!res.ok) throw new Error();
       setJobResults(await res.json());
     } catch {
@@ -80,7 +81,6 @@ export default function Home() {
   return (
     <main className={`min-h-screen p-4 md:p-8 font-sans antialiased transition-colors duration-300 ${darkMode ? 'bg-stone-950 text-slate-100' : 'bg-[#FAF8F5] text-slate-900'}`}>
       <div className="max-w-5xl mx-auto space-y-6">
-        
         <header className="relative flex flex-col items-center text-center space-y-3 py-4 border-b border-dashed border-amber-900/20 dark:border-slate-800">
           <button type="button" onClick={() => setDarkMode(!darkMode)} className={`absolute top-2 right-2 p-2 rounded-xl border flex items-center gap-1.5 font-bold text-[10px] uppercase tracking-wider cursor-pointer shadow-sm transition-all ${darkMode ? 'bg-stone-900 border-stone-800 text-amber-500' : 'bg-white border-stone-200 text-stone-800'}`}>
             {darkMode ? <><Sun className="w-3.5 h-3.5"/> Light Theme</> : <><Moon className="w-3.5 h-3.5"/> Dark Theme</>}
@@ -97,12 +97,14 @@ export default function Home() {
             ))}
           </div>
         )}
+
         {tab === 'builder' && (
           <div className={`border p-6 rounded-2xl shadow-sm space-y-6 ${darkMode ? 'bg-stone-900/40 border-slate-800/60 shadow-2xl' : 'bg-white border-amber-900/10'}`}>
             <div className={`flex justify-between items-center border-b pb-3 ${darkMode ? 'border-slate-800/60' : 'border-stone-100'}`}>
               <h2 className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${darkMode ? 'text-amber-400' : 'text-amber-900'}`}><ArrowLeftRight className="w-4 h-4"/> Core Variable Mapping</h2>
               {results && <button type="button" onClick={() => { setFullName(''); setTargetRole(''); setLinkedin(''); setDuration('30 minutes'); setTotalQuestions(5); setInterviewType('technical'); setCareerHistory(''); setJobDescription(''); setResults(null); setTab('builder'); }} className={`flex items-center gap-1 font-bold px-3 py-1 rounded-xl border text-xxs tracking-wide cursor-pointer ${darkMode ? 'bg-rose-950 text-rose-400 border-rose-500/20' : 'bg-rose-50 text-rose-700 border-rose-200'}`}><RotateCcw className="w-3 h-3"/> Reset Form</button>}
             </div>
+
             <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
@@ -117,7 +119,7 @@ export default function Home() {
 
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 border-t border-b border-dashed border-slate-200 dark:border-slate-800 py-4">
                 <div className="space-y-1.5">
-                 <label className="font-bold text-xxs uppercase tracking-wider flex items-center gap-1 text-amber-900 dark:text-amber-400"><Link className="w-3 h-3 text-indigo-500"/> LinkedIn Profile URL</label>
+                  <label className="font-bold text-xxs uppercase tracking-wider flex items-center gap-1 text-amber-900 dark:text-amber-400"><Link className="w-3 h-3 text-indigo-500"/> LinkedIn Profile URL</label>
                   <input type="url" className={`w-full border p-3 rounded-xl focus:outline-none transition-all text-xs ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-200 focus:border-amber-800' : 'bg-stone-50 border-stone-200 text-stone-800'}`} placeholder="e.g. https://linkedin.com" value={linkedin} onChange={(e) => setLinkedin(e.target.value)} />
                 </div>
                 <div className="space-y-1.5">
@@ -142,6 +144,7 @@ export default function Home() {
                   </div>
                 </div>
               </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className={`space-y-1.5 p-4 rounded-xl border ${darkMode ? 'bg-stone-950/40 border-slate-800/60' : 'bg-stone-50/60 border-stone-200/60'}`}>
                   <label className="font-bold text-xxs uppercase tracking-wider flex items-center gap-1 text-amber-900 dark:text-amber-400"><FileText className="w-3.5 h-3.5"/> Legacy Career Profile</label>
@@ -154,6 +157,7 @@ export default function Home() {
                   <textarea rows={6} className={`w-full border p-3 rounded-xl focus:outline-none font-mono text-[11px] leading-relaxed ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-300 focus:border-amber-800' : 'bg-white border-stone-200 text-slate-800'}`} placeholder="Seeking an engineer with deep runtime comprehension of cloud topologies..." value={jobDescription} onChange={(e) => setJobDescription(e.target.value)} />
                 </div>
               </div>
+
               <button type="button" onClick={handleGenerate} disabled={loading} className="w-full bg-amber-900 hover:bg-amber-800 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 cursor-pointer text-xxs uppercase tracking-widest disabled:bg-stone-300 dark:disabled:bg-stone-900 shadow-md">
                 {loading ? <><RefreshCw className="animate-spin w-4 h-4 text-amber-200" /> Computing Neural Vectors...</> : <><Sparkles className="w-4 h-4 text-amber-400" /> Execute Generation Cycle</>}
               </button>
@@ -184,6 +188,7 @@ export default function Home() {
             </div>
           </div>
         )}
+
         {tab === 'updated_resume' && results && (
           <div className={`border p-6 rounded-2xl shadow-sm space-y-5 ${darkMode ? 'bg-stone-900/40 border-slate-800/60' : 'bg-white border-amber-900/10'}`}>
             <div className="bg-amber-800 p-4 rounded-xl text-white flex justify-between items-center shadow-md">
@@ -234,12 +239,12 @@ export default function Home() {
                     <div className="font-bold flex items-start gap-1.5 text-xs">
                       <HelpCircle className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5"/> <span>Q{i+1}: {item.question}</span>
                     </div>
-                    
+
                     <div className="text-[11px] pl-5 space-y-1.5 leading-relaxed opacity-95 font-medium">
                       {String(item.response || '').split('\n').map((line, lineIdx) => {
                         const trimmed = line.replace(/<\/?[^>]+(>|$)/g, "").trim();
                         if (!trimmed) return null;
-                        
+
                         if (trimmed.toLowerCase().startsWith('situation:') || trimmed.startsWith('- situation:')) {
                           return <div key={lineIdx} className="pt-0.5"><strong>Situation:</strong> {trimmed.replace(/^(-\s*)?situation:\s*/i, '')}</div>;
                         }
@@ -252,7 +257,7 @@ export default function Home() {
                         if (trimmed.toLowerCase().startsWith('result:') || trimmed.startsWith('- result:')) {
                           return <div key={lineIdx} className="pb-0.5"><strong>Result:</strong> {trimmed.replace(/^(-\s*)?result:\s*/i, '')}</div>;
                         }
-                        
+
                         return <div key={lineIdx} className="text-stone-400 dark:text-stone-500 font-normal">{trimmed}</div>;
                       })}
                     </div>
@@ -278,25 +283,29 @@ export default function Home() {
             )}
           </div>
         )}
-{tab === 'job_search' && results && (
-          <div className={`border p-6 rounded-2xl shadow-sm space-y-6 transition-all duration-300 \${darkMode ? 'bg-stone-900/40 border-stone-800/60 shadow-2xl' : 'bg-white border-amber-900/10'}`}>
+
+        {tab === 'job_search' && results && (
+          <div className={`border p-6 rounded-2xl shadow-sm space-y-6 transition-all duration-300 ${darkMode ? 'bg-stone-900/40 border-stone-800/60 shadow-2xl' : 'bg-white border-amber-900/10'}`}>
             <div className="border-b pb-3 flex justify-between items-center dark:border-stone-800">
-              <h2 className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 \${darkMode ? 'text-amber-400' : 'text-amber-900'}`}>
+              <h2 className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${darkMode ? 'text-amber-400' : 'text-amber-900'}`}>
                 <Target className="w-4 h-4"/> Real-Time Grounded Job Discovery Node
               </h2>
             </div>
-            
+
             <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); handleSearchJobs(); }}>
               <div className="grid grid-cols-1 gap-4">
                 <div className="space-y-1.5">
                   <label className="font-bold text-xxs uppercase tracking-wider text-slate-500">Target Location City</label>
                   <input type="text" required className={`w-full border p-3 rounded-xl focus:outline-none transition-all text-xs ${darkMode ? 'bg-stone-950 border-stone-800 text-slate-200 focus:border-amber-800' : 'bg-stone-50 border-stone-200 text-stone-800'}`} placeholder="e.g. San Francisco or Remote" value={searchCity} onChange={(e) => setSearchCity(e.target.value)} />
                 </div>
+                <div className="space-y-1.5">
+                  <label className="font-bold text-xxs uppercase tracking-wider text-slate-500">Resume Skills / Keywords</label>
+                  <textarea rows={4} required={!searchFile} className={`w-full border p-3 rounded-xl focus:outline-none transition-all text-xs font-mono leading-relaxed ${darkMode ? 'bg-stone-950 border-stone-800 text-slate-200 focus:border-amber-800' : 'bg-stone-50 border-stone-200 text-stone-800'}`} placeholder="Paste technologies, domains, certifications, or role keywords. You can also upload a resume instead." value={searchSkills} onChange={(e) => setSearchSkills(e.target.value)} />
+                </div>
               </div>
 
-              {/* Dynamic CV / Resume Document Drag and Drop Input File Frame Gateway Layer */}
               <div className={`border-2 border-dashed rounded-xl p-6 text-center transition-all ${searchFile ? 'border-green-500 bg-green-500/5' : darkMode ? 'border-stone-800 hover:border-amber-500/40 bg-stone-950/40' : 'border-stone-200 hover:border-amber-900/30 bg-stone-50/40'}`}>
-                <input type="file" id="job-search-file-picker" accept=".pdf,.docx,.txt" required={!searchSkills} className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) { setSearchFile(f); setSearchSkills(f.name); } }} />
+                <input type="file" id="job-search-file-picker" accept=".pdf,.docx,.txt" required={!searchFile && !searchSkills.trim()} className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; if (f) setSearchFile(f); }} />
                 <label htmlFor="job-search-file-picker" className="cursor-pointer block space-y-2">
                   <FileText className={`w-8 h-8 mx-auto transition-colors duration-200 ${searchFile ? 'text-green-500' : 'text-slate-400'}`} />
                   <div className="text-xxs font-bold uppercase tracking-wide text-slate-700 dark:text-slate-300">
@@ -305,7 +314,7 @@ export default function Home() {
                   <p className="text-[10px] text-slate-400 font-medium max-w-md mx-auto leading-normal">Supported formats: PDF, Word (DOCX), or Text (TXT). Our search engine extracts keywords natively from your file to align with active openings.</p>
                 </label>
                 {searchFile && (
-                  <button type="button" onClick={() => { setSearchFile(null); setSearchSkills(''); }} className="mt-2 text-[10px] font-bold text-rose-600 dark:text-rose-400 hover:underline cursor-pointer transition-all">Remove Attached CV</button>
+                  <button type="button" onClick={() => setSearchFile(null)} className="mt-2 text-[10px] font-bold text-rose-600 dark:text-rose-400 hover:underline cursor-pointer transition-all">Remove Attached CV</button>
                 )}
               </div>
 
@@ -313,6 +322,7 @@ export default function Home() {
                 {searchLoading ? <><RefreshCw className="animate-spin w-4 h-4 text-amber-200" /> Grounding Live Open Web Matrices...</> : <><Sparkles className="w-4 h-4 text-amber-400" /> Fetch 40 Active Postings</>}
               </button>
             </form>
+
             {jobResults && (
               <div className="space-y-6 pt-2 border-t border-dashed border-amber-900/10 dark:border-slate-800 animate-fadeIn">
                 <div className="overflow-x-auto rounded-xl border border-stone-200 dark:border-stone-800 shadow-sm">
@@ -357,6 +367,7 @@ export default function Home() {
                     </tbody>
                   </table>
                 </div>
+
                 {jobResults.best_match_summary && (
                   <div className={`p-4 rounded-xl border flex items-start gap-2 text-xs font-semibold leading-relaxed shadow-sm ${darkMode ? 'bg-indigo-950/20 border-indigo-900/40 text-slate-200' : 'bg-indigo-50 border-indigo-100 text-indigo-900'}`}>
                     <Sparkles className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5" />
