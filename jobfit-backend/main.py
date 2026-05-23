@@ -21,17 +21,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 🔐 CLOUD STORAGE SECURE ENVIRONMENT POOL CHECK
+# 🔐 CLOUD STORAGE SECURE CONNECTION
 supabase_url = os.getenv("SUPABASE_URL")
 supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY")
 if not supabase_url or not supabase_key:
-    raise ValueError("CRITICAL DISPATCH ERROR: Missing Supabase credentials.")
+    raise ValueError("CRITICAL FAILURE: Missing required Supabase credentials.")
 supabase: Client = create_client(supabase_url, supabase_key)
 
-# 🚀 STABLE GOOGLE NATIVE ENGINE POOL CLIENT
+# 🚀 INITIALIZE THE GOOGLE GENAI CLIENT
 gemini_client = genai.Client()
 
-# 📋 Pydantic Validation Mappings (Forced Strict JSON Extraction Safety Rails)
+# 📋 Pydantic Architectural Blueprints (Guarantees Strict Output Validation)
 class ExperienceItem(BaseModel):
     company: str
     role: str
@@ -52,8 +52,9 @@ class CareerDashboardSchema(BaseModel):
     match_score: int
     missing_skills: List[str]
     tailoring_tips: List[str]
-    generated_interview_vectors: List[InterviewItem]
-    follow_up_questions_to_ask: List[str]
+    tell_me_about_yourself: str
+    interview_questions: List[InterviewItem]
+    follow_up_questions: List[str]
     resume: ResumeData
 
 
@@ -69,7 +70,7 @@ async def build_and_compare_resume(
     linkedin_profile: Optional[str] = Form(None),
     interview_duration: str = Form("30 minutes"),
     total_questions_requested: str = Form("5"),
-    interview_focus_type: str = Form("technical") # Enforces 'hr' or 'technical' selector loops
+    interview_type: str = Form("technical")
 ):
     try:
         requested_count = int(total_questions_requested)
@@ -77,38 +78,38 @@ async def build_and_compare_resume(
     except ValueError:
         requested_count = 5
 
-    # Enforce standard space allocation calculation layout boundaries
-    remaining_slots = max(1, requested_count - 1)
-
+    # Refine the focus based on user track selection parameters
+    track_name = "HR / Behavioral" if interview_type.lower() == "hr" else "Deep Technical / Architecture"
+    
     system_prompt = (
-        f"You are an elite corporate Recruiter and strict Automated ATS validation algorithm matrix.\n"
-        f"Analyze the candidate history against the job description requirements.\n"
-        f"CRITICAL INTERVIEW COMPLIANCE EXTRACTION PARAMETERS:\n"
-        f"1. generated_interview_vectors: Generate an array containing exactly {requested_count} items.\n"
-        f"   - Item 0 MUST ALWAYS BE: question: 'Tell me about yourself.', response: 'Provide a structured elevator pitch weaving in history, target goals, and technical mastery hooks.'\n"
-        f"   - The remaining {remaining_slots} questions must conform strictly to the focus type: '{interview_focus_type.upper()}'.\n"
-        f"   - If focus type is 'HR': Generate behavioral, situational, culture-fit, and communication challenge questions.\n"
-        f"   - If focus type is 'TECHNICAL': Generate domain tool integration challenges, coding paradigms, architectural flaws, and design pattern questions based on the job description.\n"
-        f"2. follow_up_questions_to_ask: Provide a high-impact list of exactly 3 or 4 custom strategic questions the candidate should ask the interviewer at the close of a {interview_duration} conversation node based on the context.\n"
-        f"3. match_score: Evaluate alignment from 0 to 100 based strictly on overlap parameters."
+        f"You are an expert corporate recruiter and automated ATS tracking system script.\n"
+        f"Analyze the candidate parameters explicitly against the provided job description requirements.\n"
+        f"CRITICAL COMPLIANCE TARGETS:\n"
+        f"1. match_score: Grade technical fit critically from 0 to 100 based strictly on overlap.\n"
+        f"2. missing_skills: Isolate explicit hard tools/languages omitted in the experience profile text.\n"
+        f"3. tell_me_about_yourself: Provide a perfect 2-minute elevator pitch narrative customized to this specific role.\n"
+        f"4. interview_questions: You must generate EXACTLY {requested_count} question and response blocks. "
+        f"Because the user selected the '{track_name}' category, all generated entries must focus 100% on that domain theme type.\n"
+        f"5. follow_up_questions: Generate 3 to 5 highly intelligent questions for the candidate to ask the interviewer at the end.\n"
+        f"6. resume: Reconstruct experience bullets to weave in relevant missing keywords natively."
     )
 
-    linkedin_context = f"\nLinkedIn Anchor Node: {linkedin_profile}" if linkedin_profile else ""
+    linkedin_context = f"\nCandidate LinkedIn URL Profile Data: {linkedin_profile}" if linkedin_profile else ""
 
     try:
         response = gemini_client.models.generate_content(
             model='gemini-2.5-flash',
-            contents=f"Candidate: {full_name}\nTarget: {target_role}{linkedin_context}\nHistory: {career_history}\nJD:\n{job_description}",
+            contents=f"Candidate Name: {full_name}\nTarget: {target_role}{linkedin_context}\nHistory: {career_history}\nJD:\n{job_description}",
             config=types.GenerateContentConfig(
                 system_instruction=system_prompt,
                 response_mime_type="application/json",
                 response_schema=CareerDashboardSchema,
-                temperature=0.15
+                temperature=0.1
             )
         )
         analysis_result = json.loads(response.text.strip())
     except Exception as ai_err:
-        raise HTTPException(status_code=500, detail=f"AI Compliance Extractor Vector Exception: {str(ai_err)}")
+        raise HTTPException(status_code=500, detail=f"AI Engine Extraction Crash Error: {str(ai_err)}")
 
     resume_data = analysis_result.get("resume", {})
     public_url = ""
@@ -145,26 +146,29 @@ async def build_and_compare_resume(
             file_data = f.read()
 
         storage_path = f"resumes/{pdf_filename}"
+        
         try:
             supabase.storage.from_("updated-resumes").upload(path=storage_path, file=file_data, file_options={"content-type": "application/pdf"})
             public_url = supabase.storage.from_("updated-resumes").get_public_url(storage_path)
         except Exception:
-            public_url = "Cloud Link Storage Warning"
+            public_url = "Cloud Storage Connection Mismatch"
 
         if os.path.exists(pdf_filename):
             os.remove(pdf_filename)
+            
     except Exception:
-        public_url = "PDF Engine Fallback Block"
+        public_url = "PDF Engine Fallback"
 
-    # Strict array slicing validation constraints to enforce exact layout requirements
-    final_vectors = analysis_result.get("generated_interview_vectors", [])[:requested_count]
+    # Enforce strict maximum length restriction list slicing targeting requested slider total
+    final_questions = analysis_result.get("interview_questions", [])[:requested_count]
 
     return {
         "match_score": analysis_result.get("match_score", 70),
         "missing_skills": analysis_result.get("missing_skills", []),
         "tailoring_tips": analysis_result.get("tailoring_tips", []),
-        "generated_interview_vectors": final_vectors,
-        "follow_up_questions_to_ask": analysis_result.get("follow_up_questions_to_ask", []),
+        "tell_me_about_yourself": analysis_result.get("tell_me_about_yourself", ""),
+        "interview_questions": final_questions,
+        "follow_up_questions": analysis_result.get("follow_up_questions", []),
         "resume": resume_data, 
         "shareable_url": public_url
     }
