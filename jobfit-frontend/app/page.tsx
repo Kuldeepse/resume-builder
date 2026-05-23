@@ -63,11 +63,11 @@ export default function Home() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="font-bold text-xxs uppercase tracking-wider text-slate-500">Applicant Full Name</label>
-                  <input type="text" className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-200' : 'bg-stone-50 border-stone-200 text-slate-800'}`} placeholder="e.g. Alex Mercer" value={fullName} onChange={(e) => setFullName(e.target.value)} />
+                  <input type="text" className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-200' : 'bg-stone-50 border-stone-200 text-stone-800'}`} placeholder="e.g. Alex Mercer" value={fullName} onChange={(e) => setFullName(e.target.value)} />
                 </div>
                 <div className="space-y-1.5">
                   <label className="font-bold text-xxs uppercase tracking-wider text-slate-500">Target Role Objective</label>
-                  <input type="text" className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-200' : 'bg-stone-50 border-stone-200 text-slate-800'}`} placeholder="e.g. Senior Frontend Architect" value={targetRole} onChange={(e) => setTargetRole(e.target.value)} />
+                  <input type="text" className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-200' : 'bg-stone-50 border-stone-200 text-stone-800'}`} placeholder="e.g. Senior Frontend Architect" value={targetRole} onChange={(e) => setTargetRole(e.target.value)} />
                 </div>
               </div>
 
@@ -118,12 +118,11 @@ export default function Home() {
                 <BarChart3 className="w-8 h-8 text-amber-800 dark:text-amber-500 mb-2"/>
                 <h4 className={`font-extrabold uppercase tracking-widest text-xs ${darkMode ? 'text-amber-400' : 'text-amber-900'}`}>ATS Alignment Score</h4>
                 <div className={`text-6xl font-black mt-3 tracking-tight ${darkMode ? 'text-stone-100' : 'text-amber-950'}`}>{results.match_score}%</div>
-                <p className={`text-[11px] mt-3 font-semibold leading-normal ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>Target evaluation calculated via total requirement coverage parameters.</p>
               </div>
               <div className={`p-6 rounded-2xl border flex flex-col ${darkMode ? 'bg-slate-950 border-slate-800' : 'bg-slate-900 text-slate-100 border-slate-950 shadow-inner'}`}>
                 <h4 className="text-amber-400 font-black uppercase tracking-widest text-xs flex items-center gap-1.5 border-b pb-2 border-amber-500/20 mb-4"><AlertTriangle className="w-4 h-4 text-amber-500 shrink-0"/> Critical Keyword Gaps Isolate</h4>
                 <div className="flex flex-wrap gap-2 overflow-y-auto pr-1 max-h-48">
-                  {results.missing_skills?.map((s: string, i: number) => <span key={i} className="bg-amber-500/20 text-amber-300 font-bold px-3 py-1.5 rounded-xl border border-amber-400/30 text-[11px] tracking-wide shadow-sm">{s}</span>) || <span className="text-stone-400 italic text-xs">None</span>}
+                  {results.missing_skills?.map((s: string, i: number) => <span key={i} className="bg-amber-400/20 text-amber-300 font-bold px-3 py-1.5 rounded-xl border border-amber-400/30 text-[11px] tracking-wide shadow-sm">{s}</span>) || <span className="text-stone-400 italic text-xs">None</span>}
                 </div>
               </div>
               <div className={`p-6 rounded-2xl border flex flex-col ${darkMode ? 'bg-slate-950 border-slate-800' : 'bg-[#F2ECE4] border-amber-200/80 text-stone-900'}`}>
@@ -170,4 +169,5 @@ export default function Home() {
                 {results.hr_interview?.map((item: any, i: number) => (
                   <div key={i} className={`p-4 rounded-xl border space-y-2 transition-all ${darkMode ? 'bg-slate-950 border-slate-800/80 text-slate-100' : 'bg-amber-50/40 border-amber-200 text-slate-900'}`}>
                     <div className="font-bold flex items-start gap-1.5 text-xs"><HelpCircle className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5"/> <span>Q: {item.question}</span></div>
- {item.response}))} Domain Execution Vectors{results.technical_interview?.map((item: any, i: number) => (<div key={i} className={p-4 rounded-xl border space-y-2 transition-all ${darkMode ? 'bg-slate-950 border-slate-800/80 text-slate-100' : 'bg-amber-50/40 border-amber-200 text-slate-900'}}> Q: {item.question}Technical Strategy: {item.response}))})}Crafted with  & Developed by Kuldeep Sharma);}
+                    <div className="text-[11px] pl-5 leading-relaxed opacity-90"><span className="font-bold text-indigo-600 dark:text-indigo-400">Response Logic:</span> {item.response}</div>
+))} Domain Execution Vectors{results.technical_interview?.map((item: any, i: number) => (<div key={i} className={p-4 rounded-xl border space-y-2 transition-all ${darkMode ? 'bg-slate-950 border-slate-800/80 text-slate-100' : 'bg-amber-50/40 border-amber-200 text-slate-900'}}> Q: {item.question}Technical Strategy: {item.response}))})}Crafted with  & Developed by Kuldeep Sharma);}
