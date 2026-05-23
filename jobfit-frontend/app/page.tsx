@@ -43,6 +43,7 @@ export default function Home() {
 
   const [searchCity, setSearchCity] = useState('');
   const [searchSkills, setSearchSkills] = useState('');
+  const [searchFile, setSearchFile] = useState<File | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
   const [jobResults, setJobResults] = useState<any>(null);
 
@@ -86,8 +87,12 @@ export default function Home() {
   };
 
   const handleSearchJobs = async () => {
-    if (!targetRole.trim() || !searchCity.trim() || !searchSkills.trim()) {
-      return alert('Please enter Target Role, Search City, and Resume Skills before running job search.');
+    if (!targetRole.trim() || !searchCity.trim()) {
+      return alert('Please enter Target Role and Search City before running job search.');
+    }
+
+    if (!searchSkills.trim() && !searchFile) {
+      return alert('Please enter Resume / Skills Summary Profile or upload a CV.');
     }
 
     setSearchLoading(true);
@@ -97,6 +102,10 @@ export default function Home() {
     formData.append('target_role', targetRole.trim());
     formData.append('location_city', searchCity.trim());
     formData.append('resume_skills', searchSkills.trim());
+
+    if (searchFile) {
+      formData.append('resume_file', searchFile);
+    }
 
     try {
       const res = await fetch('https://resume-builder-backend-ph7b.onrender.com/search-jobs', {
@@ -121,26 +130,16 @@ export default function Home() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  if (!mounted) {
-    return <div className="min-h-screen bg-[#FAF8F5] dark:bg-stone-950 animate-pulse" />;
-  }
+  if (!mounted) return <div className="min-h-screen bg-[#FAF8F5] dark:bg-stone-950 animate-pulse" />;
 
   return (
-    <main
-      className={`min-h-screen p-4 md:p-8 font-sans antialiased transition-colors duration-300 ${
-        darkMode ? 'bg-stone-950 text-slate-100' : 'bg-[#FAF8F5] text-slate-900'
-      }`}
-    >
+    <main className={`min-h-screen p-4 md:p-8 font-sans antialiased transition-colors duration-300 ${darkMode ? 'bg-stone-950 text-slate-100' : 'bg-[#FAF8F5] text-slate-900'}`}>
       <div className="max-w-5xl mx-auto space-y-6">
         <header className="relative flex flex-col items-center text-center space-y-3 py-4 border-b border-dashed border-amber-900/20 dark:border-slate-800">
           <button
             type="button"
             onClick={() => setDarkMode(!darkMode)}
-            className={`absolute top-2 right-2 p-2 rounded-xl border flex items-center gap-1.5 font-bold text-[10px] uppercase tracking-wider cursor-pointer shadow-sm transition-all ${
-              darkMode
-                ? 'bg-stone-900 border-stone-800 text-amber-500'
-                : 'bg-white border-stone-200 text-stone-800'
-            }`}
+            className={`absolute top-2 right-2 p-2 rounded-xl border flex items-center gap-1.5 font-bold text-[10px] uppercase tracking-wider cursor-pointer shadow-sm transition-all ${darkMode ? 'bg-stone-900 border-stone-800 text-amber-500' : 'bg-white border-stone-200 text-stone-800'}`}
           >
             {darkMode ? (
               <>
@@ -153,123 +152,64 @@ export default function Home() {
             )}
           </button>
 
-          <div
-            className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] uppercase tracking-wider font-semibold border ${
-              darkMode
-                ? 'bg-indigo-500/10 border-slate-800 text-indigo-400'
-                : 'bg-indigo-50 border-indigo-100 text-indigo-700'
-            }`}
-          >
+          <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] uppercase tracking-wider font-semibold border ${darkMode ? 'bg-indigo-500/10 border-slate-800 text-indigo-400' : 'bg-indigo-50 border-indigo-100 text-indigo-700'}`}>
             <Sparkles className="w-3 h-3 text-indigo-500" /> Engine Active: Gemini 2.5 Pro Tier
           </div>
 
-          <h1 className="text-3xl md:text-5xl font-black tracking-tight text-slate-900 dark:text-white">
+          <h1 className="text-3xl md:text-5xl font-black tracking-tight text-amber-900 dark:text-amber">
             AI Career Intelligence Matrix
           </h1>
 
-          <p
-            className={`text-xs md:text-sm max-w-xl mx-auto leading-relaxed font-medium ${
-              darkMode ? 'text-slate-400' : 'text-slate-600'
-            }`}
-          >
-            Bridge the gap between your engineering experience profile and ATS screening rules to
-            secure premium interview placement.
+          <p className={`text-xs md:text-sm max-w-xl mx-auto leading-relaxed font-medium ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>
+            Bridge the gap between your engineering experience profile and ATS screening rules to secure premium interview placement.
           </p>
         </header>
 
-        <div
-          className={`flex flex-wrap border p-1.5 gap-1.5 backdrop-blur-md rounded-2xl shadow-sm overflow-x-auto ${
-            darkMode ? 'bg-stone-900/80 border-slate-800' : 'bg-white border-amber-900/10'
-          }`}
-        >
+        <div className={`flex flex-wrap border p-1.5 gap-1.5 backdrop-blur-md rounded-2xl shadow-sm overflow-x-auto ${darkMode ? 'bg-stone-900/80 border-slate-800' : 'bg-white border-amber-900/10'}`}>
           <button
             onClick={() => setTab('builder')}
-            className={`px-4 py-2 font-bold rounded-xl flex items-center gap-1.5 cursor-pointer transition-all duration-200 text-xxs tracking-wide ${
-              tab === 'builder'
-                ? 'bg-amber-900 text-white shadow-md scale-[1.01]'
-                : darkMode
-                  ? 'text-stone-400 hover:bg-stone-800'
-                  : 'text-stone-600 hover:bg-amber-50'
-            }`}
+            className={`px-4 py-2 font-bold rounded-xl flex items-center gap-1.5 cursor-pointer transition-all duration-200 text-xxs tracking-wide ${tab === 'builder' ? 'bg-amber-900 text-white shadow-md scale-[1.01]' : darkMode ? 'text-stone-400 hover:bg-stone-800' : 'text-stone-600 hover:bg-amber-50'}`}
           >
             <Sparkles className="w-3.5 h-3.5" /> Pipeline Builder
-          </button>
-
-          <button
-            onClick={() => setTab('job_search')}
-            className={`px-4 py-2 font-bold rounded-xl flex items-center gap-1.5 cursor-pointer transition-all duration-200 text-xxs tracking-wide ${
-              tab === 'job_search'
-                ? 'bg-amber-900 text-white shadow-md scale-[1.01]'
-                : darkMode
-                  ? 'text-stone-400 hover:bg-stone-800'
-                  : 'text-stone-600 hover:bg-amber-50'
-            }`}
-          >
-            <Briefcase className="w-3.5 h-3.5" /> Web Job Discovery Tool
           </button>
 
           {results && (
             <>
               <button
                 onClick={() => setTab('validation')}
-                className={`px-4 py-2 font-bold rounded-xl flex items-center gap-1.5 cursor-pointer transition-all duration-200 text-xxs tracking-wide ${
-                  tab === 'validation'
-                    ? 'bg-amber-900 text-white shadow-md scale-[1.01]'
-                    : darkMode
-                      ? 'text-stone-400 hover:bg-stone-800'
-                      : 'text-stone-600 hover:bg-amber-50'
-                }`}
+                className={`px-4 py-2 font-bold rounded-xl flex items-center gap-1.5 cursor-pointer transition-all duration-200 text-xxs tracking-wide ${tab === 'validation' ? 'bg-amber-900 text-white shadow-md scale-[1.01]' : darkMode ? 'text-stone-400 hover:bg-stone-800' : 'text-stone-600 hover:bg-amber-50'}`}
               >
                 <ClipboardCheck className="w-3.5 h-3.5" /> Resume Validation
               </button>
 
               <button
                 onClick={() => setTab('updated_resume')}
-                className={`px-4 py-2 font-bold rounded-xl flex items-center gap-1.5 cursor-pointer transition-all duration-200 text-xxs tracking-wide ${
-                  tab === 'updated_resume'
-                    ? 'bg-amber-900 text-white shadow-md scale-[1.01]'
-                    : darkMode
-                      ? 'text-stone-400 hover:bg-stone-800'
-                      : 'text-stone-600 hover:bg-amber-50'
-                }`}
+                className={`px-4 py-2 font-bold rounded-xl flex items-center gap-1.5 cursor-pointer transition-all duration-200 text-xxs tracking-wide ${tab === 'updated_resume' ? 'bg-amber-900 text-white shadow-md scale-[1.01]' : darkMode ? 'text-stone-400 hover:bg-stone-800' : 'text-stone-600 hover:bg-amber-50'}`}
               >
                 <FileText className="w-3.5 h-3.5" /> Tailored Output
               </button>
 
               <button
                 onClick={() => setTab('prep')}
-                className={`px-4 py-2 font-bold rounded-xl flex items-center gap-1.5 cursor-pointer transition-all duration-200 text-xxs tracking-wide ${
-                  tab === 'prep'
-                    ? 'bg-amber-900 text-white shadow-md scale-[1.01]'
-                    : darkMode
-                      ? 'text-stone-400 hover:bg-stone-800'
-                      : 'text-stone-600 hover:bg-amber-50'
-                }`}
+                className={`px-4 py-2 font-bold rounded-xl flex items-center gap-1.5 cursor-pointer transition-all duration-200 text-xxs tracking-wide ${tab === 'prep' ? 'bg-amber-900 text-white shadow-md scale-[1.01]' : darkMode ? 'text-stone-400 hover:bg-stone-800' : 'text-stone-600 hover:bg-amber-50'}`}
               >
                 <User className="w-3.5 h-3.5" /> Interview Vectors
+              </button>
+
+              <button
+                onClick={() => setTab('job_search')}
+                className={`px-4 py-2 font-bold rounded-xl flex items-center gap-1.5 cursor-pointer transition-all duration-200 text-xxs tracking-wide ${tab === 'job_search' ? 'bg-amber-900 text-white shadow-md scale-[1.01]' : darkMode ? 'text-stone-400 hover:bg-stone-800' : 'text-stone-600 hover:bg-amber-50'}`}
+              >
+                <Briefcase className="w-3.5 h-3.5" /> Web Job Discovery Tool
               </button>
             </>
           )}
         </div>
 
         {tab === 'builder' && (
-          <div
-            className={`border p-6 rounded-2xl shadow-sm space-y-6 ${
-              darkMode
-                ? 'bg-stone-900/40 border-stone-800/60 shadow-2xl'
-                : 'bg-white border-amber-900/10'
-            }`}
-          >
-            <div
-              className={`flex justify-between items-center border-b pb-3 ${
-                darkMode ? 'border-stone-800/60' : 'border-stone-100'
-              }`}
-            >
-              <h2
-                className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${
-                  darkMode ? 'text-amber-400' : 'text-amber-900'
-                }`}
-              >
+          <div className={`border p-6 rounded-2xl shadow-sm space-y-6 ${darkMode ? 'bg-stone-900/40 border-stone-800/60 shadow-2xl' : 'bg-white border-amber-900/10'}`}>
+            <div className={`flex justify-between items-center border-b pb-3 ${darkMode ? 'border-stone-800/60' : 'border-stone-100'}`}>
+              <h2 className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${darkMode ? 'text-amber-400' : 'text-amber-900'}`}>
                 <ArrowLeftRight className="w-4 h-4" /> Core Variable Mapping
               </h2>
 
@@ -288,11 +228,7 @@ export default function Home() {
                     setResults(null);
                     setTab('builder');
                   }}
-                  className={`flex items-center gap-1 font-bold px-3 py-1 rounded-xl border text-xxs tracking-wide cursor-pointer ${
-                    darkMode
-                      ? 'bg-rose-950 text-rose-400 border-rose-500/20'
-                      : 'bg-rose-50 text-rose-700 border-rose-200'
-                  }`}
+                  className={`flex items-center gap-1 font-bold px-3 py-1 rounded-xl border text-xxs tracking-wide cursor-pointer ${darkMode ? 'bg-rose-950 text-rose-400 border-rose-500/20' : 'bg-rose-50 text-rose-700 border-rose-200'}`}
                 >
                   <RotateCcw className="w-3 h-3" /> Reset Form
                 </button>
@@ -302,16 +238,10 @@ export default function Home() {
             <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="font-bold text-xxs uppercase tracking-wider text-slate-500">
-                    Applicant Full Name
-                  </label>
+                   <label className="font-bold text-xxs uppercase tracking-wider flex items-center gap-1 text-amber-900 dark:text-amber-400">Applicant Full Name</label>
                   <input
                     type="text"
-                    className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${
-                      darkMode
-                        ? 'bg-stone-950 border-stone-800 text-slate-200 focus:border-amber-800'
-                        : 'bg-stone-50 border-stone-200 text-stone-800'
-                    }`}
+                    className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${darkMode ? 'bg-stone-950 border-stone-800 text-slate-200 focus:border-amber-800' : 'bg-stone-50 border-stone-200 text-stone-800'}`}
                     placeholder="e.g. Alex Mercer"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
@@ -319,16 +249,10 @@ export default function Home() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="font-bold text-xxs uppercase tracking-wider text-slate-500">
-                    Target Role Objective
-                  </label>
+                   <label className="font-bold text-xxs uppercase tracking-wider flex items-center gap-1 text-amber-900 dark:text-amber-400">Target Role Objective</label>
                   <input
                     type="text"
-                    className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${
-                      darkMode
-                        ? 'bg-stone-950 border-slate-800 text-slate-200 focus:border-amber-800'
-                        : 'bg-stone-50 border-stone-200 text-stone-800'
-                    }`}
+                    className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-200 focus:border-amber-800' : 'bg-stone-50 border-stone-200 text-stone-800'}`}
                     placeholder="e.g. Senior Frontend Architect"
                     value={targetRole}
                     onChange={(e) => setTargetRole(e.target.value)}
@@ -338,16 +262,12 @@ export default function Home() {
 
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 border-t border-b border-dashed border-slate-200 dark:border-slate-800 py-4">
                 <div className="space-y-1.5">
-                  <label className="font-bold text-xxs uppercase tracking-wider text-slate-500 flex items-center gap-1">
+                   <label className="font-bold text-xxs uppercase tracking-wider flex items-center gap-1 text-amber-900 dark:text-amber-400">
                     <Link className="w-3 h-3 text-indigo-500" /> LinkedIn Profile URL
                   </label>
                   <input
                     type="url"
-                    className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${
-                      darkMode
-                        ? 'bg-stone-950 border-slate-800 text-slate-200 focus:border-amber-800'
-                        : 'bg-stone-50 border-stone-200 text-stone-800'
-                    }`}
+                    className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-200 focus:border-amber-800' : 'bg-stone-50 border-stone-200 text-stone-800'}`}
                     placeholder="e.g. https://linkedin.com"
                     value={linkedin}
                     onChange={(e) => setLinkedin(e.target.value)}
@@ -355,15 +275,11 @@ export default function Home() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="font-bold text-xxs uppercase tracking-wider text-slate-500 flex items-center gap-1">
+                  <label className="font-bold text-xxs uppercase tracking-wider flex items-center gap-1 text-amber-900 dark:text-amber-400">
                     <Clock className="w-3 h-3 text-indigo-500" /> Interview Duration
                   </label>
                   <select
-                    className={`w-full border p-3 rounded-xl focus:outline-none transition-all cursor-pointer ${
-                      darkMode
-                        ? 'bg-stone-950 border-slate-800 text-slate-200 focus:border-amber-800'
-                        : 'bg-stone-50 border-stone-200 text-stone-800'
-                    }`}
+                    className={`w-full border p-3 rounded-xl focus:outline-none transition-all cursor-pointer ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-200 focus:border-amber-800' : 'bg-stone-50 border-stone-200 text-stone-800'}`}
                     value={duration}
                     onChange={(e) => setDuration(e.target.value)}
                   >
@@ -374,15 +290,11 @@ export default function Home() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="font-bold text-xxs uppercase tracking-wider text-slate-500 flex items-center gap-1">
+                   <label className="font-bold text-xxs uppercase tracking-wider flex items-center gap-1 text-amber-900 dark:text-amber-400">
                     <UserCheck className="w-3 h-3 text-indigo-500" /> Interview Category
                   </label>
                   <select
-                    className={`w-full border p-3 rounded-xl focus:outline-none transition-all cursor-pointer ${
-                      darkMode
-                        ? 'bg-stone-950 border-slate-800 text-slate-200 focus:border-amber-800'
-                        : 'bg-stone-50 border-stone-200 text-stone-800'
-                    }`}
+                    className={`w-full border p-3 rounded-xl focus:outline-none transition-all cursor-pointer ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-200 focus:border-amber-800' : 'bg-stone-50 border-stone-200 text-stone-800'}`}
                     value={interviewType}
                     onChange={(e) => {
                       setInterviewType(e.target.value as 'hr' | 'technical');
@@ -390,16 +302,14 @@ export default function Home() {
                     }}
                   >
                     <option value="technical">Technical Interview Track</option>
-                    <option value="hr">HR / Behavioral Interview Track</option>
+                    <option value="hr">HR Interview Track</option>
                   </select>
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="font-bold text-xxs uppercase tracking-wider text-slate-500 flex items-center gap-1">
+                  <label className="font-bold text-xxs uppercase tracking-wider flex items-center gap-1 text-amber-900 dark:text-amber-400">
                     <ListOrdered className="w-3 h-3 text-indigo-500" /> Questions Needed:
-                    <span className="text-indigo-600 dark:text-indigo-400 font-extrabold ml-1">
-                      {totalQuestions}
-                    </span>
+                    <span className="text-indigo-600 dark:text-indigo-400 font-extrabold ml-1">{totalQuestions}</span>
                   </label>
                   <div className="flex items-center gap-2 pt-2">
                     <input
@@ -415,52 +325,28 @@ export default function Home() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div
-                  className={`space-y-1.5 p-4 rounded-xl border ${
-                    darkMode
-                      ? 'bg-stone-950/40 border-slate-800/60'
-                      : 'bg-stone-50/60 border-stone-200/60'
-                  }`}
-                >
+                <div className={`space-y-1.5 p-4 rounded-xl border ${darkMode ? 'bg-stone-950/40 border-slate-800/60' : 'bg-stone-50/60 border-stone-200/60'}`}>
                   <label className="font-bold text-xxs uppercase tracking-wider flex items-center gap-1 text-amber-900 dark:text-amber-400">
                     <FileText className="w-3.5 h-3.5" /> Legacy Career Profile
                   </label>
-                  <p className="text-[10px] text-slate-400 mb-2 font-medium">
-                    Hint: List positions, technology stack tools used, or clip history.
-                  </p>
+                  <p className="text-[10px] text-slate-400 mb-2 font-medium">Hint: List positions, technology stack tools used, or clip history.</p>
                   <textarea
                     rows={6}
-                    className={`w-full border p-3 rounded-xl focus:outline-none font-mono text-[11px] leading-relaxed ${
-                      darkMode
-                        ? 'bg-stone-950 border-slate-800 text-slate-300 focus:border-amber-800'
-                        : 'bg-white border-stone-200 text-slate-800'
-                    }`}
+                    className={`w-full border p-3 rounded-xl focus:outline-none font-mono text-[11px] leading-relaxed ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-300 focus:border-amber-800' : 'bg-white border-stone-200 text-slate-800'}`}
                     placeholder="Frontend Dev at TechCorp. Managed React architecture, optimizing layout loops..."
                     value={careerHistory}
                     onChange={(e) => setCareerHistory(e.target.value)}
                   />
                 </div>
 
-                <div
-                  className={`space-y-1.5 p-4 rounded-xl border ${
-                    darkMode
-                      ? 'bg-stone-950/40 border-slate-800/60'
-                      : 'bg-stone-50/60 border-stone-200/60'
-                  }`}
-                >
+                <div className={`space-y-1.5 p-4 rounded-xl border ${darkMode ? 'bg-stone-950/40 border-slate-800/60' : 'bg-stone-50/60 border-stone-200/60'}`}>
                   <label className="font-bold text-xxs uppercase tracking-wider flex items-center gap-1 text-amber-900 dark:text-amber-400">
                     <Target className="w-3.5 h-3.5" /> Job Description Target
                   </label>
-                  <p className="text-[10px] text-slate-400 mb-2">
-                    Hint: Paste the complete responsibilities checklist text from your target listing.
-                  </p>
+                  <p className="text-[10px] text-slate-400 mb-2">Hint: Paste the complete responsibilities checklist text from your target listing.</p>
                   <textarea
                     rows={6}
-                    className={`w-full border p-3 rounded-xl focus:outline-none font-mono text-[11px] leading-relaxed ${
-                      darkMode
-                        ? 'bg-stone-950 border-slate-800 text-slate-300 focus:border-amber-800'
-                        : 'bg-white border-stone-200 text-slate-800'
-                    }`}
+                    className={`w-full border p-3 rounded-xl focus:outline-none font-mono text-[11px] leading-relaxed ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-300 focus:border-amber-800' : 'bg-white border-stone-200 text-slate-800'}`}
                     placeholder="Seeking an engineer with deep runtime comprehension of cloud topologies..."
                     value={jobDescription}
                     onChange={(e) => setJobDescription(e.target.value)}
@@ -476,8 +362,7 @@ export default function Home() {
               >
                 {loading ? (
                   <>
-                    <RefreshCw className="animate-spin w-4 h-4 text-amber-200" /> Computing Neural
-                    Vectors...
+                    <RefreshCw className="animate-spin w-4 h-4 text-amber-200" /> Computing Neural Vectors...
                   </>
                 ) : (
                   <>
@@ -490,86 +375,42 @@ export default function Home() {
         )}
 
         {tab === 'validation' && results && (
-          <div
-            className={`border p-8 rounded-2xl shadow-md space-y-6 ${
-              darkMode ? 'bg-stone-900/40 border-slate-800/60' : 'bg-white border-amber-900/10'
-            }`}
-          >
-            <h3
-              className={`text-sm font-bold uppercase tracking-wider flex items-center gap-2 border-b pb-4 ${
-                darkMode ? 'text-amber-400 border-slate-800' : 'text-amber-900 border-stone-100'
-              }`}
-            >
+          <div className={`border p-8 rounded-2xl shadow-md space-y-6 ${darkMode ? 'bg-stone-900/40 border-slate-800/60' : 'bg-white border-amber-900/10'}`}>
+            <h3 className={`text-sm font-bold uppercase tracking-wider flex items-center gap-2 border-b pb-4 ${darkMode ? 'text-amber-400 border-slate-800' : 'text-amber-900 border-stone-100'}`}>
               <BarChart3 className="w-5 h-5" /> Resume Validation Metrics Panel
             </h3>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div
-                className={`p-8 rounded-2xl border text-center relative overflow-hidden flex flex-col justify-center items-center ${
-                  darkMode
-                    ? 'bg-slate-950 border-slate-800'
-                    : 'bg-amber-50/50 border-amber-200/60'
-                }`}
-              >
+              <div className={`p-8 rounded-2xl border text-center relative overflow-hidden flex flex-col justify-center items-center ${darkMode ? 'bg-slate-950 border-slate-800' : 'bg-amber-50/50 border-amber-200/60'}`}>
                 <BarChart3 className="w-8 h-8 text-amber-800 dark:text-amber-500 mb-2" />
-                <h4
-                  className={`font-extrabold uppercase tracking-widest text-xs ${
-                    darkMode ? 'text-amber-400' : 'text-amber-900'
-                  }`}
-                >
+                <h4 className={`font-extrabold uppercase tracking-widest text-xs ${darkMode ? 'text-amber-400' : 'text-amber-900'}`}>
                   ATS Alignment Score
                 </h4>
-                <div
-                  className={`text-6xl font-black mt-3 tracking-tight ${
-                    darkMode ? 'text-stone-100' : 'text-amber-950'
-                  }`}
-                >
+                <div className={`text-6xl font-black mt-3 tracking-tight ${darkMode ? 'text-stone-100' : 'text-amber-950'}`}>
                   {results.match_score}%
                 </div>
               </div>
 
-              <div
-                className={`p-6 rounded-2xl border flex flex-col ${
-                  darkMode
-                    ? 'bg-slate-950 border-slate-800'
-                    : 'bg-slate-900 text-slate-100 border-slate-950 shadow-inner'
-                }`}
-              >
+              <div className={`p-6 rounded-2xl border flex flex-col ${darkMode ? 'bg-slate-950 border-slate-800' : 'bg-slate-900 text-slate-100 border-slate-950 shadow-inner'}`}>
                 <h4 className="text-amber-400 font-black uppercase tracking-widest text-xs flex items-center gap-1.5 border-b pb-2 border-amber-500/20 mb-4">
-                  <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" /> Critical Keyword Gaps
-                  Isolate
+                  <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" /> Critical Keyword Gaps Isolate
                 </h4>
                 <div className="flex flex-wrap gap-2 overflow-y-auto pr-1 max-h-48">
                   {results.missing_skills?.map((s: string, i: number) => (
-                    <span
-                      key={i}
-                      className="bg-amber-400/20 text-amber-300 font-bold px-3 py-1.5 rounded-xl border border-amber-400/30 text-[11px] tracking-wide shadow-sm"
-                    >
+                    <span key={i} className="bg-amber-400/20 text-amber-300 font-bold px-3 py-1.5 rounded-xl border border-amber-400/30 text-[11px] tracking-wide shadow-sm">
                       {s}
                     </span>
                   )) || <span className="text-stone-400 italic text-xs">None</span>}
                 </div>
               </div>
 
-              <div
-                className={`p-6 rounded-2xl border flex flex-col ${
-                  darkMode
-                    ? 'bg-slate-950 border-slate-800'
-                    : 'bg-[#F2ECE4] border-amber-200/80 text-stone-900'
-                }`}
-              >
+              <div className={`p-6 rounded-2xl border flex flex-col ${darkMode ? 'bg-slate-950 border-slate-800' : 'bg-[#F2ECE4] border-amber-200/80 text-stone-900'}`}>
                 <h4 className="text-amber-800 dark:text-amber-400 font-black uppercase tracking-widest text-xs flex items-center gap-1.5 border-b pb-2 border-amber-800/10 mb-4">
-                  <Target className="w-4 h-4 text-amber-800 dark:text-amber-400 shrink-0" /> Optimization
-                  Strategy Advice
+                  <Target className="w-4 h-4 text-amber-800 dark:text-amber-400 shrink-0" /> Optimization Strategy Advice
                 </h4>
                 <ul className="space-y-2.5 text-xs font-semibold leading-relaxed overflow-y-auto pr-1 max-h-48 pl-0 list-none">
                   {results.tailoring_tips?.map((t: string, i: number) => (
-                    <li
-                      key={i}
-                      className={`flex items-start gap-2 border-b border-dashed pb-1.5 last:border-0 ${
-                        darkMode ? 'border-slate-800' : 'border-amber-900/10'
-                      }`}
-                    >
+                    <li key={i} className={`flex items-start gap-2 border-b border-dashed pb-1.5 last:border-0 ${darkMode ? 'border-slate-800' : 'border-amber-900/10'}`}>
                       <CheckCircle2 className="w-4 h-4 text-amber-800 dark:text-amber-500 shrink-0 mt-0.5" />
                       <span>{t}</span>
                     </li>
@@ -581,11 +422,7 @@ export default function Home() {
         )}
 
         {tab === 'updated_resume' && results && (
-          <div
-            className={`border p-6 rounded-2xl shadow-sm space-y-5 ${
-              darkMode ? 'bg-stone-900/40 border-slate-800/60' : 'bg-white border-amber-900/10'
-            }`}
-          >
+          <div className={`border p-6 rounded-2xl shadow-sm space-y-5 ${darkMode ? 'bg-stone-900/40 border-slate-800/60' : 'bg-white border-amber-900/10'}`}>
             <div className="bg-amber-800 p-4 rounded-xl text-white flex justify-between items-center shadow-md">
               <div className="flex items-center gap-1.5 font-bold text-xxs tracking-wider uppercase text-amber-100">
                 <FileText className="w-4 h-4" /> Tailored Optimization Resume Output Map
@@ -598,41 +435,28 @@ export default function Home() {
               </button>
             </div>
 
-            <div
-              className={`border p-6 rounded-xl space-y-4 max-h-[500px] overflow-y-auto shadow-inner leading-relaxed ${
-                darkMode
-                  ? 'border-slate-800 bg-slate-950 text-slate-100'
-                  : 'border-slate-200 bg-white text-slate-900'
-              }`}
-            >
+            <div className={`border p-6 rounded-xl space-y-4 max-h-[500px] overflow-y-auto shadow-inner leading-relaxed ${darkMode ? 'border-slate-800 bg-slate-950 text-slate-100' : 'border-slate-200 bg-white text-slate-900'}`}>
               <h2 className="text-xl font-extrabold tracking-tight border-b pb-2 border-slate-200 dark:border-slate-800">
                 {results.resume?.full_name}
               </h2>
-              <p className="text-xs font-medium tracking-wide leading-relaxed">
-                {results.resume?.professional_summary}
-              </p>
+              <p className="text-xs font-medium tracking-wide leading-relaxed">{results.resume?.professional_summary}</p>
               <div className="flex flex-wrap gap-1.5 pt-1">
                 {results.resume?.skills?.map((s: string, i: number) => (
                   <span
                     key={i}
-                    className={`font-bold px-2 py-0.5 rounded-md border text-[10px] tracking-wide ${
-                      darkMode
-                        ? 'bg-slate-900 border-slate-800 text-indigo-400'
-                        : 'bg-slate-50 border-slate-200 text-indigo-700'
-                    }`}
+                    className={`font-bold px-2 py-0.5 rounded-md border text-[10px] tracking-wide ${darkMode ? 'bg-slate-900 border-slate-800 text-indigo-400' : 'bg-slate-50 border-slate-200 text-indigo-700'}`}
                   >
                     {s}
                   </span>
                 ))}
               </div>
+
               <div className="space-y-4 pt-3">
                 {results.resume?.experience?.map((exp: any, i: number) => (
                   <div key={i} className="space-y-1.5 border-l-2 border-amber-600/50 pl-4 relative">
                     <div className="absolute w-2 h-2 rounded-full bg-amber-600 -left-[5px] top-1 shadow-sm" />
                     <div className="flex justify-between font-bold text-xs">
-                      <span>
-                        {exp.role} at {exp.company}
-                      </span>
+                      <span>{exp.role} at {exp.company}</span>
                       <span className="text-indigo-600 dark:text-indigo-400 text-[10px] tracking-wider font-mono">
                         {exp.duration}
                       </span>
@@ -652,121 +476,55 @@ export default function Home() {
         )}
 
         {tab === 'prep' && results && (
-          <div
-            className={`border p-6 rounded-2xl shadow-sm space-y-6 ${
-              darkMode ? 'bg-stone-900/40 border-slate-800/60' : 'bg-white border-amber-900/10'
-            }`}
-          >
-            <div
-              className={`p-4 rounded-xl text-white flex justify-between items-center shadow-md ${
-                darkMode ? 'bg-slate-950 border border-slate-800' : 'bg-stone-800'
-              }`}
-            >
+          <div className={`border p-6 rounded-2xl shadow-sm space-y-6 ${darkMode ? 'bg-stone-900/40 border-slate-800/60' : 'bg-white border-amber-900/10'}`}>
+            <div className={`p-4 rounded-xl text-white flex justify-between items-center shadow-md ${darkMode ? 'bg-slate-950 border border-slate-800' : 'bg-stone-800'}`}>
               <div className="flex items-center gap-1.5 font-bold text-xxs tracking-wider uppercase text-amber-100">
-                <User className="w-4 h-4 text-amber-500" /> Active Vector Focus:{' '}
-                {interviewType === 'hr' ? 'HR / Behavioral' : 'Technical & Behavioral Split'}
+                <User className="w-4 h-4 text-amber-500" /> Active Vector Focus: {interviewType === 'hr' ? 'HR / Behavioral' : 'Technical & Behavioral Split'}
               </div>
             </div>
 
             {results.tell_me_about_yourself && (
-              <div
-                className={`p-5 rounded-xl border space-y-3 shadow-inner ${
-                  darkMode
-                    ? 'bg-slate-950 border-slate-800 text-slate-100'
-                    : 'bg-amber-50/20 border-amber-200 text-slate-900'
-                }`}
-              >
+              <div className={`p-5 rounded-xl border space-y-3 shadow-inner ${darkMode ? 'bg-slate-950 border-slate-800 text-slate-100' : 'bg-amber-50/20 border-amber-200 text-slate-900'}`}>
                 <h4 className="text-xxs font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
                   <UserCheck className="w-4 h-4" /> Primary Pitch: Tell Me About Yourself Blueprint
                 </h4>
-                <p className="text-xs leading-relaxed opacity-95 whitespace-pre-wrap">
-                  {results.tell_me_about_yourself}
-                </p>
+                <p className="text-xs leading-relaxed opacity-95 whitespace-pre-wrap">{results.tell_me_about_yourself}</p>
               </div>
             )}
 
             <div className="space-y-4">
               <h4 className="text-xxs font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400 border-b pb-2 flex items-center gap-1.5 border-amber-900/10 dark:border-slate-800">
-                <HelpCircle className="w-4 h-4" /> Core Target Interview Question Matrices (
-                {results.interview_questions?.length || 0} Evaluated Items)
+                <HelpCircle className="w-4 h-4" /> Core Target Interview Question Matrices ({results.interview_questions?.length || 0} Evaluated Items)
               </h4>
+
               <div className="grid grid-cols-1 gap-4 max-h-[400px] overflow-y-auto pr-1">
                 {results.interview_questions?.map((item: any, i: number) => (
-                  <div
-                    key={i}
-                    className={`p-4 rounded-xl border space-y-3 transition-all ${
-                      darkMode
-                        ? 'bg-slate-950 border-slate-800 text-slate-100'
-                        : 'bg-amber-50/40 border-amber-200 text-slate-900'
-                    }`}
-                  >
+                  <div key={i} className={`p-4 rounded-xl border space-y-3 transition-all ${darkMode ? 'bg-slate-950 border-slate-800 text-slate-100' : 'bg-amber-50/40 border-amber-200 text-slate-900'}`}>
                     <div className="font-bold flex items-start gap-1.5 text-xs">
                       <HelpCircle className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5" />
-                      <span>
-                        Q{i + 1}: {item.question}
-                      </span>
+                      <span>Q{i + 1}: {item.question}</span>
                     </div>
 
                     <div className="text-[11px] pl-5 space-y-1.5 leading-relaxed opacity-95 font-medium">
-                      {String(item.response || '')
-                        .split('\n')
-                        .map((line, lineIdx) => {
-                          const trimmed = line.replace(/<\/?[^>]+(>|$)/g, '').trim();
-                          if (!trimmed) return null;
+                      {String(item.response || '').split('\n').map((line, lineIdx) => {
+                        const trimmed = line.replace(/<\/?[^>]+(>|$)/g, '').trim();
+                        if (!trimmed) return null;
 
-                          if (
-                            trimmed.toLowerCase().startsWith('situation:') ||
-                            trimmed.startsWith('- situation:')
-                          ) {
-                            return (
-                              <div key={lineIdx} className="pt-0.5">
-                                <strong>Situation:</strong>{' '}
-                                {trimmed.replace(/^(-\s*)?situation:\s*/i, '')}
-                              </div>
-                            );
-                          }
+                        if (trimmed.toLowerCase().startsWith('situation:') || trimmed.startsWith('- situation:')) {
+                          return <div key={lineIdx} className="pt-0.5"><strong>Situation:</strong> {trimmed.replace(/^(-\s*)?situation:\s*/i, '')}</div>;
+                        }
+                        if (trimmed.toLowerCase().startsWith('task:') || trimmed.startsWith('- task:')) {
+                          return <div key={lineIdx}><strong>Task:</strong> {trimmed.replace(/^(-\s*)?task:\s*/i, '')}</div>;
+                        }
+                        if (trimmed.toLowerCase().startsWith('action:') || trimmed.startsWith('- action:')) {
+                          return <div key={lineIdx}><strong>Action:</strong> {trimmed.replace(/^(-\s*)?action:\s*/i, '')}</div>;
+                        }
+                        if (trimmed.toLowerCase().startsWith('result:') || trimmed.startsWith('- result:')) {
+                          return <div key={lineIdx} className="pb-0.5"><strong>Result:</strong> {trimmed.replace(/^(-\s*)?result:\s*/i, '')}</div>;
+                        }
 
-                          if (
-                            trimmed.toLowerCase().startsWith('task:') ||
-                            trimmed.startsWith('- task:')
-                          ) {
-                            return (
-                              <div key={lineIdx}>
-                                <strong>Task:</strong> {trimmed.replace(/^(-\s*)?task:\s*/i, '')}
-                              </div>
-                            );
-                          }
-
-                          if (
-                            trimmed.toLowerCase().startsWith('action:') ||
-                            trimmed.startsWith('- action:')
-                          ) {
-                            return (
-                              <div key={lineIdx}>
-                                <strong>Action:</strong>{' '}
-                                {trimmed.replace(/^(-\s*)?action:\s*/i, '')}
-                              </div>
-                            );
-                          }
-
-                          if (
-                            trimmed.toLowerCase().startsWith('result:') ||
-                            trimmed.startsWith('- result:')
-                          ) {
-                            return (
-                              <div key={lineIdx} className="pb-0.5">
-                                <strong>Result:</strong>{' '}
-                                {trimmed.replace(/^(-\s*)?result:\s*/i, '')}
-                              </div>
-                            );
-                          }
-
-                          return (
-                            <div key={lineIdx} className="text-stone-400 dark:text-stone-500 font-normal">
-                              {trimmed}
-                            </div>
-                          );
-                        })}
+                        return <div key={lineIdx} className="text-stone-400 dark:text-stone-500 font-normal">{trimmed}</div>;
+                      })}
                     </div>
                   </div>
                 ))}
@@ -776,17 +534,11 @@ export default function Home() {
             {results.follow_up_questions && results.follow_up_questions.length > 0 && (
               <div className="space-y-3 pt-2">
                 <h4 className="text-xxs font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400 border-b pb-2 flex items-center gap-1.5 border-amber-900/10 dark:border-slate-800">
-                  <MessageSquarePlus className="w-4 h-4" /> Tactical Follow-up Questions To Ask the
-                  Interviewer
+                  <MessageSquarePlus className="w-4 h-4" /> Tactical Follow-up Questions To Ask the Interviewer
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {results.follow_up_questions.map((q: string, idx: number) => (
-                    <div
-                      key={idx}
-                      className={`p-3 rounded-xl border text-xs font-semibold flex items-start gap-2 ${
-                        darkMode ? 'bg-stone-900 border-slate-800' : 'bg-stone-50 border-stone-200'
-                      }`}
-                    >
+                    <div key={idx} className={`p-3 rounded-xl border text-xs font-semibold flex items-start gap-2 ${darkMode ? 'bg-stone-900 border-slate-800' : 'bg-stone-50 border-stone-200'}`}>
                       <span className="text-indigo-500 font-mono">#{idx + 1}</span>
                       <span>{q}</span>
                     </div>
@@ -797,80 +549,84 @@ export default function Home() {
           </div>
         )}
 
-        {tab === 'job_search' && (
-          <div
-            className={`border p-6 rounded-2xl shadow-sm space-y-6 ${
-              darkMode
-                ? 'bg-stone-900/40 border-stone-800/60 shadow-2xl'
-                : 'bg-white border-amber-900/10'
-            }`}
-          >
+        {tab === 'job_search' && results && (
+          <div className={`border p-6 rounded-2xl shadow-sm space-y-6 ${darkMode ? 'bg-stone-900/40 border-stone-800/60 shadow-2xl' : 'bg-white border-amber-900/10'}`}>
             <div className="border-b pb-3 flex justify-between items-center dark:border-stone-800">
-              <h2
-                className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${
-                  darkMode ? 'text-amber-400' : 'text-amber-900'
-                }`}
-              >
-                <Target className="w-4 h-4" /> Real-Time Job Discovery Node
+              <h2 className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${darkMode ? 'text-amber-400' : 'text-amber-900'}`}>
+                <Target className="w-4 h-4" /> Web Job Discovery Tool
               </h2>
             </div>
 
-            <form
-              className="grid grid-cols-1 sm:grid-cols-2 gap-4"
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleSearchJobs();
-              }}
-            >
-              <div className="space-y-1.5">
-                <label className="font-bold text-xxs uppercase tracking-wider text-slate-500">
-                  Target Location City
-                </label>
-                <input
-                  type="text"
-                  required
-                  className={`w-full border p-3 rounded-xl focus:outline-none transition-all text-xs ${
-                    darkMode
-                      ? 'bg-stone-950 border-stone-800 text-slate-200'
-                      : 'bg-stone-50 border-stone-200 text-stone-800'
-                  }`}
-                  placeholder="e.g. San Francisco or Remote"
-                  value={searchCity}
-                  onChange={(e) => setSearchCity(e.target.value)}
-                />
+            <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); handleSearchJobs(); }}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="font-bold text-xxs uppercase tracking-wider text-slate-500">Target Location City</label>
+                  <input
+                    type="text"
+                    required
+                    className={`w-full border p-3 rounded-xl focus:outline-none transition-all text-xs ${darkMode ? 'bg-stone-950 border-stone-800 text-slate-200' : 'bg-stone-50 border-stone-200 text-stone-800'}`}
+                    placeholder="e.g. London, New York, Bengaluru, or Remote"
+                    value={searchCity}
+                    onChange={(e) => setSearchCity(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="font-bold text-xxs uppercase tracking-wider text-slate-500">Resume / Skills Summary Profile</label>
+                  <input
+                    type="text"
+                    className={`w-full border p-3 rounded-xl focus:outline-none transition-all text-xs ${darkMode ? 'bg-stone-950 border-stone-800 text-slate-200' : 'bg-stone-50 border-stone-200 text-stone-800'}`}
+                    placeholder="e.g. React, Next.js, TypeScript, Node, Python, AWS"
+                    value={searchSkills}
+                    onChange={(e) => setSearchSkills(e.target.value)}
+                  />
+                </div>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="font-bold text-xxs uppercase tracking-wider text-slate-500">
-                  Resume / Skills Summary Profile
-                </label>
+              <div className={`border-2 border-dashed rounded-xl p-6 text-center transition-all ${searchFile ? 'border-green-500 bg-green-500/5' : darkMode ? 'border-stone-800 hover:border-amber-500/40 bg-stone-950/40' : 'border-stone-200 hover:border-amber-900/30 bg-stone-50/40'}`}>
                 <input
-                  type="text"
-                  required
-                  className={`w-full border p-3 rounded-xl focus:outline-none transition-all text-xs ${
-                    darkMode
-                      ? 'bg-stone-950 border-stone-800 text-slate-200'
-                      : 'bg-stone-50 border-stone-200 text-stone-800'
-                  }`}
-                  placeholder="e.g. React, Next.js, Node, TypeScript, Python"
-                  value={searchSkills}
-                  onChange={(e) => setSearchSkills(e.target.value)}
+                  type="file"
+                  id="job-search-file-picker"
+                  accept=".pdf,.doc,.docx"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] || null;
+                    setSearchFile(file);
+                  }}
                 />
+                <label htmlFor="job-search-file-picker" className="cursor-pointer block space-y-2">
+                  <FileText className={`w-8 h-8 mx-auto transition-colors duration-200 ${searchFile ? 'text-green-500' : 'text-slate-400'}`} />
+                  <div className="text-xxs font-bold uppercase tracking-wide text-slate-700 dark:text-slate-300">
+                    {searchFile ? `CV Attached: ${searchFile.name}` : 'Attach CV in PDF or Word format'}
+                  </div>
+                  <p className="text-[10px] text-slate-400 font-medium max-w-md mx-auto leading-normal">
+                    Upload your CV and we will use it with your skills summary to find relevant active roles.
+                  </p>
+                </label>
+
+                {searchFile && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchFile(null)}
+                    className="mt-2 text-[10px] font-bold text-rose-600 dark:text-rose-400 hover:underline cursor-pointer transition-all"
+                  >
+                    Remove Attached CV
+                  </button>
+                )}
               </div>
 
               <button
                 type="submit"
                 disabled={searchLoading}
-                className="sm:col-span-2 w-full bg-amber-900 hover:bg-amber-800 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 cursor-pointer text-xxs uppercase tracking-widest transition-all shadow-md"
+                className="w-full bg-amber-900 hover:bg-amber-800 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 cursor-pointer text-xxs uppercase tracking-widest transition-all shadow-md"
               >
                 {searchLoading ? (
                   <>
-                    <RefreshCw className="animate-spin w-4 h-4 text-amber-200" /> Grounding Live
-                    Open Web Matrices...
+                    <RefreshCw className="animate-spin w-4 h-4 text-amber-200" /> Searching Active Jobs...
                   </>
                 ) : (
                   <>
-                    <Sparkles className="w-4 h-4 text-amber-400" /> Fetch 40 Active Postings
+                    <Sparkles className="w-4 h-4 text-amber-400" /> Find 40 Active Matches
                   </>
                 )}
               </button>
@@ -881,13 +637,7 @@ export default function Home() {
                 <div className="overflow-x-auto rounded-xl border border-stone-200 dark:border-stone-800 shadow-inner">
                   <table className="w-full text-left border-collapse text-xxs leading-relaxed">
                     <thead>
-                      <tr
-                        className={`font-black uppercase tracking-wider ${
-                          darkMode
-                            ? 'bg-slate-950 border-b border-stone-800 text-amber-400'
-                            : 'bg-stone-100 border-b border-stone-200 text-amber-950'
-                        }`}
-                      >
+                      <tr className={`font-black uppercase tracking-wider ${darkMode ? 'bg-slate-950 border-b border-stone-800 text-amber-400' : 'bg-stone-100 border-b border-stone-200 text-amber-950'}`}>
                         <th className="p-3">Job Title</th>
                         <th className="p-3">Company Name</th>
                         <th className="p-3">Location</th>
@@ -896,29 +646,13 @@ export default function Home() {
                         <th className="p-3">Application Link</th>
                       </tr>
                     </thead>
-
                     <tbody className="divide-y divide-stone-100 dark:divide-stone-800 font-medium">
                       {jobResults.jobs?.map((job: any, index: number) => (
-                        <tr
-                          key={index}
-                          className={`transition-colors ${
-                            darkMode
-                              ? 'hover:bg-stone-900/40 text-slate-300'
-                              : 'hover:bg-stone-50 text-slate-800'
-                          }`}
-                        >
-                          <td className="p-3 font-bold text-slate-900 dark:text-white max-w-[150px] truncate">
-                            {job.title}
-                          </td>
+                        <tr key={index} className={`transition-colors ${darkMode ? 'hover:bg-stone-900/40 text-slate-300' : 'hover:bg-stone-50 text-slate-800'}`}>
+                          <td className="p-3 font-bold text-slate-900 dark:text-white max-w-[150px] truncate">{job.title}</td>
                           <td className="p-3 max-w-[120px] truncate">{job.company}</td>
                           <td className="p-3 max-w-[100px] truncate">
-                            <span
-                              className={`px-2 py-0.5 rounded-md font-bold text-[10px] ${
-                                job.location?.toLowerCase().includes('remote')
-                                  ? 'bg-green-500/10 text-green-500 border border-green-500/20'
-                                  : 'bg-stone-500/10 text-stone-500'
-                              }`}
-                            >
+                            <span className={`px-2 py-0.5 rounded-md font-bold text-[10px] ${job.location?.toLowerCase().includes('remote') ? 'bg-green-500/10 text-green-500 border border-green-500/20' : 'bg-stone-500/10 text-stone-500'}`}>
                               {job.location}
                             </span>
                           </td>
@@ -926,10 +660,7 @@ export default function Home() {
                           <td className="p-3 max-w-[180px]">
                             <div className="flex flex-wrap gap-1">
                               {job.skills?.slice(0, 3).map((s: string, idx: number) => (
-                                <span
-                                  key={idx}
-                                  className="bg-amber-500/10 text-amber-600 dark:text-amber-400 px-1.5 py-0.5 rounded text-[9px] font-bold border border-amber-500/10"
-                                >
+                                <span key={idx} className="bg-amber-500/10 text-amber-600 dark:text-amber-400 px-1.5 py-0.5 rounded text-[9px] font-bold border border-amber-500/10">
                                   {s}
                                 </span>
                               ))}
@@ -937,18 +668,11 @@ export default function Home() {
                           </td>
                           <td className="p-3 whitespace-nowrap">
                             {job.link && job.link.startsWith('http') ? (
-                              <a
-                                href={job.link}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 font-bold text-indigo-600 dark:text-indigo-400 hover:underline"
-                              >
+                              <a href={job.link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-bold text-indigo-600 dark:text-indigo-400 hover:underline">
                                 Apply Here <ArrowRight className="w-3 h-3" />
                               </a>
                             ) : (
-                              <span className="text-stone-400 dark:text-stone-500 italic">
-                                search on company website
-                              </span>
+                              <span className="text-stone-400 dark:text-stone-500 italic">search on company website</span>
                             )}
                           </td>
                         </tr>
@@ -958,20 +682,9 @@ export default function Home() {
                 </div>
 
                 {jobResults.best_match_summary && (
-                  <div
-                    className={`p-4 rounded-xl border flex items-start gap-2 text-xs font-semibold leading-relaxed shadow-sm ${
-                      darkMode
-                        ? 'bg-indigo-950/20 border-indigo-900/40 text-slate-200'
-                        : 'bg-indigo-50 border-indigo-100 text-indigo-900'
-                    }`}
-                  >
+                  <div className={`p-4 rounded-xl border flex items-start gap-2 text-xs font-semibold leading-relaxed shadow-sm ${darkMode ? 'bg-indigo-950/20 border-indigo-900/40 text-slate-200' : 'bg-indigo-50 border-indigo-100 text-indigo-900'}`}>
                     <Sparkles className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5" />
-                    <div>
-                      <span className="font-extrabold uppercase text-xxs tracking-wider bg-indigo-500/20 px-2 py-0.5 rounded mr-2 text-indigo-600 dark:text-indigo-400">
-                        Match Strategy Insights
-                      </span>
-                      {jobResults.best_match_summary}
-                    </div>
+                    <div>{jobResults.best_match_summary}</div>
                   </div>
                 )}
               </div>
@@ -983,9 +696,7 @@ export default function Home() {
       <footer className="w-full text-center py-6 mt-12 border-t border-dashed border-amber-900/10 dark:border-slate-800">
         <p className="text-[11px] font-bold tracking-widest text-stone-400 dark:text-stone-500 uppercase flex items-center justify-center gap-1.5">
           Crafted with <Heart className="w-3.5 h-3.5 text-rose-600 fill-rose-600" /> & Developed by{' '}
-          <span className="text-amber-900 dark:text-indigo-400 font-extrabold font-mono">
-            Kuldeep Sharma
-          </span>
+          <span className="text-amber-900 dark:text-indigo-400 font-extrabold font-mono">Kuldeep Sharma</span>
         </p>
       </footer>
     </main>
