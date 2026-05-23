@@ -76,13 +76,16 @@ export default function Home() {
         body: formData,
       });
 
-      if (!res.ok) throw new Error();
+      const data = await res.json().catch(() => null);
 
-      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.detail || 'Resume generation failed.');
+      }
+
       setResults(data);
       setTab('validation');
-    } catch {
-      alert('AI optimization cycle broken. Refocusing backend container parameters.');
+    } catch (error: any) {
+      alert(error?.message || 'AI optimization cycle broken. Refocusing backend container parameters.');
     } finally {
       setLoading(false);
     }
@@ -120,8 +123,7 @@ export default function Home() {
       const data = await res.json().catch(() => null);
 
       if (!res.ok) {
-        const detail = data?.detail || 'Search failed on backend.';
-        throw new Error(detail);
+        throw new Error(data?.detail || 'Job search failed on backend.');
       }
 
       setJobResults(data);
@@ -166,11 +168,21 @@ export default function Home() {
               darkMode ? 'bg-stone-900 border-stone-800 text-amber-400' : 'bg-white border-[#d9c8b4] text-stone-800'
             }`}
           >
-            {darkMode ? <><Sun className="w-3.5 h-3.5" /> Light Theme</> : <><Moon className="w-3.5 h-3.5" /> Dark Theme</>}
+            {darkMode ? (
+              <>
+                <Sun className="w-3.5 h-3.5" /> Light Theme
+              </>
+            ) : (
+              <>
+                <Moon className="w-3.5 h-3.5" /> Dark Theme
+              </>
+            )}
           </button>
 
-          <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] uppercase tracking-wider font-semibold border ${darkMode ? 'bg-indigo-500/10 border-stone-800 text-indigo-300' : 'bg-amber-50 border-amber-200 text-amber-900'}`}>
-            <Sparkles className="w-3 h-3" /> Engine Active: Gemini 2.5 Pro Tier
+          <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] uppercase tracking-wider font-semibold border ${
+            darkMode ? 'bg-indigo-500/10 border-stone-800 text-indigo-300' : 'bg-amber-50 border-amber-200 text-amber-900'
+          }`}>
+            <Sparkles className="w-3 h-3" /> Engine Active: Gemini 2.5 Flash
           </div>
 
           <h1 className="text-3xl md:text-5xl font-black tracking-tight">AI Career Intelligence Matrix</h1>
@@ -248,12 +260,16 @@ export default function Home() {
 
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 border-t border-b border-dashed border-slate-200 dark:border-stone-800 py-4">
                 <div className="space-y-1.5">
-                  <label className="font-bold text-xxs uppercase tracking-wider text-slate-500 flex items-center gap-1"><Link className="w-3 h-3 text-indigo-500" /> LinkedIn Profile URL</label>
+                  <label className="font-bold text-xxs uppercase tracking-wider text-slate-500 flex items-center gap-1">
+                    <Link className="w-3 h-3 text-indigo-500" /> LinkedIn Profile URL
+                  </label>
                   <input className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${inputTheme}`} placeholder="e.g. https://linkedin.com/in/..." value={linkedin} onChange={(e) => setLinkedin(e.target.value)} />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="font-bold text-xxs uppercase tracking-wider text-slate-500 flex items-center gap-1"><Clock className="w-3 h-3 text-indigo-500" /> Interview Duration</label>
+                  <label className="font-bold text-xxs uppercase tracking-wider text-slate-500 flex items-center gap-1">
+                    <Clock className="w-3 h-3 text-indigo-500" /> Interview Duration
+                  </label>
                   <select className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${inputTheme}`} value={duration} onChange={(e) => setDuration(e.target.value)}>
                     <option value="30 minutes">30 Minutes</option>
                     <option value="45 minutes">45 Minutes</option>
@@ -262,7 +278,9 @@ export default function Home() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="font-bold text-xxs uppercase tracking-wider text-slate-500 flex items-center gap-1"><UserCheck className="w-3 h-3 text-indigo-500" /> Interview Category</label>
+                  <label className="font-bold text-xxs uppercase tracking-wider text-slate-500 flex items-center gap-1">
+                    <UserCheck className="w-3 h-3 text-indigo-500" /> Interview Category
+                  </label>
                   <select className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${inputTheme}`} value={interviewType} onChange={(e) => setInterviewType(e.target.value as 'hr' | 'technical')}>
                     <option value="technical">Technical Interview Track</option>
                     <option value="hr">HR Interview Tool</option>
@@ -302,7 +320,15 @@ export default function Home() {
               </div>
 
               <button type="button" onClick={handleGenerate} disabled={loading} className="w-full bg-amber-900 hover:bg-amber-800 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 text-xxs uppercase tracking-widest disabled:opacity-60">
-                {loading ? <><RefreshCw className="animate-spin w-4 h-4 text-amber-200" /> Computing Neural Vectors...</> : <><Sparkles className="w-4 h-4 text-amber-400" /> Execute Generation Cycle</>}
+                {loading ? (
+                  <>
+                    <RefreshCw className="animate-spin w-4 h-4 text-amber-200" /> Computing Neural Vectors...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 text-amber-400" /> Execute Generation Cycle
+                  </>
+                )}
               </button>
             </form>
           </div>
@@ -320,7 +346,9 @@ export default function Home() {
               </div>
 
               <div className="p-6 rounded-2xl border">
-                <h4 className="font-bold mb-3 flex items-center gap-2"><AlertTriangle className="w-4 h-4" /> Critical Keyword Gaps</h4>
+                <h4 className="font-bold mb-3 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4" /> Critical Keyword Gaps
+                </h4>
                 <div className="flex flex-wrap gap-2">
                   {results.missing_skills?.map((s: string, i: number) => (
                     <span key={i} className="bg-amber-500/10 px-3 py-1 rounded-xl text-[11px] font-bold">{s}</span>
@@ -329,10 +357,15 @@ export default function Home() {
               </div>
 
               <div className="p-6 rounded-2xl border">
-                <h4 className="font-bold mb-3 flex items-center gap-2"><CheckCircle2 className="w-4 h-4" /> Optimization Tips</h4>
+                <h4 className="font-bold mb-3 flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4" /> Optimization Tips
+                </h4>
                 <ul className="space-y-2">
                   {results.tailoring_tips?.map((t: string, i: number) => (
-                    <li key={i} className="flex gap-2"><CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" /><span>{t}</span></li>
+                    <li key={i} className="flex gap-2">
+                      <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+                      <span>{t}</span>
+                    </li>
                   ))}
                 </ul>
               </div>
@@ -343,7 +376,9 @@ export default function Home() {
         {tab === 'updated_resume' && results && (
           <div className={`border p-6 rounded-2xl shadow-sm space-y-5 ${panelTheme}`}>
             <div className="bg-amber-800 p-4 rounded-xl text-white flex justify-between items-center">
-              <div className="flex items-center gap-1.5 font-bold text-xxs uppercase"><FileText className="w-4 h-4" /> Tailored Optimization Resume Output Map</div>
+              <div className="flex items-center gap-1.5 font-bold text-xxs uppercase">
+                <FileText className="w-4 h-4" /> Tailored Optimization Resume Output Map
+              </div>
               <button onClick={handleCopyLink} className="bg-white text-amber-900 px-3 py-1.5 rounded-xl font-bold text-[10px] uppercase">
                 {copied ? 'Blueprint Linked!' : 'Copy Public PDF Link'}
               </button>
@@ -426,7 +461,7 @@ export default function Home() {
 
                 <div className="space-y-1.5">
                   <label className="font-bold text-xxs uppercase tracking-wider text-slate-500">Target Role / Skills Summary</label>
-                  <input className={`w-full border p-3 rounded-xl focus:outline-none transition-all text-xs ${inputTheme}`} placeholder="e.g. Lead Technical Program Manager, Agile, SaaS, AI, Strategy" value={searchRoleSkills} onChange={(e) => setSearchRoleSkills(e.target.value)} />
+                  <input className={`w-full border p-3 rounded-xl focus:outline-none transition-all text-xs ${inputTheme}`} placeholder="e.g. Lead Technical Program Manager, Agile, AI, SaaS, Strategy" value={searchRoleSkills} onChange={(e) => setSearchRoleSkills(e.target.value)} />
                 </div>
               </div>
 
@@ -438,6 +473,7 @@ export default function Home() {
                     {searchFile ? `CV Attached: ${searchFile.name}` : 'Attach CV in PDF or DOCX format'}
                   </div>
                 </label>
+
                 {searchFile && (
                   <button type="button" onClick={() => setSearchFile(null)} className="mt-2 text-[10px] font-bold text-rose-600 hover:underline">
                     Remove Attached CV
@@ -446,7 +482,15 @@ export default function Home() {
               </div>
 
               <button type="submit" disabled={searchLoading} className="w-full bg-amber-900 hover:bg-amber-800 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 text-xxs uppercase tracking-widest disabled:opacity-60">
-                {searchLoading ? <><RefreshCw className="animate-spin w-4 h-4 text-amber-200" /> Searching Active Jobs...</> : <><Sparkles className="w-4 h-4 text-amber-400" /> Find 40 Active Matches</>}
+                {searchLoading ? (
+                  <>
+                    <RefreshCw className="animate-spin w-4 h-4 text-amber-200" /> Searching Active Jobs...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 text-amber-400" /> Find 40 Active Matches
+                  </>
+                )}
               </button>
             </form>
 
