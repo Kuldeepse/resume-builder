@@ -286,7 +286,7 @@ export default function Home() {
             )}
           </div>
         )}
-        {tab === 'job_search' && (
+                {tab === 'job_search' && results && (
           <div className={`border p-6 rounded-2xl shadow-sm space-y-6 transition-all duration-300 ${darkMode ? 'bg-stone-900/40 border-stone-800/60 shadow-2xl' : 'bg-white border-amber-900/10'}`}>
             <div className="border-b pb-3 flex justify-between items-center dark:border-stone-800">
               <h2 className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${darkMode ? 'text-amber-400' : 'text-amber-900'}`}>
@@ -302,7 +302,7 @@ export default function Home() {
                 </div>
                 <div className="space-y-1.5">
                   <label className="font-bold text-xxs uppercase tracking-wider text-slate-500">Manual Key Skills Input Profile</label>
-                  <input type="text" disabled={!!searchFile} className={`w-full border p-3 rounded-xl focus:outline-none transition-all text-xs disabled:opacity-50 ${darkMode ? 'bg-stone-950 border-stone-800 text-slate-200 focus:border-amber-800' : 'bg-stone-50 border-stone-200 text-slate-800'}`} placeholder="e.g. React, Next.js, TypeScript, Python (Disabled if file attached)" value={searchSkills} onChange={(e) => setSearchSkills(e.target.value)} />
+                  <input type="text" disabled={!!searchFile} className={`w-full border p-3 rounded-xl focus:outline-none transition-all text-xs disabled:opacity-50 ${darkMode ? 'bg-stone-950 border-stone-800 text-slate-200 focus:border-amber-800' : 'bg-stone-50 border-stone-200 text-stone-800'}`} placeholder="e.g. React, Next.js, TypeScript, Python (Disabled if file attached)" value={searchSkills} onChange={(e) => setSearchSkills(e.target.value)} />
                 </div>
               </div>
 
