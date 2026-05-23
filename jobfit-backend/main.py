@@ -11,6 +11,7 @@ from supabase import create_client, Client
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib import colors  # ✅ FIXED: Added required colors module
 
 app = FastAPI()
 
@@ -22,17 +23,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 🔐 CLOUD STORAGE SECURE CONNECTION
+# 🔐 SAFE CLOUD STORAGE CONNECTION
 supabase_url = os.getenv("SUPABASE_URL")
 supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY")
+
+# ✅ FIXED: Fail gracefully with placeholder keys so initialization doesn't kill the worker thread
 if not supabase_url or not supabase_key:
-    raise ValueError("CRITICAL FAILURE: Missing required Supabase credentials.")
+    print("⚠️ WARNING: Missing Supabase configurations. Using fallbacks.")
+    supabase_url = supabase_url or "https://supabase.co"
+    supabase_key = supabase_key or "placeholder-key"
+
 supabase: Client = create_client(supabase_url, supabase_key)
 
 # 🚀 INITIALIZE THE GOOGLE GENAI CLIENT
 gemini_client = genai.Client()
 
-# 📋 Pydantic Architectural Blueprints (Guarantees Strict Output Validation)
+# 📋 Pydantic Architectural Blueprints
 class ExperienceItem(BaseModel):
     company: str
     role: str
@@ -62,6 +68,7 @@ class CareerDashboardSchema(BaseModel):
 @app.get("/health/")
 async def health_check():
     return {"status": "healthy"}
+
 @app.post("/build-resume")
 async def build_and_compare_resume(
     full_name: str = Form(...),
@@ -71,18 +78,23 @@ async def build_and_compare_resume(
     linkedin_profile: Optional[str] = Form(None),
     interview_duration: str = Form("30 minutes"),
     total_questions_requested: str = Form("5"),
-    interview_type: Optional[str] = Form("technical") # 🎯 Added Optional safety wrapper to block 422 errors
+    interview_type: Optional[str] = Form("technical") 
 ):
+    # Ensure environment validation happens locally during live execution lifecycle
+    if "placeholder" in supabase_url or "placeholder" in supabase_key:
+        raise HTTPException(
+            status_code=500, 
+            detail="Deployment Configuration Error: Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY on hosting manager."
+        )
+
     try:
         requested_count = int(total_questions_requested)
         requested_count = max(5, min(25, requested_count))
     except ValueError:
         requested_count = 5
 
-    # Safe evaluation string matching layer
     current_type = str(interview_type).lower() if interview_type else "technical"
 
-    # Enforce precise split criteria rules based on target selections
     if current_type == "technical":
         tech_count = math.ceil(requested_count / 2)
         hr_count = math.floor(requested_count / 2)
@@ -129,12 +141,17 @@ async def build_and_compare_resume(
                 temperature=0.1
             )
         )
-        analysis_result = json.loads(response.text.strip())
+        # ✅ FIXED: Extract data correctly via .parsed to match Pydantic constraints cleanly
+        if hasattr(response, 'parsed') and response.parsed:
+            analysis_result = response.parsed.model_dump()
+        else:
+            analysis_result = json.loads(response.text.strip())
+            
     except Exception as ai_err:
         raise HTTPException(status_code=500, detail=f"AI Engine Extraction Crash Error: {str(ai_err)}")
 
     resume_data = analysis_result.get("resume", {})
-    public_url = ""
+    public_url = "Cloud Storage Connection Mismatch"
 
     try:
         pdf_filename = f"{full_name.replace(' ', '_')}_Resume.pdf"
@@ -142,7 +159,8 @@ async def build_and_compare_resume(
         styles = getSampleStyleSheet()
         
         title_style = ParagraphStyle('TStyle', parent=styles['Heading1'], fontSize=22, leading=26, spaceAfter=10)
-        section_style = ParagraphStyle('SStyle', parent=styles['Heading2'], fontSize=13, leading=17, spaceBefore=10, spaceAfter=4, textColor='#8B5A2B')
+        # ✅ FIXED: Converted color hex string into an active ReportLab color object
+        section_style = ParagraphStyle('SStyle', parent=styles['Heading2'], fontSize=13, leading=17, spaceBefore=10, spaceAfter=4, textColor=colors.HexColor('#8B5A2B'))
         body_style = styles['Normal']
         
         story = [
@@ -172,24 +190,19 @@ async def build_and_compare_resume(
         try:
             supabase.storage.from_("updated-resumes").upload(path=storage_path, file=file_data, file_options={"content-type": "application/pdf"})
             public_url = supabase.storage.from_("updated-resumes").get_public_url(storage_path)
-        except Exception:
-            public_url = "Cloud Storage Connection Mismatch"
+        except Exception as upload_err:
+            print(f"Storage Upload Error: {upload_err}")
+            pass 
 
         if os.path.exists(pdf_filename):
             os.remove(pdf_filename)
-            
-    except Exception:
-        public_url = "PDF Engine Fallback"
 
-    final_questions = analysis_result.get("interview_questions", [])[:requested_count]
+    except Exception as pdf_error:
+        raise HTTPException(status_code=500, detail=f"PDF Generation/Processing Failure: {str(pdf_error)}")
 
+    # ✅ FIXED: Enforced a matching structural root dictionary yield back to the client route
     return {
-        "match_score": analysis_result.get("match_score", 70),
-        "missing_skills": analysis_result.get("missing_skills", []),
-        "tailoring_tips": analysis_result.get("tailoring_tips", []),
-        "tell_me_about_yourself": analysis_result.get("tell_me_about_yourself", ""),
-        "interview_questions": final_questions,
-        "follow_up_questions": analysis_result.get("follow_up_questions", []),
-        "resume": resume_data, 
-        "shareable_url": public_url
+        "success": True,
+        "data": analysis_result,
+        "resume_url": public_url
     }
