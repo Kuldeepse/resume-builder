@@ -31,6 +31,7 @@ supabase: Client = create_client(supabase_url, supabase_key)
 
 # 🚀 INITIALIZE THE GOOGLE GENAI CLIENT
 gemini_client = genai.Client()
+
 # 📋 Pydantic Architectural Blueprints (Guarantees Strict Output Validation)
 class ExperienceItem(BaseModel):
     company: str
@@ -57,6 +58,7 @@ class CareerDashboardSchema(BaseModel):
     follow_up_questions: List[str]
     resume: ResumeData
 
+
 @app.get("/health/")
 async def health_check():
     return {"status": "healthy"}
@@ -69,7 +71,7 @@ async def build_and_compare_resume(
     linkedin_profile: Optional[str] = Form(None),
     interview_duration: str = Form("30 minutes"),
     total_questions_requested: str = Form("5"),
-    interview_type: str = Form("technical")
+    interview_type: Optional[str] = Form("technical") # 🎯 Added Optional safety wrapper to block 422 errors
 ):
     try:
         requested_count = int(total_questions_requested)
@@ -77,19 +79,22 @@ async def build_and_compare_resume(
     except ValueError:
         requested_count = 5
 
-    # Enforce precise split mapping criteria rules based on target selections
-    if interview_type.lower() == "technical":
+    # Safe evaluation string matching layer
+    current_type = str(interview_type).lower() if interview_type else "technical"
+
+    # Enforce precise split criteria rules based on target selections
+    if current_type == "technical":
         tech_count = math.ceil(requested_count / 2)
         hr_count = math.floor(requested_count / 2)
         distribution_prompt = (
             f"Generate exactly {requested_count} question/response objects total: "
-            f"the first {tech_count} must be high-impact technical/system design questions, and "
-            f"the remaining {hr_count} must be behavioral/HR questions relevant to this engineering target."
+            f"the first {tech_count} must be deep high-impact coding/technical/system design questions, and "
+            f"the remaining {hr_count} must be behavioral/HR/company culture questions relevant to this engineering target."
         )
     else:
         distribution_prompt = (
             f"Generate exactly {requested_count} question/response objects total focusing "
-            f"100% strictly on HR, behavioral, core values, cultural fit, and situational scenarios."
+            f"100% strictly on HR, behavioral, core corporate values, cultural fit, and situational team management scenarios."
         )
 
     system_prompt = (
@@ -127,6 +132,7 @@ async def build_and_compare_resume(
         analysis_result = json.loads(response.text.strip())
     except Exception as ai_err:
         raise HTTPException(status_code=500, detail=f"AI Engine Extraction Crash Error: {str(ai_err)}")
+
     resume_data = analysis_result.get("resume", {})
     public_url = ""
 
