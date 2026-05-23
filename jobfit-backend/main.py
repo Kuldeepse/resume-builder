@@ -5,7 +5,6 @@ from fastapi import FastAPI, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from google import genai
 from google.genai import types
-from pydantic import BaseModel, Field
 from typing import List, Optional, Any
 from supabase import create_client, Client
 from reportlab.lib.pagesizes import letter
@@ -35,32 +34,6 @@ supabase: Client = create_client(supabase_url, supabase_key)
 
 # 🚀 INITIALIZE THE GOOGLE GENAI CLIENT
 gemini_client = genai.Client()
-
-# 📋 Highly Resilient Pydantic v2 Blueprints
-class ExperienceItem(BaseModel):
-    company: str = Field(default="Company")
-    role: str = Field(default="Engineer")
-    duration: str = Field(default="Present")
-    bullet_points: List[str] = Field(default_factory=list)
-
-class ResumeData(BaseModel):
-    full_name: str = Field(default="")
-    professional_summary: str = Field(default="")
-    skills: List[str] = Field(default_factory=list)
-    experience: List[ExperienceItem] = Field(default_factory=list)
-
-class InterviewItem(BaseModel):
-    question: str = Field(default="")
-    response: str = Field(default="")
-
-class CareerDashboardSchema(BaseModel):
-    match_score: int = Field(default=70)
-    missing_skills: List[str] = Field(default_factory=list)
-    tailoring_tips: List[str] = Field(default_factory=list)
-    tell_me_about_yourself: str = Field(default="")
-    interview_questions: List[InterviewItem] = Field(default_factory=list)
-    follow_up_questions: List[str] = Field(default_factory=list)
-    resume: ResumeData
 
 
 @app.get("/health/")
@@ -96,7 +69,7 @@ async def build_and_compare_resume(
         hr_count = math.floor(requested_count / 2)
         distribution_prompt = (
             f"Generate exactly {requested_count} question/response objects total: "
-            f"the first {tech_count} must be deep high-impact coding/technical/system design questions, and "
+            f"the first {tech_count} must be deep technical coding or system design questions, and "
             f"the remaining {hr_count} must be behavioral/HR/company culture questions relevant to this engineering target."
         )
     else:
@@ -106,50 +79,53 @@ async def build_and_compare_resume(
         )
 
     system_prompt = (
-        f"You are an expert tech recruiter and automated ATS tracking system script.\n"
+        f"You are an expert tech recruiter and automated ATS tracking system.\n"
         f"Analyze the candidate parameters explicitly against the provided job description requirements.\n"
-        f"CRITICAL COMPLIANCE TARGETS:\n"
-        f"1. match_score: Grade technical fit critically from 0 to 100 based strictly on overlap.\n"
-        f"2. missing_skills: Isolate explicit hard tools/languages omitted in the experience profile text.\n"
-        f"3. tell_me_about_yourself: Provide a perfect 2-minute elevator pitch narrative in STAR format tailored to this specific role.\n"
-        f"4. interview_questions: {distribution_prompt}\n"
-        f"CRITICAL RESPONSE FORMAT RULE FOR ALL QUESTIONS:\n"
-        f"Every single answer string inside the 'response' key MUST be structured clearly in the STAR framework. "
-        f"You must explicitly label the headers inside the text block string, matching this layout exactly:\n"
-        f"- Situation: [Context details]\n"
-        f"- Task: [Core objective/responsibility]\n"
-        f"- Action: [What specific engineering/behavioral execution was performed]\n"
-        f"- Result: [Quantifiable metrics metrics outcome]\n"
-        f"5. follow_up_questions: Generate 3 to 5 highly intelligent questions for the candidate to ask the interviewer at the end.\n"
-        f"6. resume: Reconstruct experience bullets to weave in relevant missing keywords natively."
+        f"You must return a single, valid JSON object containing exactly these keys. "
+        f"Do not wrap your output in markdown backticks or any trailing text.\n\n"
+        f"REQUIRED JSON FORMAT SCHEMA:\n"
+        f"{{\n"
+        f"  \"match_score\": 75,\n"
+        f"  \"missing_skills\": [\"list\", \"of\", \"skills\"],\n"
+        f"  \"tailoring_tips\": [\"bullet\", \"points\"],\n"
+        f"  \"tell_me_about_yourself\": \"STAR structured narrative elevator pitch text statement\",\n"
+        f"  \"interview_questions\": [ {{\"question\": \"string text\", \"response\": \"string text\"}} ],\n"
+        f"  \"follow_up_questions\": [\"question 1\", \"question 2\"],\n"
+        f"  \"resume\": {{\n"
+        f"    \"full_name\": \"string\",\n"
+        f"    \"professional_summary\": \"string\",\n"
+        f"    \"skills\": [\"skill1\", \"skill2\"],\n"
+        f"    \"experience\": [ {{\"company\": \"str\", \"role\": \"str\", \"duration\": \"str\", \"bullet_points\": [\"bullet\"]}} ]\n"
+        f"  }}\n"
+        f"}}\n\n"
+        f"CRITICAL RULES:\n"
+        f"- interview_questions: {distribution_prompt}\n"
+        f"- Every answer inside the 'response' key MUST be structured clearly in the STAR framework, explicitly labeled inside the text block matching this layout: "
+        f"Situation: [...] Task: [...] Action: [...] Result: [...]\n"
+        f"- follow_up_questions: Generate 3 to 5 highly intelligent questions for the candidate to ask the interviewer at the end."
     )
 
-    linkedin_context = f"\nCandidate LinkedIn URL Profile Data: {linkedin_profile}" if linkedin_profile else ""
+    linkedin_context = f"\nCandidate LinkedIn URL: {linkedin_profile}" if linkedin_profile else ""
 
     try:
+        # 🎯 FIX: Explicitly forcing standard json mime output configuration to bypass strict Pydantic model locks
         response = gemini_client.models.generate_content(
             model='gemini-2.5-flash',
             contents=f"Candidate Name: {full_name}\nTarget: {target_role}{linkedin_context}\nHistory: {career_history}\nJD:\n{job_description}",
             config=types.GenerateContentConfig(
                 system_instruction=system_prompt,
                 response_mime_type="application/json",
-                response_schema=CareerDashboardSchema,
                 temperature=0.1
             )
         )
-        
-        # 🎯 RESILIENT DE-SERIALIZATION BLOCK
-        # Checks parsed outputs first, then cleanly handles text blocks if parsing hiccups occur
-        if response.parsed:
-            analysis_result = response.parsed.model_dump() if hasattr(response.parsed, 'model_dump') else response.parsed.dict()
-        else:
-            analysis_result = json.loads(response.text.strip())
-            
+        # Parse text content straight to raw dict structure mapping profiles natively
+        analysis_result = json.loads(response.text.strip())
     except Exception as ai_err:
-        raise HTTPException(status_code=500, detail=f"AI Engine Extraction Crash Error: {str(ai_err)}")
+        raise HTTPException(status_code=500, detail=f"AI Data Map Extraction Crash Error: {str(ai_err)}")
 
+    # 🛡️ DEFENSIVE DICTIONARY DIAL-IN WRAPPERS
     resume_data = analysis_result.get("resume", {})
-    if not resume_data:
+    if not isinstance(resume_data, dict):
         resume_data = {}
         
     public_url = "Cloud Storage Connection Mismatch"
@@ -199,7 +175,12 @@ async def build_and_compare_resume(
     except Exception:
         pass
 
-    final_questions = analysis_result.get("interview_questions", [])[:requested_count]
+    # Extract interview question maps while accounting for key naming variations
+    raw_questions = analysis_result.get("interview_questions", analysis_result.get("questions", []))
+    if not isinstance(raw_questions, list):
+        raw_questions = []
+        
+    final_questions = raw_questions[:requested_count]
 
     return {
         "match_score": analysis_result.get("match_score", 70),
