@@ -28,10 +28,10 @@ if not supabase_url or not supabase_key:
     raise ValueError("CRITICAL: Missing Supabase environmental keys.")
 supabase: Client = create_client(supabase_url, supabase_key)
 
-# 🚀 FREE GOOGLE GEMINI LAYER
+# 🚀 INITIALIZE THE CORRECT GOOGLE GENAI CLIENT
 gemini_client = genai.Client()
 
-# 📋 Pydantic Validation Blueprints (Guarantees Accuracy in Flash Models)
+# 📋 Pydantic Validation Blueprints (Guarantees Structural Precision)
 class ExperienceItem(BaseModel):
     company: str
     role: str
@@ -57,7 +57,7 @@ class CareerDashboardSchema(BaseModel):
     resume: ResumeData
 
 
-@app.get("/health")
+@app.get("/health/")
 async def health_check():
     return {"status": "healthy"}
 
@@ -69,31 +69,34 @@ async def build_and_compare_resume(
     career_history: str = Form(...),
     job_description: str = Form(...)
 ):
-    # Strict algorithmic rules to force Gemini Flash into hyper-accurate metrics scoring
+    # Strict algorithmic prompt constraints to force the AI into hyper-accurate metrics scoring
     system_prompt = (
-        "You are an automated corporate ATS compliance scanning algorithm system. "
-        "Analyze the user's career history explicitly against the target job description criteria.\n"
-        "CRITICAL METRIC RULES:\n"
-        "1. match_score: Perform an objective mathematical comparison based on skills overlap. Be highly critical.\n"
-        "2. missing_skills: Isolate explicit hard frameworks, programming languages, and tools from the job description completely missing in the candidate's text.\n"
-        "3. resume / experience: Rewrite the candidate's bullet points to weave in missing professional hard skills while matching the structural schema parameters."
+        "You are a highly critical technical recruiter and a strict corporate ATS parsing algorithm.\n"
+        "Analyze the candidate's career history explicitly against the target job description criteria.\n"
+        "CRITICAL EVALUATION MATRIX:\n"
+        "1. match_score: Perform a strict mathematical calculation based on skill overlap. Be highly critical. "
+        "Do not award scores above 80% if core skills or frameworks from the job description are missing.\n"
+        "2. missing_skills: Isolate explicit hard frameworks, programming languages, and tools from the job description "
+        "that are completely absent from the candidate's text. Do not include generic soft skills.\n"
+        "3. resume/experience: Rewrite the candidate's history to weave in relevant skills from the job description, "
+        "ensuring statements are high-impact and technically accurate."
     )
 
     try:
-        # Enforces structured output formatting directly via the Gemini Native Engine
+        # ✅ FIX: Swapped model string to 'gemini-1.5-pro' for deep logical reasoning and absolute accuracy
         response = gemini_client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=f"Candidate: {full_name}\nTarget: {target_role}\nHistory: {career_history}\nJD:\n{job_description}",
+            model='gemini-1.5-pro',
+            contents=f"Candidate: {full_name}\nTarget Role: {target_role}\nHistory: {career_history}\nJD:\n{job_description}",
             config=types.GenerateContentConfig(
                 system_instruction=system_prompt,
                 response_mime_type="application/json",
                 response_schema=CareerDashboardSchema,
-                temperature=0.2
+                temperature=0.1  # Low temperature forces the model to be strict, consistent, and analytical
             )
         )
         analysis_result = json.loads(response.text.strip())
     except Exception as ai_err:
-        raise HTTPException(status_code=500, detail=f"AI Engine Extraction Error: {str(ai_err)}")
+        raise HTTPException(status_code=500, detail=f"AI Engine Accuracy Exception: {str(ai_err)}")
 
     resume_data = analysis_result.get("resume", {})
     public_url = ""
