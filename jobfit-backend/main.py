@@ -108,7 +108,6 @@ async def build_and_compare_resume(
     linkedin_context = f"\nCandidate LinkedIn URL: {linkedin_profile}" if linkedin_profile else ""
 
     try:
-        # 🎯 FIX: Explicitly forcing standard json mime output configuration to bypass strict Pydantic model locks
         response = gemini_client.models.generate_content(
             model='gemini-2.5-flash',
             contents=f"Candidate Name: {full_name}\nTarget: {target_role}{linkedin_context}\nHistory: {career_history}\nJD:\n{job_description}",
@@ -118,12 +117,18 @@ async def build_and_compare_resume(
                 temperature=0.1
             )
         )
-        # Parse text content straight to raw dict structure mapping profiles natively
-        analysis_result = json.loads(response.text.strip())
+        # Parse text string content with structural safety verification filters
+        clean_text = response.text.strip()
+        if clean_text.startswith("```json"):
+            clean_text = clean_text.split("```json")[-1].split("```")[0].strip()
+        elif clean_text.startswith("```"):
+            clean_text = clean_text.split("```")[1].split("```")[0].strip()
+            
+        analysis_result = json.loads(clean_text)
     except Exception as ai_err:
         raise HTTPException(status_code=500, detail=f"AI Data Map Extraction Crash Error: {str(ai_err)}")
 
-    # 🛡️ DEFENSIVE DICTIONARY DIAL-IN WRAPPERS
+    # 🛡️ DEFENSIVE ATTRIBUTE CASTING FALLBACK LAYER
     resume_data = analysis_result.get("resume", {})
     if not isinstance(resume_data, dict):
         resume_data = {}
@@ -144,17 +149,26 @@ async def build_and_compare_resume(
             Paragraph(f"Target Objective: {target_role}", styles['Heading3']),
             Spacer(1, 8),
             Paragraph("<b>Professional Summary</b>", section_style),
-            Paragraph(resume_data.get('professional_summary', ''), body_style),
+            Paragraph(str(resume_data.get('professional_summary', '')), body_style),
             Paragraph("<b>Core Competencies</b>", section_style),
-            Paragraph(", ".join(resume_data.get('skills', [])), body_style),
-            Paragraph("<b>Professional Experience</b>", section_style)
         ]
         
-        for exp in resume_data.get('experience', []):
-            story.append(Paragraph(f"<b>{exp.get('role', '')}</b> — {exp.get('company', '')} ({exp.get('duration', '')})", styles['Heading4']))
-            for bullet in exp.get('bullet_points', []):
-                story.append(Paragraph(f"• {bullet}", body_style))
-            story.append(Spacer(1, 4))
+        skills_list = resume_data.get('skills', [])
+        skills_str = ", ".join(skills_list) if isinstance(skills_list, list) else str(skills_list)
+        story.append(Paragraph(skills_str, body_style))
+        story.append(Paragraph("<b>Professional Experience</b>", section_style))
+        
+        # 🛡️ Hard-locked dictionary validation type check block loop
+        exp_list = resume_data.get('experience', [])
+        if isinstance(exp_list, list):
+            for exp in exp_list:
+                if isinstance(exp, dict):
+                    story.append(Paragraph(f"<b>{str(exp.get('role', 'Engineer'))}</b> — {str(exp.get('company', 'Company'))} ({str(exp.get('duration', 'Present'))})", styles['Heading4']))
+                    bullets = exp.get('bullet_points', [])
+                    if isinstance(bullets, list):
+                        for bullet in bullets:
+                            story.append(Paragraph(f"• {str(bullet)}", body_style))
+                story.append(Spacer(1, 4))
 
         doc.build(story)
 
@@ -175,20 +189,28 @@ async def build_and_compare_resume(
     except Exception:
         pass
 
-    # Extract interview question maps while accounting for key naming variations
+    # Extract interview fields safely matching raw list patterns
     raw_questions = analysis_result.get("interview_questions", analysis_result.get("questions", []))
     if not isinstance(raw_questions, list):
         raw_questions = []
         
-    final_questions = raw_questions[:requested_count]
+    final_questions = []
+    for item in raw_questions:
+        if isinstance(item, dict):
+            final_questions.append({
+                "question": str(item.get("question", "")),
+                "response": str(item.get("response", ""))
+            })
+            
+    final_questions = final_questions[:requested_count]
 
     return {
-        "match_score": analysis_result.get("match_score", 70),
-        "missing_skills": analysis_result.get("missing_skills", []),
-        "tailoring_tips": analysis_result.get("tailoring_tips", []),
-        "tell_me_about_yourself": analysis_result.get("tell_me_about_yourself", ""),
+        "match_score": int(analysis_result.get("match_score", 70)),
+        "missing_skills": list(analysis_result.get("missing_skills", [])),
+        "tailoring_tips": list(analysis_result.get("tailoring_tips", [])),
+        "tell_me_about_yourself": str(analysis_result.get("tell_me_about_yourself", "")),
         "interview_questions": final_questions,
-        "follow_up_questions": analysis_result.get("follow_up_questions", []),
+        "follow_up_questions": list(analysis_result.get("follow_up_questions", [])),
         "resume": resume_data, 
         "shareable_url": public_url
     }
