@@ -1,11 +1,12 @@
 import os
 import json
+import math
 from fastapi import FastAPI, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from google import genai
 from google.genai import types
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 from supabase import create_client, Client
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
@@ -21,17 +22,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 🔐 INFRASTRUCTURE CONFIGURATION
+# 🔐 INFRASTRUCTURE SECURITY SETUP
 supabase_url = os.getenv("SUPABASE_URL")
 supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY")
 if not supabase_url or not supabase_key:
-    raise ValueError("CRITICAL: Missing Supabase environmental keys.")
+    raise ValueError("CRITICAL FAILURE: Missing required Supabase credentials.")
 supabase: Client = create_client(supabase_url, supabase_key)
 
-# 🚀 INITIALIZE THE CORRECT GOOGLE GENAI CLIENT
 gemini_client = genai.Client()
 
-# 📋 Pydantic Validation Blueprints (Guarantees Structural Precision)
+# 📋 Schema Framework Configuration (Locked via Pydantic for Absolute Accuracy)
 class ExperienceItem(BaseModel):
     company: str
     role: str
@@ -67,41 +67,51 @@ async def build_and_compare_resume(
     full_name: str = Form(...),
     target_role: str = Form(...),
     career_history: str = Form(...),
-    job_description: str = Form(...)
+    job_description: str = Form(...),
+    linkedin_profile: Optional[str] = Form(None),
+    interview_duration: str = Form("30 minutes"),
+    total_questions_requested: str = Form("5")
 ):
-    # Strict algorithmic prompt constraints to force the AI into hyper-accurate metrics scoring
+    try:
+        requested_count = int(total_questions_requested)
+        requested_count = max(1, min(25, requested_count))
+    except ValueError:
+        requested_count = 5
+
+    hr_limit = math.ceil(requested_count / 2)
+    tech_limit = math.floor(requested_count / 2)
+
     system_prompt = (
-        "You are a highly critical technical recruiter and a strict corporate ATS parsing algorithm.\n"
-        "Analyze the candidate's career history explicitly against the target job description criteria.\n"
-        "CRITICAL EVALUATION MATRIX:\n"
-        "1. match_score: Perform a strict mathematical calculation based on skill overlap. Be highly critical. "
-        "Do not award scores above 80% if core skills or frameworks from the job description are missing.\n"
-        "2. missing_skills: Isolate explicit hard frameworks, programming languages, and tools from the job description "
-        "that are completely absent from the candidate's text. Do not include generic soft skills.\n"
-        "3. resume/experience: Rewrite the candidate's history to weave in relevant skills from the job description, "
-        "ensuring statements are high-impact and technically accurate."
+        f"You are a strict corporate ATS parsing script and senior technical hiring architect.\n"
+        f"Analyze the candidate's career parameters against the provided job description requirements.\n"
+        f"CRITICAL COMPLIANCE TARGETS:\n"
+        f"1. match_score: Grade technical fit critically from 0 to 100 based strictly on overlap.\n"
+        f"2. missing_skills: Isolate explicit hard tools/languages omitted in the experience text.\n"
+        f"3. hr_interview: Generate exactly {hr_limit} high-impact behavioral question entities tailored to the requested {interview_duration} interview frame.\n"
+        f"4. technical_interview: Generate exactly {tech_limit} platform architectural question entities based on the role description.\n"
+        f"5. resume: Reconstruct experience bullet points to cleanly integrate core target keywords."
     )
 
+    linkedin_context = f"\nCandidate LinkedIn Profile URL Target Node: {linkedin_profile}" if linkedin_profile else ""
+
     try:
-        # ✅ FIX: Swapped model string to 'gemini-1.5-pro' for deep logical reasoning and absolute accuracy
         response = gemini_client.models.generate_content(
             model='gemini-1.5-pro',
-            contents=f"Candidate: {full_name}\nTarget Role: {target_role}\nHistory: {career_history}\nJD:\n{job_description}",
+            contents=f"Candidate Name: {full_name}\nTarget: {target_role}{linkedin_context}\nHistory: {career_history}\nJD:\n{job_description}",
             config=types.GenerateContentConfig(
                 system_instruction=system_prompt,
                 response_mime_type="application/json",
                 response_schema=CareerDashboardSchema,
-                temperature=0.1  # Low temperature forces the model to be strict, consistent, and analytical
+                temperature=0.1
             )
         )
         analysis_result = json.loads(response.text.strip())
     except Exception as ai_err:
-        raise HTTPException(status_code=500, detail=f"AI Engine Accuracy Exception: {str(ai_err)}")
+        raise HTTPException(status_code=500, detail=f"AI Validation Model Engine Exception: {str(ai_err)}")
 
     resume_data = analysis_result.get("resume", {})
     public_url = ""
 
-    # 🗂️ DOCUMENT GENERATION PIPELINE
     try:
         pdf_filename = f"{full_name.replace(' ', '_')}_Resume.pdf"
         doc = SimpleDocTemplate(pdf_filename, pagesize=letter, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
@@ -134,24 +144,25 @@ async def build_and_compare_resume(
             file_data = f.read()
 
         storage_path = f"resumes/{pdf_filename}"
+        
         try:
             supabase.storage.from_("updated-resumes").upload(path=storage_path, file=file_data, file_options={"content-type": "application/pdf"})
             public_url = supabase.storage.from_("updated-resumes").get_public_url(storage_path)
         except Exception:
-            public_url = "Storage Connection Error"
+            public_url = "Cloud Storage Connection Mismatch"
 
         if os.path.exists(pdf_filename):
             os.remove(pdf_filename)
             
     except Exception:
-        public_url = "PDF Engine Fallback"
+        public_url = "PDF Layout Engine Fallback"
 
     return {
         "match_score": analysis_result.get("match_score", 70),
         "missing_skills": analysis_result.get("missing_skills", []),
         "tailoring_tips": analysis_result.get("tailoring_tips", []),
-        "hr_interview": analysis_result.get("hr_interview", []),
-        "technical_interview": analysis_result.get("technical_interview", []),
+        "hr_interview": analysis_result.get("hr_interview", [])[:hr_limit],
+        "technical_interview": analysis_result.get("technical_interview", [])[:tech_limit],
         "resume": resume_data, 
         "shareable_url": public_url
     }
