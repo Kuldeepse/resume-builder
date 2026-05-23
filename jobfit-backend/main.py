@@ -1,30 +1,32 @@
 import os
+import io
 import json
 import math
-from fastapi import FastAPI, Form, HTTPException
+from typing import List, Optional, Any
+
+from fastapi import FastAPI, Form, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from google import genai
 from google.genai import types
-from typing import List, Optional, Any
 from supabase import create_client, Client
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
+from PyPDF2 import PdfReader
+from docx import Document
 
 app = FastAPI()
 
-# Configure cross-origin sharing policies defensively
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["*"]
+    expose_headers=["*"],
 )
 
-# 🔐 CLOUD STORAGE SECURE CONNECTION
 supabase_url = os.getenv("SUPABASE_URL")
 supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY")
 
@@ -33,15 +35,60 @@ if not supabase_url or not supabase_key:
     supabase_key = supabase_key or "placeholder-key"
 
 supabase: Client = create_client(supabase_url, supabase_key)
-
-# 🚀 INITIALIZE THE NATIVE GOOGLE GENAI TIER CLIENT LAYER
 gemini_client = genai.Client()
+
+
+def extract_text_from_pdf(file_bytes: bytes) -> str:
+    try:
+        reader = PdfReader(io.BytesIO(file_bytes))
+        pages = []
+        for page in reader.pages:
+            pages.append(page.extract_text() or "")
+        return "\n".join(pages).strip()
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Unable to parse PDF resume: {str(exc)}")
+
+
+def extract_text_from_docx(file_bytes: bytes) -> str:
+    try:
+        document = Document(io.BytesIO(file_bytes))
+        paragraphs = [p.text for p in document.paragraphs if p.text.strip()]
+        return "\n".join(paragraphs).strip()
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Unable to parse DOCX resume: {str(exc)}")
+
+
+async def extract_resume_text(resume_file: UploadFile) -> str:
+    filename = (resume_file.filename or "").lower()
+    file_bytes = await resume_file.read()
+
+    if not file_bytes:
+        raise HTTPException(status_code=400, detail="Uploaded resume file is empty.")
+
+    if filename.endswith(".pdf"):
+        return extract_text_from_pdf(file_bytes)
+
+    if filename.endswith(".docx"):
+        return extract_text_from_docx(file_bytes)
+
+    if filename.endswith(".doc"):
+        raise HTTPException(
+            status_code=400,
+            detail="Legacy .doc files are not supported by this backend yet. Please upload PDF or DOCX."
+        )
+
+    raise HTTPException(
+        status_code=400,
+        detail="Unsupported resume format. Please upload a PDF or DOCX file."
+    )
 
 
 @app.get("/health/")
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
+
+
 @app.post("/build-resume/")
 @app.post("/build-resume")
 async def build_and_compare_resume(
@@ -50,13 +97,13 @@ async def build_and_compare_resume(
     career_history: str = Form(...),
     job_description: str = Form(...),
     linkedin_profile: Optional[str] = Form(None),
-    interview_duration: Any = Form("30 minutes"),       
-    total_questions_requested: Any = Form(5),           
-    interview_type: Optional[str] = Form("technical") 
+    interview_duration: Any = Form("30 minutes"),
+    total_questions_requested: Any = Form(5),
+    interview_type: Optional[str] = Form("technical"),
 ):
     if "placeholder" in supabase_url or "placeholder" in supabase_key:
         raise HTTPException(
-            status_code=500, 
+            status_code=500,
             detail="Configuration Error: Missing SUPABASE_URL variables on Render."
         )
 
@@ -84,7 +131,7 @@ async def build_and_compare_resume(
 
     system_prompt = f"""You are an expert tech recruiter and automated ATS tracking system.
 Analyze the candidate parameters explicitly against the provided job description requirements.
-You must return a single, valid JSON object containing exactly the listed keys. 
+You must return a single, valid JSON object containing exactly the listed keys.
 Do not wrap your output in markdown backticks or any trailing text.
 
 REQUIRED JSON FORMAT SCHEMA EXACTLY:
@@ -119,21 +166,21 @@ CRITICAL INSTRUCTIONS:
 
     try:
         response = gemini_client.models.generate_content(
-            model='gemini-2.5-flash',
+            model="gemini-2.5-flash",
             contents=f"Candidate Name: {full_name}\nTarget: {target_role}{linkedin_context}\nHistory: {career_history}\nJD:\n{job_description}",
             config=types.GenerateContentConfig(
                 system_instruction=system_prompt,
                 response_mime_type="application/json",
-                temperature=0.1
-            )
+                temperature=0.1,
+            ),
         )
-        
+
         raw_text = response.text.strip()
         if "```json" in raw_text:
             raw_text = raw_text.split("```json")[-1].split("```")[0].strip()
         elif "```" in raw_text:
             raw_text = raw_text.split("```")[-1].split("```")[0].strip()
-            
+
         analysis_result = json.loads(raw_text)
     except Exception as ai_err:
         raise HTTPException(status_code=500, detail=f"AI Data Map Extraction Crash Error: {str(ai_err)}")
@@ -141,38 +188,58 @@ CRITICAL INSTRUCTIONS:
     resume_data = analysis_result.get("resume", {})
     if not isinstance(resume_data, dict):
         resume_data = {}
-        
+
     public_url = "Cloud Storage Connection Mismatch"
 
     try:
         pdf_filename = f"{full_name.replace(' ', '_')}_Resume.pdf"
-        doc = SimpleDocTemplate(pdf_filename, pagesize=letter, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
+        doc = SimpleDocTemplate(
+            pdf_filename,
+            pagesize=letter,
+            rightMargin=36,
+            leftMargin=36,
+            topMargin=36,
+            bottomMargin=36,
+        )
         styles = getSampleStyleSheet()
-        
-        title_style = ParagraphStyle('TStyle', parent=styles['Heading1'], fontSize=22, leading=26, spaceAfter=10)
-        section_style = ParagraphStyle('SStyle', parent=styles['Heading2'], fontSize=13, leading=17, spaceBefore=10, spaceAfter=4, textColor=colors.HexColor('#8B5A2B'))
-        body_style = styles['Normal']
-        
+
+        title_style = ParagraphStyle("TStyle", parent=styles["Heading1"], fontSize=22, leading=26, spaceAfter=10)
+        section_style = ParagraphStyle(
+            "SStyle",
+            parent=styles["Heading2"],
+            fontSize=13,
+            leading=17,
+            spaceBefore=10,
+            spaceAfter=4,
+            textColor=colors.HexColor("#8B5A2B"),
+        )
+        body_style = styles["Normal"]
+
         story = [
             Paragraph(f"<b>{resume_data.get('full_name', full_name)}</b>", title_style),
-            Paragraph(f"Target Objective: {target_role}", styles['Heading3']),
+            Paragraph(f"Target Objective: {target_role}", styles["Heading3"]),
             Spacer(1, 8),
             Paragraph("<b>Professional Summary</b>", section_style),
-            Paragraph(str(resume_data.get('professional_summary', '')), body_style),
+            Paragraph(str(resume_data.get("professional_summary", "")), body_style),
             Paragraph("<b>Core Competencies</b>", section_style),
         ]
-        
-        skills_list = resume_data.get('skills', [])
+
+        skills_list = resume_data.get("skills", [])
         skills_str = ", ".join(skills_list) if isinstance(skills_list, list) else str(skills_list)
         story.append(Paragraph(skills_str, body_style))
         story.append(Paragraph("<b>Professional Experience</b>", section_style))
-        
-        exp_list = resume_data.get('experience', [])
+
+        exp_list = resume_data.get("experience", [])
         if isinstance(exp_list, list):
             for exp in exp_list:
                 if isinstance(exp, dict):
-                    story.append(Paragraph(f"<b>{str(exp.get('role', 'Engineer'))}</b> — {str(exp.get('company', 'Company'))} ({str(exp.get('duration', 'Present'))})", styles['Heading4']))
-                    bullets = exp.get('bullet_points', [])
+                    story.append(
+                        Paragraph(
+                            f"<b>{str(exp.get('role', 'Engineer'))}</b> — {str(exp.get('company', 'Company'))} ({str(exp.get('duration', 'Present'))})",
+                            styles["Heading4"],
+                        )
+                    )
+                    bullets = exp.get("bullet_points", [])
                     if isinstance(bullets, list):
                         for bullet in bullets:
                             story.append(Paragraph(f"• {str(bullet)}", body_style))
@@ -184,31 +251,35 @@ CRITICAL INSTRUCTIONS:
             file_data = f.read()
 
         storage_path = f"resumes/{pdf_filename}"
-        
+
         try:
-            supabase.storage.from_("updated-resumes").upload(path=storage_path, file=file_data, file_options={"content-type": "application/pdf"})
+            supabase.storage.from_("updated-resumes").upload(
+                path=storage_path,
+                file=file_data,
+                file_options={"content-type": "application/pdf"},
+            )
             public_url = supabase.storage.from_("updated-resumes").get_public_url(storage_path)
         except Exception:
             pass
 
         if os.path.exists(pdf_filename):
             os.remove(pdf_filename)
-            
+
     except Exception:
         pass
 
     raw_questions = analysis_result.get("interview_questions", analysis_result.get("questions", []))
     if not isinstance(raw_questions, list):
         raw_questions = []
-        
+
     final_questions = []
     for item in raw_questions:
         if isinstance(item, dict):
             final_questions.append({
                 "question": str(item.get("question", "")),
-                "response": str(item.get("response", ""))
+                "response": str(item.get("response", "")),
             })
-            
+
     final_questions = final_questions[:requested_count]
 
     return {
@@ -218,20 +289,41 @@ CRITICAL INSTRUCTIONS:
         "tell_me_about_yourself": str(analysis_result.get("tell_me_about_yourself", "")),
         "interview_questions": final_questions,
         "follow_up_questions": list(analysis_result.get("follow_up_questions", [])),
-        "resume": resume_data, 
-        "shareable_url": public_url
+        "resume": resume_data,
+        "shareable_url": public_url,
     }
+
+
 @app.post("/search-jobs/")
 @app.post("/search-jobs")
 async def search_jobs(
     target_role: str = Form(...),
     location_city: str = Form(...),
-    resume_skills: str = Form(...)
+    resume_skills: str = Form(""),
+    resume_file: Optional[UploadFile] = File(None),
 ):
-    search_query = f'"{target_role}" jobs in "{location_city}" site:://linkedin.com OR site:://indeed.com OR site:lever.co OR site:greenhouse.io'
-    
+    extracted_resume_text = ""
+
+    if resume_file is not None:
+        extracted_resume_text = await extract_resume_text(resume_file)
+
+    combined_profile_context = "\n".join(
+        part for part in [
+            f"Target Role: {target_role}",
+            f"Preferred Location: {location_city}",
+            f"Resume Skills Summary: {resume_skills}",
+            f"Extracted Resume Text: {extracted_resume_text}",
+        ] if part.strip()
+    )
+
+    search_query = (
+        f'"{target_role}" jobs in "{location_city}" '
+        f'(site:linkedin.com/jobs OR site:indeed.com OR site:greenhouse.io OR site:lever.co OR site:workdayjobs.com) '
+        f'"posted" OR "days ago" OR "recent" OR "active"'
+    )
+
     system_prompt = """You are an automated live job matching extraction tool.
-Analyze the parameters to return up to 40 active, real job listings posted in the last 10 days.
+Analyze the candidate profile and return up to 40 active, real job listings posted in the last 10 days.
 
 REQUIRED OUTPUT JSON STRUCTURE EXACTLY:
 {
@@ -249,30 +341,33 @@ REQUIRED OUTPUT JSON STRUCTURE EXACTLY:
 }
 
 CRITICAL DATA RETRIEVAL RULES:
-1. Compile up to 40 unique listings matching the parameters.
-2. If real tracking URLs are unavailable, write 'search on company website'. Never guess or fabricate links.
-3. Your output must be pure raw valid JSON string content only. Do not wrap in markdown or backticks."""
+1. Return only genuinely relevant jobs matching the candidate profile, skills, and background.
+2. Include only roles that appear active and posted within the last 10 days.
+3. Search across multiple sources including LinkedIn, Indeed, company career pages, and major job boards.
+4. If a trustworthy application link is unavailable, write exactly 'search on company website'.
+5. Never guess, invent, or hallucinate links, salary, employers, or recency.
+6. Deduplicate listings aggressively.
+7. Return pure valid JSON only, with no markdown or commentary.
+"""
 
     try:
-        # 🌐 FIXED: Replaced legacy string tool mapping with official modern Google Search tool SDK configuration layout blocks
         response = gemini_client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=f"Query Constraints: {search_query}\nUser Skills Context: {resume_skills}\nTarget Role Context: {target_role}",
+            model="gemini-2.5-flash",
+            contents=f"Search Query Constraints: {search_query}\nCandidate Context:\n{combined_profile_context}",
             config=types.GenerateContentConfig(
                 system_instruction=system_prompt,
                 response_mime_type="application/json",
                 tools=[types.Tool(google_search=types.GoogleSearch())],
-                temperature=0.2
-            )
+                temperature=0.2,
+            ),
         )
-        
-        # ✅ FIXED: Placed extraction loops safely into separate structural lines to eliminate layout parsing exceptions
+
         clean_text = response.text.strip()
         if "```json" in clean_text:
             clean_text = clean_text.split("```json")[-1].split("```")[0].strip()
         elif "```" in clean_text:
             clean_text = clean_text.split("```")[-1].split("```")[0].strip()
-            
+
         jobs_result = json.loads(clean_text)
     except Exception as search_error:
         raise HTTPException(status_code=500, detail=f"Web Grounding Compilation Exception: {str(search_error)}")
@@ -280,22 +375,32 @@ CRITICAL DATA RETRIEVAL RULES:
     raw_jobs = jobs_result.get("jobs", [])
     if not isinstance(raw_jobs, list):
         raw_jobs = []
-        
+
     sanitized_jobs = []
     for job in raw_jobs:
         if isinstance(job, dict):
             skills_raw = job.get("skills", [])
             skills_arr = skills_raw if isinstance(skills_raw, list) else [str(skills_raw)]
+
+            link_value = str(job.get("link", "search on company website")).strip()
+            if not link_value or not link_value.startswith("http"):
+                link_value = "search on company website"
+
             sanitized_jobs.append({
                 "title": str(job.get("title", "Opportunities Tracker")),
                 "company": str(job.get("company", "Enterprise Resource")),
                 "location": str(job.get("location", location_city)),
                 "salary": str(job.get("salary", "Not Disclosed")),
                 "skills": [str(s) for s in skills_arr],
-                "link": str(job.get("link", "search on company website"))
+                "link": link_value,
             })
 
     return {
-        "jobs": sanitized_jobs,
-        "best_match_summary": str(jobs_result.get("best_match_summary", "Review the table matrix results above to locate best technical alignments."))
+        "jobs": sanitized_jobs[:40],
+        "best_match_summary": str(
+            jobs_result.get(
+                "best_match_summary",
+                "Review the table matrix results above to locate the three strongest profile matches."
+            )
+        ),
     }
