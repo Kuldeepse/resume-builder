@@ -71,12 +71,14 @@ async def build_and_compare_resume(
     interview_duration: str = Form("30 minutes"),
     total_questions_requested: str = Form("5")
 ):
+    # Parse total requested questions securely to stay within boundaries
     try:
         requested_count = int(total_questions_requested)
         requested_count = max(1, min(25, requested_count))
     except ValueError:
         requested_count = 5
 
+    # Split question limits evenly between tracks
     hr_limit = math.ceil(requested_count / 2)
     tech_limit = math.floor(requested_count / 2)
 
@@ -94,10 +96,9 @@ async def build_and_compare_resume(
     linkedin_context = f"\nCandidate LinkedIn URL Profile Data: {linkedin_profile}" if linkedin_profile else ""
 
     try:
-        # 🎯 VERIFIED REASONING ENGINE MODEL IDENTIFIER
-        # Locked to 'gemini-2.5-pro' for robust structural reasoning and absolute precision
+        # 🎯 STABLE REASONING ENGINE MODEL IDENTIFIER
         response = gemini_client.models.generate_content(
-            model='gemini-2.5-pro',
+            model='gemini-1.5-pro',
             contents=f"Candidate Name: {full_name}\nTarget: {target_role}{linkedin_context}\nHistory: {career_history}\nJD:\n{job_description}",
             config=types.GenerateContentConfig(
                 system_instruction=system_prompt,
