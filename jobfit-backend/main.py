@@ -74,6 +74,14 @@ def is_ollama_configured() -> bool:
     return bool(OLLAMA_BASE_URL and OLLAMA_API_KEY and OLLAMA_MODEL)
 
 
+def get_ollama_chat_url() -> str:
+    if OLLAMA_BASE_URL.endswith("/api/chat"):
+        return OLLAMA_BASE_URL
+    if OLLAMA_BASE_URL.endswith("/api/generate"):
+        return OLLAMA_BASE_URL.rsplit("/api/generate", 1)[0] + "/api/chat"
+    return f"{OLLAMA_BASE_URL}/api/chat"
+
+
 def extract_text_from_pdf(file_bytes: bytes) -> str:
     reader = PdfReader(io.BytesIO(file_bytes))
     return "\n".join((page.extract_text() or "") for page in reader.pages).strip()
@@ -220,7 +228,7 @@ async def generate_builder_response_with_ollama(system_prompt: str, user_prompt:
 
     try:
         async with httpx.AsyncClient(timeout=180.0) as client:
-            response = await client.post(f"{OLLAMA_BASE_URL}/api/chat", headers=headers, json=payload)
+            response = await client.post(get_ollama_chat_url(), headers=headers, json=payload)
     except httpx.HTTPError as exc:
         raise HTTPException(status_code=502, detail=f"Ollama connection error: {str(exc)}") from exc
 
