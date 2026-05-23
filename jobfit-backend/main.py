@@ -40,7 +40,7 @@ gemini_client = genai.Client()
 
 SEARCH_MODEL = "gemini-2.5-flash"
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "https://ollama.com").rstrip("/")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "deepseek-v4-pro")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "glm-4.7")
 OLLAMA_API_KEY = os.getenv("OLLAMA_API_KEY", "")
 
 
