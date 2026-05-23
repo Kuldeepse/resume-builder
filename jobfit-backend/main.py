@@ -1,66 +1,3 @@
-import os
-import json
-from fastapi import FastAPI, Form, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from google import genai
-from google.genai import types
-from pydantic import BaseModel
-from typing import List, Optional
-from supabase import create_client, Client
-from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-
-app = FastAPI()
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# 🔐 CLOUD STORAGE SECURE CONNECTION
-supabase_url = os.getenv("SUPABASE_URL")
-supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY")
-if not supabase_url or not supabase_key:
-    raise ValueError("CRITICAL FAILURE: Missing required Supabase credentials.")
-supabase: Client = create_client(supabase_url, supabase_key)
-
-# 🚀 INITIALIZE THE GOOGLE GENAI CLIENT
-gemini_client = genai.Client()
-
-# 📋 Pydantic Architectural Blueprints (Guarantees Strict Output Validation)
-class ExperienceItem(BaseModel):
-    company: str
-    role: str
-    duration: str
-    bullet_points: List[str]
-
-class ResumeData(BaseModel):
-    full_name: str
-    professional_summary: str
-    skills: List[str]
-    experience: List[ExperienceItem]
-
-class InterviewItem(BaseModel):
-    question: str
-    response: str
-
-class CareerDashboardSchema(BaseModel):
-    match_score: int
-    missing_skills: List[str]
-    tailoring_tips: List[str]
-    tell_me_about_yourself: str
-    interview_questions: List[InterviewItem]
-    follow_up_questions: List[str]
-    resume: ResumeData
-
-
-@app.get("/health/")
-async def health_check():
-    return {"status": "healthy"}
 @app.post("/build-resume")
 async def build_and_compare_resume(
     full_name: str = Form(...),
@@ -78,18 +15,25 @@ async def build_and_compare_resume(
     except ValueError:
         requested_count = 5
 
-    # Refine the focus based on user track selection parameters
     track_name = "HR / Behavioral" if interview_type.lower() == "hr" else "Deep Technical / Architecture"
     
+    # Enforces explicit instruction constraints forcing Gemini to format responses into STAR layout blocks
     system_prompt = (
         f"You are an expert corporate recruiter and automated ATS tracking system script.\n"
         f"Analyze the candidate parameters explicitly against the provided job description requirements.\n"
         f"CRITICAL COMPLIANCE TARGETS:\n"
         f"1. match_score: Grade technical fit critically from 0 to 100 based strictly on overlap.\n"
         f"2. missing_skills: Isolate explicit hard tools/languages omitted in the experience profile text.\n"
-        f"3. tell_me_about_yourself: Provide a perfect 2-minute elevator pitch narrative customized to this specific role.\n"
+        f"3. tell_me_about_yourself: Provide a perfect 2-minute elevator pitch narrative in STAR format tailored to this specific role.\n"
         f"4. interview_questions: You must generate EXACTLY {requested_count} question and response blocks. "
         f"Because the user selected the '{track_name}' category, all generated entries must focus 100% on that domain theme type.\n"
+        f"CRITICAL RESPONSE FORMAT RULE:\n"
+        f"Every single answer string inside the 'response' key MUST be structured clearly in the STAR framework. "
+        f"You must explicitly label the headers inside the text block string, matching this layout exactly:\n"
+        f"- Situation: [Context details]\n"
+        f"- Task: [Core objective/responsibility]\n"
+        f"- Action: [What specific engineering/behavioral execution was performed]\n"
+        f"- Result: [Quantifiable metrics metrics outcome]\n"
         f"5. follow_up_questions: Generate 3 to 5 highly intelligent questions for the candidate to ask the interviewer at the end.\n"
         f"6. resume: Reconstruct experience bullets to weave in relevant missing keywords natively."
     )
@@ -159,7 +103,6 @@ async def build_and_compare_resume(
     except Exception:
         public_url = "PDF Engine Fallback"
 
-    # Enforce strict maximum length restriction list slicing targeting requested slider total
     final_questions = analysis_result.get("interview_questions", [])[:requested_count]
 
     return {
