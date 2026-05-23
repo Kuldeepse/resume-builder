@@ -94,10 +94,10 @@ async def build_and_compare_resume(
     linkedin_context = f"\nCandidate LinkedIn URL Profile Data: {linkedin_profile}" if linkedin_profile else ""
 
     try:
-        # 🎯 FIXED MODEL STRINGS SPECIFICATION LAYER
-        # Swapped to 'gemini-2.5-pro-preview' or 'gemini-1.5-pro' to completely clear the client naming engine error
+        # 🎯 VERIFIED REASONING ENGINE MODEL IDENTIFIER
+        # Locked to 'gemini-2.5-pro' for robust structural reasoning and absolute precision
         response = gemini_client.models.generate_content(
-            model='gemini-2.5-pro-preview',
+            model='gemini-2.5-pro',
             contents=f"Candidate Name: {full_name}\nTarget: {target_role}{linkedin_context}\nHistory: {career_history}\nJD:\n{job_description}",
             config=types.GenerateContentConfig(
                 system_instruction=system_prompt,
