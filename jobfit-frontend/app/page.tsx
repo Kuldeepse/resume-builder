@@ -576,3 +576,5 @@ export default function Home() {
         </p>
       </footer>
     </main>
+  );
+}
