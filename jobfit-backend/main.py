@@ -14,12 +14,15 @@ from reportlab.lib import colors
 
 app = FastAPI()
 
+# 🎯 FIXED: Set allow_credentials to False when using wildcard allow_origins=["*"] 
+# This enforces proper cross-origin compliance on Render's firewall layer.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"]
 )
 
 # 🔐 CLOUD STORAGE SECURE CONNECTION
@@ -37,8 +40,10 @@ gemini_client = genai.Client()
 
 
 @app.get("/health/")
+@app.get("/health")
 async def health_check():
     return {"status": "healthy"}
+@app.post("/build-resume/")
 @app.post("/build-resume")
 async def build_and_compare_resume(
     full_name: str = Form(...),
@@ -124,13 +129,14 @@ CRITICAL INSTRUCTIONS:
             )
         )
         
-        clean_text = response.text.strip()
-        if "```json" in clean_text:
-            clean_text = clean_text.split("```json")[-1].split("```").strip()
-        elif "```" in clean_text:
-            clean_text = clean_text.split("```")[-1].split("```").strip()
+        # 🎯 FIXED: Robust text slicing logic block eliminates method split/strip exception errors completely
+        raw_text = response.text.strip()
+        if "```json" in raw_text:
+            raw_text = raw_text.split("```json")[-1].split("```")[0].strip()
+        elif "```" in raw_text:
+            raw_text = raw_text.split("```")[-1].split("```")[0].strip()
             
-        analysis_result = json.loads(clean_text)
+        analysis_result = json.loads(raw_text)
     except Exception as ai_err:
         raise HTTPException(status_code=500, detail=f"AI Data Map Extraction Crash Error: {str(ai_err)}")
 
@@ -217,13 +223,15 @@ CRITICAL INSTRUCTIONS:
         "resume": resume_data, 
         "shareable_url": public_url
     }
+
+
+@app.post("/search-jobs/")
 @app.post("/search-jobs")
 async def search_jobs(
     target_role: str = Form(...),
     location_city: str = Form(...),
     resume_skills: str = Form(...)
 ):
-    # Dynamic live search querying across open web structures using official search tool rules
     search_query = f'"{target_role}" jobs in "{location_city}" site:://linkedin.com OR site:://indeed.com OR site:lever.co OR site:greenhouse.io'
     
     system_prompt = """You are an automated live job matching extraction tool.
@@ -250,47 +258,8 @@ CRITICAL DATA RETRIEVAL RULES:
 3. Your output must be pure raw valid JSON string content only. Do not wrap in markdown or backticks."""
 
     try:
-        # Executes dynamic web-grounded extraction utilizing modern Google Search framework grounding checks
         response = gemini_client.models.generate_content(
             model='gemini-2.5-flash',
             contents=f"Query Constraints: {search_query}\nUser Skills Context: {resume_skills}\nTarget Role Context: {target_role}",
             config=types.GenerateContentConfig(
-                system_instruction=system_prompt,
-                response_mime_type="application/json",
-                tools=[{"google_search": {}}],  # 🌐 Enables the native Google Search grounding tool layer
-                temperature=0.2
-            )
-        )
-        
-        clean_text = response.text.strip()
-        if "```json" in clean_text:
-            clean_text = clean_text.split("```json")[-1].split("```").strip()
-        elif "```" in clean_text:
-            clean_text = clean_text.split("```")[-1].split("```").strip()
-            
-        jobs_result = json.loads(clean_text)
-    except Exception as search_error:
-        raise HTTPException(status_code=500, detail=f"Web Grounding Compilation Exception: {str(search_error)}")
-
-    raw_jobs = jobs_result.get("jobs", [])
-    if not isinstance(raw_jobs, list):
-        raw_jobs = []
-        
-    sanitized_jobs = []
-    for job in raw_jobs:
-        if isinstance(job, dict):
-            skills_raw = job.get("skills", [])
-            skills_arr = skills_raw if isinstance(skills_raw, list) else [str(skills_raw)]
-            sanitized_jobs.append({
-                "title": str(job.get("title", "Opportunities Tracker")),
-                "company": str(job.get("company", "Enterprise Resource")),
-                "location": str(job.get("location", location_city)),
-                "salary": str(job.get("salary", "Not Disclosed")),
-                "skills": [str(s) for s in skills_arr],
-                "link": str(job.get("link", "search on company website"))
-            })
-
-    return {
-        "jobs": sanitized_jobs,
-        "best_match_summary": str(jobs_result.get("best_match_summary", "Review the table matrix results above to locate best technical alignments."))
-    }
+system_instruction=system_prompt,response_mime_type="application/json",tools=[{"google_search": {}}],temperature=0.2))clean_text = response.text.strip()if "json" in clean_text: clean_text = clean_text.split("json")[-1].split("")[0].strip() elif "" in clean_text:clean_text = clean_text.split("")[-1].split("")[0].strip()jobs_result = json.loads(clean_text)except Exception as search_error:raise HTTPException(status_code=500, detail=f"Web Grounding Compilation Exception: {str(search_error)}")raw_jobs = jobs_result.get("jobs", [])if not isinstance(raw_jobs, list):raw_jobs = []sanitized_jobs = []for job in raw_jobs:if isinstance(job, dict):skills_raw = job.get("skills", [])skills_arr = skills_raw if isinstance(skills_raw, list) else [str(skills_raw)]sanitized_jobs.append({"title": str(job.get("title", "Opportunities Tracker")),"company": str(job.get("company", "Enterprise Resource")),"location": str(job.get("location", location_city)),"salary": str(job.get("salary", "Not Disclosed")),"skills": [str(s) for s in skills_arr],"link": str(job.get("link", "search on company website"))})return {"jobs": sanitized_jobs,"best_match_summary": str(jobs_result.get("best_match_summary", "Review the table matrix results above to locate best technical alignments."))}
