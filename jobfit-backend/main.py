@@ -68,45 +68,48 @@ async def build_and_compare_resume(
         tech_count = math.ceil(requested_count / 2)
         hr_count = math.floor(requested_count / 2)
         distribution_prompt = (
-            f"Generate exactly {requested_count} question/response objects total: "
-            f"the first {tech_count} must be deep technical coding or system design questions, and "
-            f"the remaining {hr_count} must be behavioral/HR/company culture questions relevant to this engineering target."
+            f"Generate exactly {requested_count} items total: the first {tech_count} must be deep technical/system design questions, "
+            f"and the remaining {hr_count} must be behavioral/HR questions relevant to this engineering target."
         )
     else:
         distribution_prompt = (
-            f"Generate exactly {requested_count} question/response objects total focusing "
-            f"100% strictly on HR, behavioral, core corporate values, cultural fit, and situational team management scenarios."
+            f"Generate exactly {requested_count} items total focusing 100% strictly on HR, behavioral, core values, and cultural fit scenarios."
         )
 
-    system_prompt = (
-        f"You are an expert tech recruiter and automated ATS tracking system.\n"
-        f"Analyze the candidate parameters explicitly against the provided job description requirements.\n"
-        f"You must return a single, valid JSON object containing exactly these keys. "
-        f"Do not wrap your output in markdown backticks or any trailing text.\n\n"
-        f"REQUIRED JSON FORMAT SCHEMA:\n"
-        f"{{\n"
-        f"  \"match_score\": 75,\n"
-        f"  \"missing_skills\": [\"list\", \"of\", \"skills\"],\n"
-        f"  \"tailoring_tips\": [\"bullet\", \"points\"],\n"
-        f"  \"tell_me_about_yourself\": \"STAR structured narrative elevator pitch text statement\",\n"
-        f"  \"interview_questions\": [ {{\n"
-        f"     \"question\": \"string text\",\n"
-        f"     \"response\": \"- Situation: ...\\n- Task: ...\\n- Action: ...\\n- Result: ...\"\n"
-        f"  }} ],\n"
-        f"  \"follow_up_questions\": [\"question 1\", \"question 2\"],\n"
-        f"  \"resume\": {{\n"
-        f"    \"full_name\": \"string\",\n"
-        f"    \"professional_summary\": \"string\",\n"
-        f"    \"skills\": [\"skill1\", \"skill2\"],\n"
-        f"    \"experience\": [ {Impos}} ]\n"
-        f"  }}\n"
-        f"}}\n\n"
-        f"CRITICAL RULES:\n"
-        f"- interview_questions: {distribution_prompt}\n"
-        f"- Every answer string inside the 'response' key MUST be structured clearly in the STAR framework, explicitly labeled matching this layout exactly inside the text: "
-        f"- Situation: ... \\n- Task: ... \\n- Action: ... \\n- Result: ...\n"
-        f"- follow_up_questions: Generate 3 to 5 highly intelligent questions for the candidate to ask the interviewer at the end."
-    )
+    # 🎯 FIX: Hard-locked structural parameters directly into the required object keys to guarantee STAR enforcement
+    system_prompt = f"""You are an expert tech recruiter and automated ATS tracking system.
+Analyze the candidate parameters explicitly against the provided job description requirements.
+You must return a single, valid JSON object containing exactly the listed keys. 
+Do not wrap your output in markdown backticks or any trailing text.
+
+REQUIRED JSON FORMAT SCHEMA EXACTLY:
+{{
+  "match_score": 75,
+  "missing_skills": ["list", "of", "skills"],
+  "tailoring_tips": ["bullet", "points"],
+  "tell_me_about_yourself": "STAR structured narrative elevator pitch text statement matching the candidate background",
+  "interview_questions": [ 
+    {{
+      "question": "The question string text",
+      "situation": "Detailed Context/Situation parameter analysis matching candidate profile",
+      "task": "Core objective, goal, or technical challenge responsibility",
+      "action": "What specific tools, steps, engineering execution, or behavioral action was performed",
+      "result": "Quantifiable metrics, structural outcomes, business value result achieved"
+    }} 
+  ],
+  "follow_up_questions": ["question 1", "question 2"],
+  "resume": {{
+    "full_name": "string",
+    "professional_summary": "string",
+    "skills": ["skill1", "skill2"],
+    "experience": [ {{"company": "str", "role": "str", "duration": "str", "bullet_points": ["bullet"]}} ]
+  }}
+}}
+
+CRITICAL INSTRUCTIONS:
+- interview_questions: {distribution_prompt}
+- Every single question item inside the 'interview_questions' list MUST fill out all the 'situation', 'task', 'action', and 'result' keys completely with hyper-tailored professional text content.
+- follow_up_questions: Generate 3 to 5 highly intelligent questions for the candidate to ask the interviewer at the end."""
 
     linkedin_context = f"\nCandidate LinkedIn URL: {linkedin_profile}" if linkedin_profile else ""
 
@@ -121,17 +124,16 @@ async def build_and_compare_resume(
             )
         )
         
-        # 🎯 BULLETPROOF TEXT PARSING FILTER
         clean_text = response.text.strip()
-        if "```" in clean_text:
-            clean_text = clean_text.split("```json")[-1] if "```json" in clean_text else clean_text.split("```")[-1]
-            clean_text = clean_text.split("```")[0].strip()
+        if "```json" in clean_text:
+            clean_text = clean_text.split("```json")[-1].split("```")[0].strip()
+        elif "```" in clean_text:
+            clean_text = clean_text.split("```")[-1].split("```")[0].strip()
             
         analysis_result = json.loads(clean_text)
     except Exception as ai_err:
-        raise HTTPException(status_code=500, detail=f"AI Data Extraction Exception Error: {str(ai_err)}")
+        raise HTTPException(status_code=500, detail=f"AI Data Map Extraction Crash Error: {str(ai_err)}")
 
-    # 🛡️ DEFENSIVE DICTIONARY MAPPING
     resume_data = analysis_result.get("resume", {})
     if not isinstance(resume_data, dict):
         resume_data = {}
@@ -198,9 +200,16 @@ async def build_and_compare_resume(
     final_questions = []
     for item in raw_questions:
         if isinstance(item, dict):
+            # 🎯 Concatenates the broken down structural fields natively into a clear STAR block for the frontend
+            formatted_star_response = (
+                f"Situation: {str(item.get('situation', ''))}\\n"
+                f"Task: {str(item.get('task', ''))}\\n"
+                f"Action: {str(item.get('action', ''))}\\n"
+                f"Result: {str(item.get('result', ''))}"
+            )
             final_questions.append({
                 "question": str(item.get("question", "")),
-                "response": str(item.get("response", ""))
+                "response": formatted_star_response
             })
             
     final_questions = final_questions[:requested_count]
