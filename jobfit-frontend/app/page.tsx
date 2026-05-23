@@ -1,569 +1,580 @@
-import os
-import io
-import json
-import math
-from typing import Optional, Any
+'use client';
 
-from fastapi import FastAPI, Form, HTTPException, UploadFile, File
-from fastapi.middleware.cors import CORSMiddleware
-from google import genai
-from google.genai import types
-from supabase import create_client, Client
-from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib import colors
-from PyPDF2 import PdfReader
-from docx import Document
+import { useEffect, useState } from 'react';
+import {
+  AlertTriangle,
+  ArrowLeftRight,
+  ArrowRight,
+  BarChart3,
+  Briefcase,
+  CheckCircle2,
+  ClipboardCheck,
+  Clock,
+  FileText,
+  Heart,
+  HelpCircle,
+  Link,
+  ListOrdered,
+  MessageSquarePlus,
+  Moon,
+  RefreshCw,
+  RotateCcw,
+  Sparkles,
+  Sun,
+  Target,
+  User,
+  UserCheck,
+} from 'lucide-react';
 
-app = FastAPI()
+export default function Home() {
+  const [mounted, setMounted] = useState(false);
+  const [fullName, setFullName] = useState('');
+  const [targetRole, setTargetRole] = useState('');
+  const [linkedin, setLinkedin] = useState('');
+  const [duration, setDuration] = useState('30 minutes');
+  const [totalQuestions, setTotalQuestions] = useState(5);
+  const [interviewType, setInterviewType] = useState<'hr' | 'technical'>('technical');
+  const [careerHistory, setCareerHistory] = useState('');
+  const [jobDescription, setJobDescription] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [results, setResults] = useState<any>(null);
+  const [copied, setCopied] = useState(false);
+  const [tab, setTab] = useState<'builder' | 'validation' | 'updated_resume' | 'prep' | 'job_search'>('builder');
+  const [darkMode, setDarkMode] = useState(false);
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
-    expose_headers=["*"],
-)
+  const [searchCity, setSearchCity] = useState('');
+  const [searchRoleSkills, setSearchRoleSkills] = useState('');
+  const [searchFile, setSearchFile] = useState<File | null>(null);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [jobResults, setJobResults] = useState<any>(null);
 
-supabase_url = os.getenv("SUPABASE_URL")
-supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY")
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
-if not supabase_url or not supabase_key:
-    supabase_url = supabase_url or "https://supabase.co"
-    supabase_key = supabase_key or "placeholder-key"
-
-supabase: Client = create_client(supabase_url, supabase_key)
-gemini_client = genai.Client()
-
-SEARCH_MODEL = "gemini-2.5-flash"
-RESUME_MODEL = "gemini-2.5-flash"
-
-
-def strip_code_fences(text: str) -> str:
-    cleaned = (text or "").strip()
-    if "```json" in cleaned:
-        cleaned = cleaned.split("```json")[-1].split("```")[0].strip()
-    elif "```" in cleaned:
-        cleaned = cleaned.split("```")[-1].split("```")[0].strip()
-    return cleaned
-
-
-def safe_json_loads(text: str) -> dict:
-    try:
-        return json.loads(strip_code_fences(text))
-    except Exception:
-        return {}
-
-
-def is_quota_error(exc: Exception) -> bool:
-    message = str(exc).lower()
-    return (
-        "429" in message
-        or "resource_exhausted" in message
-        or "quota" in message
-        or "rate limit" in message
-    )
-
-
-def extract_text_from_pdf(file_bytes: bytes) -> str:
-    reader = PdfReader(io.BytesIO(file_bytes))
-    return "\n".join((page.extract_text() or "") for page in reader.pages).strip()
-
-
-def extract_text_from_docx(file_bytes: bytes) -> str:
-    doc = Document(io.BytesIO(file_bytes))
-    return "\n".join(p.text for p in doc.paragraphs if p.text.strip()).strip()
-
-
-async def extract_resume_text(resume_file: UploadFile) -> str:
-    filename = (resume_file.filename or "").lower()
-    content = await resume_file.read()
-
-    if not content:
-        raise HTTPException(status_code=400, detail="Uploaded resume file is empty.")
-
-    if filename.endswith(".pdf"):
-        return extract_text_from_pdf(content)
-
-    if filename.endswith(".docx"):
-        return extract_text_from_docx(content)
-
-    raise HTTPException(status_code=400, detail="Unsupported file format. Upload PDF or DOCX.")
-
-
-def build_candidate_context(
-    target_role: str,
-    location_city: str,
-    resume_skills: str,
-    extracted_resume_text: str,
-) -> str:
-    return "\n".join(
-        part for part in [
-            f"Target Role: {target_role}",
-            f"Preferred Location: {location_city}",
-            f"Resume Skills Summary: {resume_skills}",
-            f"Extracted Resume Text: {extracted_resume_text}",
-        ] if part.strip()
-    )
-
-
-def normalize_job(job: dict, fallback_location: str) -> Optional[dict]:
-    if not isinstance(job, dict):
-        return None
-
-    title = str(job.get("title", "")).strip()
-    company = str(job.get("company", "")).strip()
-    location = str(job.get("location", fallback_location)).strip() or fallback_location
-    salary = str(job.get("salary", "Not Disclosed")).strip() or "Not Disclosed"
-
-    skills_raw = job.get("skills", [])
-    if isinstance(skills_raw, list):
-        skills = [str(s).strip() for s in skills_raw if str(s).strip()]
-    elif skills_raw:
-        skills = [str(skills_raw).strip()]
-    else:
-        skills = []
-
-    link = str(job.get("link", "")).strip()
-    if not link.startswith("http"):
-        link = "search on company website"
-
-    posted_date = str(job.get("posted_date", "")).strip()
-    source = str(job.get("source", "")).strip()
-    description = str(job.get("description", "")).strip()
-
-    if not title or not company:
-        return None
-
-    return {
-        "title": title,
-        "company": company,
-        "location": location,
-        "salary": salary,
-        "skills": skills,
-        "link": link,
-        "posted_date": posted_date,
-        "source": source,
-        "description": description,
+  const handleGenerate = async () => {
+    if (!fullName.trim() || !targetRole.trim() || !careerHistory.trim() || !jobDescription.trim()) {
+      return alert('Please fill out all mandatory fields.');
     }
 
+    setLoading(true);
+    setResults(null);
 
-def dedupe_jobs(jobs: list[dict]) -> list[dict]:
-    seen = set()
-    unique = []
+    const formData = new FormData();
+    formData.append('full_name', fullName.trim());
+    formData.append('target_role', targetRole.trim());
+    formData.append('linkedin_profile', linkedin.trim());
+    formData.append('interview_duration', duration);
+    formData.append('total_questions_requested', totalQuestions.toString());
+    formData.append('interview_type', interviewType);
+    formData.append('career_history', careerHistory.trim());
+    formData.append('job_description', jobDescription.trim());
 
-    for job in jobs:
-        title = job.get("title", "").strip().lower()
-        company = job.get("company", "").strip().lower()
-        location = job.get("location", "").strip().lower()
-        link = job.get("link", "").strip().lower()
+    try {
+      const res = await fetch('https://resume-builder-backend-ph7b.onrender.com/build-resume', {
+        method: 'POST',
+        body: formData,
+      });
 
-        key = (title, company, location, link)
-        alt_key = (title, company, location)
+      const data = await res.json().catch(() => null);
 
-        if key in seen or alt_key in seen:
-            continue
+      if (!res.ok) {
+        throw new Error(data?.detail || 'Resume generation failed.');
+      }
 
-        seen.add(key)
-        seen.add(alt_key)
-        unique.append(job)
+      setResults(data);
+      setTab('validation');
+    } catch (error: any) {
+      alert(error?.message || 'AI optimization cycle broken. Refocusing backend container parameters.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    return unique
-
-
-def location_matches(job_location: str, preferred_location: str) -> bool:
-    jl = (job_location or "").lower()
-    pl = (preferred_location or "").lower()
-    return "remote" in jl or pl in jl or jl in pl
-
-
-def filter_jobs(jobs: list[dict], location_city: str) -> list[dict]:
-    filtered = []
-    for job in jobs:
-        if not location_matches(job.get("location", ""), location_city):
-            continue
-        filtered.append(job)
-    return filtered
-
-
-@app.get("/health/")
-@app.get("/health")
-async def health_check():
-    return {"status": "healthy"}
-
-
-@app.post("/build-resume/")
-@app.post("/build-resume")
-async def build_and_compare_resume(
-    full_name: str = Form(...),
-    target_role: str = Form(...),
-    career_history: str = Form(...),
-    job_description: str = Form(...),
-    linkedin_profile: Optional[str] = Form(None),
-    interview_duration: Any = Form("30 minutes"),
-    total_questions_requested: Any = Form(5),
-    interview_type: Optional[str] = Form("technical"),
-):
-    if "placeholder" in supabase_url or "placeholder" in supabase_key:
-        raise HTTPException(
-            status_code=500,
-            detail="Configuration Error: Missing SUPABASE_URL variables on Render."
-        )
-
-    try:
-        requested_count = int(total_questions_requested)
-        requested_count = max(5, min(25, requested_count))
-    except (ValueError, TypeError):
-        requested_count = 5
-
-    current_type = str(interview_type).lower() if interview_type else "technical"
-
-    if current_type == "technical":
-        tech_count = math.ceil(requested_count / 2)
-        hr_count = math.floor(requested_count / 2)
-        distribution_prompt = (
-            f"Generate exactly {requested_count} question/response objects total: "
-            f"the first {tech_count} must be deep technical coding or system design questions, and "
-            f"the remaining {hr_count} must be HR/company culture questions relevant to this engineering target."
-        )
-    else:
-        distribution_prompt = (
-            f"Generate exactly {requested_count} question/response objects total focusing "
-            f"100% on HR, behavioral, corporate values, cultural fit, and situational team scenarios."
-        )
-
-    system_prompt = f"""You are an expert tech recruiter and ATS evaluator.
-Analyze the candidate against the job description.
-Return one valid JSON object only.
-
-REQUIRED JSON:
-{{
-  "match_score": 75,
-  "missing_skills": ["list", "of", "skills"],
-  "tailoring_tips": ["bullet", "points"],
-  "tell_me_about_yourself": "STAR structured elevator pitch",
-  "interview_questions": [ {{
-     "question": "string text",
-     "response": "- Situation: ...\\n- Task: ...\\n- Action: ...\\n- Result: ..."
-  }} ],
-  "follow_up_questions": ["question 1", "question 2"],
-  "resume": {{
-    "full_name": "string",
-    "professional_summary": "string",
-    "skills": ["skill1", "skill2"],
-    "experience": [ {{"company": "str", "role": "str", "duration": "str", "bullet_points": ["bullet"]}} ]
-  }}
-}}
-
-CRITICAL:
-- interview_questions: {distribution_prompt}
-- Every response must use STAR format exactly.
-- Generate 3 to 5 follow_up_questions.
-"""
-
-    linkedin_context = f"\nCandidate LinkedIn URL: {linkedin_profile}" if linkedin_profile else ""
-
-    try:
-        response = gemini_client.models.generate_content(
-            model=RESUME_MODEL,
-            contents=f"Candidate Name: {full_name}\nTarget: {target_role}{linkedin_context}\nHistory: {career_history}\nJD:\n{job_description}",
-            config=types.GenerateContentConfig(
-                system_instruction=system_prompt,
-                response_mime_type="application/json",
-                temperature=0.1,
-            ),
-        )
-
-        analysis_result = safe_json_loads(response.text or "")
-        if not analysis_result:
-            raise ValueError("Model returned invalid JSON.")
-    except Exception as ai_err:
-        if is_quota_error(ai_err):
-            raise HTTPException(
-                status_code=429,
-                detail="Gemini free-tier quota is currently exhausted for resume generation. Please wait a few minutes and try again."
-            )
-        raise HTTPException(status_code=500, detail=f"AI Data Map Extraction Crash Error: {str(ai_err)}")
-
-    resume_data = analysis_result.get("resume", {})
-    if not isinstance(resume_data, dict):
-        resume_data = {}
-
-    public_url = "Cloud Storage Connection Mismatch"
-
-    try:
-        pdf_filename = f"{full_name.replace(' ', '_')}_Resume.pdf"
-        doc = SimpleDocTemplate(
-            pdf_filename,
-            pagesize=letter,
-            rightMargin=36,
-            leftMargin=36,
-            topMargin=36,
-            bottomMargin=36,
-        )
-        styles = getSampleStyleSheet()
-
-        title_style = ParagraphStyle("TStyle", parent=styles["Heading1"], fontSize=22, leading=26, spaceAfter=10)
-        section_style = ParagraphStyle(
-            "SStyle",
-            parent=styles["Heading2"],
-            fontSize=13,
-            leading=17,
-            spaceBefore=10,
-            spaceAfter=4,
-            textColor=colors.HexColor("#8B5A2B"),
-        )
-        body_style = styles["Normal"]
-
-        story = [
-            Paragraph(f"<b>{resume_data.get('full_name', full_name)}</b>", title_style),
-            Paragraph(f"Target Objective: {target_role}", styles["Heading3"]),
-            Spacer(1, 8),
-            Paragraph("<b>Professional Summary</b>", section_style),
-            Paragraph(str(resume_data.get("professional_summary", "")), body_style),
-            Paragraph("<b>Core Competencies</b>", section_style),
-        ]
-
-        skills_list = resume_data.get("skills", [])
-        skills_str = ", ".join(skills_list) if isinstance(skills_list, list) else str(skills_list)
-        story.append(Paragraph(skills_str, body_style))
-        story.append(Paragraph("<b>Professional Experience</b>", section_style))
-
-        exp_list = resume_data.get("experience", [])
-        if isinstance(exp_list, list):
-            for exp in exp_list:
-                if isinstance(exp, dict):
-                    story.append(
-                        Paragraph(
-                            f"<b>{str(exp.get('role', 'Engineer'))}</b> — {str(exp.get('company', 'Company'))} ({str(exp.get('duration', 'Present'))})",
-                            styles["Heading4"],
-                        )
-                    )
-                    bullets = exp.get("bullet_points", [])
-                    if isinstance(bullets, list):
-                        for bullet in bullets:
-                            story.append(Paragraph(f"• {str(bullet)}", body_style))
-                story.append(Spacer(1, 4))
-
-        doc.build(story)
-
-        with open(pdf_filename, "rb") as f:
-            file_data = f.read()
-
-        storage_path = f"resumes/{pdf_filename}"
-
-        try:
-            supabase.storage.from_("updated-resumes").upload(
-                path=storage_path,
-                file=file_data,
-                file_options={"content-type": "application/pdf"},
-            )
-            public_url = supabase.storage.from_("updated-resumes").get_public_url(storage_path)
-        except Exception:
-            pass
-
-        if os.path.exists(pdf_filename):
-            os.remove(pdf_filename)
-
-    except Exception:
-        pass
-
-    raw_questions = analysis_result.get("interview_questions", analysis_result.get("questions", []))
-    if not isinstance(raw_questions, list):
-        raw_questions = []
-
-    final_questions = []
-    for item in raw_questions:
-        if isinstance(item, dict):
-            final_questions.append({
-                "question": str(item.get("question", "")),
-                "response": str(item.get("response", "")),
-            })
-
-    return {
-        "match_score": int(analysis_result.get("match_score", 70)),
-        "missing_skills": list(analysis_result.get("missing_skills", [])),
-        "tailoring_tips": list(analysis_result.get("tailoring_tips", [])),
-        "tell_me_about_yourself": str(analysis_result.get("tell_me_about_yourself", "")),
-        "interview_questions": final_questions[:requested_count],
-        "follow_up_questions": list(analysis_result.get("follow_up_questions", [])),
-        "resume": resume_data,
-        "shareable_url": public_url,
+  const handleSearchJobs = async () => {
+    if (!searchCity.trim()) {
+      return alert('Please enter Search City before running job search.');
     }
 
-
-def grounded_search_pass(query: str, candidate_context: str) -> list[dict]:
-    system_prompt = """You are a job listing discovery tool.
-Use web search to find real current job openings.
-Return valid raw JSON only with this shape:
-
-{
-  "jobs": [
-    {
-      "title": "Job Title",
-      "company": "Company Name",
-      "location": "City, State or Remote",
-      "salary": "$Range or Not Disclosed",
-      "skills": ["skill1", "skill2"],
-      "link": "real apply url or 'search on company website'",
-      "posted_date": "date string if visible",
-      "source": "linkedin|indeed|greenhouse|lever|workday|company",
-      "description": "short snippet"
+    if (!searchRoleSkills.trim() && !searchFile) {
+      return alert('Please enter Target Role / Skills Summary or upload a CV.');
     }
-  ]
+
+    setSearchLoading(true);
+    setJobResults(null);
+
+    const inferredTargetRole = searchRoleSkills.trim() || targetRole.trim() || 'Software Engineer';
+
+    const formData = new FormData();
+    formData.append('target_role', inferredTargetRole);
+    formData.append('location_city', searchCity.trim());
+    formData.append('resume_skills', searchRoleSkills.trim());
+
+    if (searchFile) {
+      formData.append('resume_file', searchFile);
+    }
+
+    try {
+      const res = await fetch('https://resume-builder-backend-ph7b.onrender.com/search-jobs', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        throw new Error(data?.detail || 'Job search failed on backend.');
+      }
+
+      setJobResults(data);
+    } catch (error: any) {
+      alert(error?.message || 'Live open web query pipeline timing mismatch. Verify backend endpoint channels.');
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  const handleCopyLink = () => {
+    if (!results?.shareable_url) return;
+    navigator.clipboard.writeText(results.shareable_url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  if (!mounted) {
+    return <div className="min-h-screen bg-[#f6efe6] dark:bg-stone-950 animate-pulse" />;
+  }
+
+  const pageTheme = darkMode
+    ? 'bg-stone-950 text-slate-100'
+    : 'bg-[radial-gradient(circle_at_top,_#fff8ef_0%,_#f5ede3_45%,_#eee2d1_100%)] text-slate-900';
+
+  const panelTheme = darkMode
+    ? 'bg-stone-900/50 border-stone-800/70'
+    : 'bg-white/90 border-[#dbc8b1]';
+
+  const inputTheme = darkMode
+    ? 'bg-stone-950 border-stone-800 text-slate-200 focus:border-amber-700'
+    : 'bg-[#fffaf4] border-[#dcc9b5] text-stone-800 focus:border-amber-800';
+
+  return (
+    <main className={`min-h-screen p-4 md:p-8 font-sans antialiased transition-colors duration-300 ${pageTheme}`}>
+      <div className="max-w-6xl mx-auto space-y-6">
+        <header className="relative flex flex-col items-center text-center space-y-4 py-6 border-b border-dashed border-amber-900/20 dark:border-stone-800">
+          <button
+            type="button"
+            onClick={() => setDarkMode(!darkMode)}
+            className={`absolute top-2 right-2 p-2 rounded-xl border flex items-center gap-1.5 font-bold text-[10px] uppercase tracking-wider shadow-sm transition-all ${
+              darkMode ? 'bg-stone-900 border-stone-800 text-amber-400' : 'bg-white border-[#d9c8b4] text-stone-800'
+            }`}
+          >
+            {darkMode ? (
+              <>
+                <Sun className="w-3.5 h-3.5" /> Light Theme
+              </>
+            ) : (
+              <>
+                <Moon className="w-3.5 h-3.5" /> Dark Theme
+              </>
+            )}
+          </button>
+
+          <div
+            className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] uppercase tracking-wider font-semibold border ${
+              darkMode ? 'bg-indigo-500/10 border-stone-800 text-indigo-300' : 'bg-amber-50 border-amber-200 text-amber-900'
+            }`}
+          >
+            <Sparkles className="w-3 h-3" /> Engine Active: Gemini 2.5 Flash
+          </div>
+
+          <h1 className="text-3xl md:text-5xl font-black tracking-tight">AI Career Intelligence Matrix</h1>
+          <p className={`text-xs md:text-sm max-w-2xl mx-auto leading-relaxed font-medium ${darkMode ? 'text-slate-400' : 'text-stone-600'}`}>
+            Optimize resume fit, generate interview prep, and search real active roles from a cleaner career workflow.
+          </p>
+        </header>
+
+        <div className={`flex flex-wrap border p-1.5 gap-1.5 backdrop-blur-md rounded-2xl shadow-sm overflow-x-auto ${panelTheme}`}>
+          <button
+            onClick={() => setTab('builder')}
+            className={`px-4 py-2 font-bold rounded-xl flex items-center gap-1.5 transition-all duration-200 text-xxs tracking-wide ${
+              tab === 'builder' ? 'bg-amber-900 text-white shadow-md scale-[1.01]' : darkMode ? 'text-stone-300 hover:bg-stone-800' : 'text-stone-700 hover:bg-amber-50'
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5" /> Pipeline Builder
+          </button>
+
+          {results && (
+            <>
+              <button
+                onClick={() => setTab('validation')}
+                className={`px-4 py-2 font-bold rounded-xl flex items-center gap-1.5 transition-all duration-200 text-xxs tracking-wide ${
+                  tab === 'validation' ? 'bg-amber-900 text-white shadow-md scale-[1.01]' : darkMode ? 'text-stone-300 hover:bg-stone-800' : 'text-stone-700 hover:bg-amber-50'
+                }`}
+              >
+                <ClipboardCheck className="w-3.5 h-3.5" /> Resume Validation
+              </button>
+              <button
+                onClick={() => setTab('updated_resume')}
+                className={`px-4 py-2 font-bold rounded-xl flex items-center gap-1.5 transition-all duration-200 text-xxs tracking-wide ${
+                  tab === 'updated_resume' ? 'bg-amber-900 text-white shadow-md scale-[1.01]' : darkMode ? 'text-stone-300 hover:bg-stone-800' : 'text-stone-700 hover:bg-amber-50'
+                }`}
+              >
+                <FileText className="w-3.5 h-3.5" /> Tailored Output
+              </button>
+              <button
+                onClick={() => setTab('prep')}
+                className={`px-4 py-2 font-bold rounded-xl flex items-center gap-1.5 transition-all duration-200 text-xxs tracking-wide ${
+                  tab === 'prep' ? 'bg-amber-900 text-white shadow-md scale-[1.01]' : darkMode ? 'text-stone-300 hover:bg-stone-800' : 'text-stone-700 hover:bg-amber-50'
+                }`}
+              >
+                <User className="w-3.5 h-3.5" /> Interview Vectors
+              </button>
+            </>
+          )}
+
+          <button
+            onClick={() => setTab('job_search')}
+            className={`px-4 py-2 font-bold rounded-xl flex items-center gap-1.5 transition-all duration-200 text-xxs tracking-wide ${
+              tab === 'job_search' ? 'bg-amber-900 text-white shadow-md scale-[1.01]' : darkMode ? 'text-stone-300 hover:bg-stone-800' : 'text-stone-700 hover:bg-amber-50'
+            }`}
+          >
+            <Briefcase className="w-3.5 h-3.5" /> Web Job Discovery Tool
+          </button>
+        </div>
+
+        {tab === 'builder' && (
+          <div className={`border p-6 rounded-2xl shadow-sm space-y-6 ${panelTheme}`}>
+            <div className={`flex justify-between items-center border-b pb-3 ${darkMode ? 'border-stone-800/60' : 'border-stone-200'}`}>
+              <h2 className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${darkMode ? 'text-amber-400' : 'text-amber-900'}`}>
+                <ArrowLeftRight className="w-4 h-4" /> Core Variable Mapping
+              </h2>
+
+              {results && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFullName('');
+                    setTargetRole('');
+                    setLinkedin('');
+                    setDuration('30 minutes');
+                    setTotalQuestions(5);
+                    setInterviewType('technical');
+                    setCareerHistory('');
+                    setJobDescription('');
+                    setResults(null);
+                    setJobResults(null);
+                    setTab('builder');
+                  }}
+                  className={`flex items-center gap-1 font-bold px-3 py-1 rounded-xl border text-xxs tracking-wide ${darkMode ? 'bg-rose-950 text-rose-400 border-rose-500/20' : 'bg-rose-50 text-rose-700 border-rose-200'}`}
+                >
+                  <RotateCcw className="w-3 h-3" /> Reset Form
+                </button>
+              )}
+            </div>
+
+            <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="font-bold text-xxs uppercase tracking-wider text-slate-500">Applicant Full Name</label>
+                  <input className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${inputTheme}`} placeholder="e.g. Alex Mercer" value={fullName} onChange={(e) => setFullName(e.target.value)} />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="font-bold text-xxs uppercase tracking-wider text-slate-500">Target Role Objective</label>
+                  <input className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${inputTheme}`} placeholder="e.g. Senior Frontend Architect" value={targetRole} onChange={(e) => setTargetRole(e.target.value)} />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 border-t border-b border-dashed border-slate-200 dark:border-stone-800 py-4">
+                <div className="space-y-1.5">
+                  <label className="font-bold text-xxs uppercase tracking-wider text-slate-500 flex items-center gap-1">
+                    <Link className="w-3 h-3 text-indigo-500" /> LinkedIn Profile URL
+                  </label>
+                  <input className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${inputTheme}`} placeholder="e.g. https://linkedin.com/in/..." value={linkedin} onChange={(e) => setLinkedin(e.target.value)} />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="font-bold text-xxs uppercase tracking-wider text-slate-500 flex items-center gap-1">
+                    <Clock className="w-3 h-3 text-indigo-500" /> Interview Duration
+                  </label>
+                  <select className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${inputTheme}`} value={duration} onChange={(e) => setDuration(e.target.value)}>
+                    <option value="30 minutes">30 Minutes</option>
+                    <option value="45 minutes">45 Minutes</option>
+                    <option value="60 minutes">60 Minutes</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="font-bold text-xxs uppercase tracking-wider text-slate-500 flex items-center gap-1">
+                    <UserCheck className="w-3 h-3 text-indigo-500" /> Interview Category
+                  </label>
+                  <select className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${inputTheme}`} value={interviewType} onChange={(e) => setInterviewType(e.target.value as 'hr' | 'technical')}>
+                    <option value="technical">Technical Interview Track</option>
+                    <option value="hr">HR Interview Tool</option>
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="font-bold text-xxs uppercase tracking-wider text-slate-500 flex items-center gap-1">
+                    <ListOrdered className="w-3 h-3 text-indigo-500" />
+                    Number of Questions: <span className="text-indigo-600 dark:text-indigo-400 font-extrabold">{totalQuestions}</span>
+                  </label>
+                  <input
+                    type="range"
+                    min="5"
+                    max="25"
+                    className="w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-800"
+                    value={totalQuestions}
+                    onChange={(e) => setTotalQuestions(parseInt(e.target.value))}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className={`space-y-1.5 p-4 rounded-xl border ${darkMode ? 'bg-stone-950/40 border-slate-800/60' : 'bg-stone-50/60 border-stone-200/60'}`}>
+                  <label className="font-bold text-xxs uppercase tracking-wider flex items-center gap-1 text-amber-900 dark:text-amber-400">
+                    <FileText className="w-3.5 h-3.5" /> Legacy Career Profile
+                  </label>
+                  <textarea rows={6} className={`w-full border p-3 rounded-xl focus:outline-none font-mono text-[11px] leading-relaxed ${inputTheme}`} placeholder="Describe your experience, tools, achievements, and roles..." value={careerHistory} onChange={(e) => setCareerHistory(e.target.value)} />
+                </div>
+
+                <div className={`space-y-1.5 p-4 rounded-xl border ${darkMode ? 'bg-stone-950/40 border-slate-800/60' : 'bg-stone-50/60 border-stone-200/60'}`}>
+                  <label className="font-bold text-xxs uppercase tracking-wider flex items-center gap-1 text-amber-900 dark:text-amber-400">
+                    <Target className="w-3.5 h-3.5" /> Job Description Target
+                  </label>
+                  <textarea rows={6} className={`w-full border p-3 rounded-xl focus:outline-none font-mono text-[11px] leading-relaxed ${inputTheme}`} placeholder="Paste the target job description here..." value={jobDescription} onChange={(e) => setJobDescription(e.target.value)} />
+                </div>
+              </div>
+
+              <button type="button" onClick={handleGenerate} disabled={loading} className="w-full bg-amber-900 hover:bg-amber-800 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 text-xxs uppercase tracking-widest disabled:opacity-60">
+                {loading ? (
+                  <>
+                    <RefreshCw className="animate-spin w-4 h-4 text-amber-200" /> Computing Neural Vectors...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 text-amber-400" /> Execute Generation Cycle
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
+        )}
+
+        {tab === 'validation' && results && (
+          <div className={`border p-8 rounded-2xl shadow-md space-y-6 ${panelTheme}`}>
+            <h3 className="text-sm font-bold uppercase tracking-wider flex items-center gap-2 border-b pb-4">
+              <BarChart3 className="w-5 h-5" /> Resume Validation Metrics Panel
+            </h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="p-8 rounded-2xl border text-center">
+                <div className="text-6xl font-black">{results.match_score}%</div>
+              </div>
+
+              <div className="p-6 rounded-2xl border">
+                <h4 className="font-bold mb-3 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4" /> Critical Keyword Gaps
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {results.missing_skills?.map((s: string, i: number) => (
+                    <span key={i} className="bg-amber-500/10 px-3 py-1 rounded-xl text-[11px] font-bold">{s}</span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="p-6 rounded-2xl border">
+                <h4 className="font-bold mb-3 flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4" /> Optimization Tips
+                </h4>
+                <ul className="space-y-2">
+                  {results.tailoring_tips?.map((t: string, i: number) => (
+                    <li key={i} className="flex gap-2">
+                      <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+                      <span>{t}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {tab === 'updated_resume' && results && (
+          <div className={`border p-6 rounded-2xl shadow-sm space-y-5 ${panelTheme}`}>
+            <div className="bg-amber-800 p-4 rounded-xl text-white flex justify-between items-center">
+              <div className="flex items-center gap-1.5 font-bold text-xxs uppercase">
+                <FileText className="w-4 h-4" /> Tailored Optimization Resume Output Map
+              </div>
+              <button onClick={handleCopyLink} className="bg-white text-amber-900 px-3 py-1.5 rounded-xl font-bold text-[10px] uppercase">
+                {copied ? 'Blueprint Linked!' : 'Copy Public PDF Link'}
+              </button>
+            </div>
+
+            <div className={`border p-6 rounded-xl space-y-4 max-h-[500px] overflow-y-auto ${darkMode ? 'border-stone-800 bg-stone-950' : 'border-stone-200 bg-white'}`}>
+              <h2 className="text-xl font-extrabold">{results.resume?.full_name}</h2>
+              <p>{results.resume?.professional_summary}</p>
+            </div>
+          </div>
+        )}
+
+        {tab === 'prep' && results && (
+          <div className={`border p-6 rounded-2xl shadow-sm space-y-6 ${panelTheme}`}>
+            <div className="p-4 rounded-xl text-white bg-stone-800">
+              Active Vector Focus: {interviewType === 'hr' ? 'HR Interview Tool' : 'Technical & Behavioral Split'}
+            </div>
+
+            {results.tell_me_about_yourself && (
+              <div className="p-5 rounded-xl border space-y-3">
+                <h4 className="text-xxs font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
+                  <UserCheck className="w-4 h-4" /> Tell Me About Yourself
+                </h4>
+                <p className="text-xs leading-relaxed whitespace-pre-wrap">{results.tell_me_about_yourself}</p>
+              </div>
+            )}
+
+            {results.interview_questions?.length > 0 && (
+              <div className="space-y-4">
+                <h4 className="text-xxs font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400 border-b pb-2 flex items-center gap-1.5">
+                  <HelpCircle className="w-4 h-4" /> Interview Questions ({results.interview_questions.length})
+                </h4>
+
+                <div className="grid grid-cols-1 gap-4 max-h-[400px] overflow-y-auto pr-1">
+                  {results.interview_questions.map((item: any, i: number) => (
+                    <div key={i} className={`p-4 rounded-xl border space-y-3 ${darkMode ? 'bg-slate-950 border-slate-800 text-slate-100' : 'bg-amber-50/40 border-amber-200 text-slate-900'}`}>
+                      <div className="font-bold flex items-start gap-1.5 text-xs">
+                        <HelpCircle className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5" />
+                        <span>Q{i + 1}: {item.question}</span>
+                      </div>
+                      <div className="text-[11px] pl-5 whitespace-pre-wrap">{item.response}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {results.follow_up_questions?.length > 0 && (
+              <div className="space-y-3 pt-2">
+                <h4 className="text-xxs font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400 border-b pb-2 flex items-center gap-1.5">
+                  <MessageSquarePlus className="w-4 h-4" /> Follow-up Questions
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {results.follow_up_questions.map((q: string, idx: number) => (
+                    <div key={idx} className={`p-3 rounded-xl border text-xs font-semibold flex items-start gap-2 ${darkMode ? 'bg-stone-900 border-slate-800' : 'bg-stone-50 border-stone-200'}`}>
+                      <span className="text-indigo-500 font-mono">#{idx + 1}</span>
+                      <span>{q}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {tab === 'job_search' && (
+          <div className={`border p-6 rounded-2xl shadow-sm space-y-6 ${panelTheme}`}>
+            <div className={`border-b pb-3 ${darkMode ? 'border-stone-800' : 'border-stone-200'}`}>
+              <h2 className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${darkMode ? 'text-amber-400' : 'text-amber-900'}`}>
+                <Target className="w-4 h-4" /> Web Job Discovery Tool
+              </h2>
+            </div>
+
+            <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); handleSearchJobs(); }}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="font-bold text-xxs uppercase tracking-wider text-slate-500">Target Location City</label>
+                  <input className={`w-full border p-3 rounded-xl focus:outline-none transition-all text-xs ${inputTheme}`} placeholder="e.g. London or Remote" value={searchCity} onChange={(e) => setSearchCity(e.target.value)} />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="font-bold text-xxs uppercase tracking-wider text-slate-500">Target Role / Skills Summary</label>
+                  <input className={`w-full border p-3 rounded-xl focus:outline-none transition-all text-xs ${inputTheme}`} placeholder="e.g. Lead Technical Program Manager, Agile, AI, SaaS, Strategy" value={searchRoleSkills} onChange={(e) => setSearchRoleSkills(e.target.value)} />
+                </div>
+              </div>
+
+              <div className={`border-2 border-dashed rounded-xl p-6 text-center transition-all ${searchFile ? 'border-green-500 bg-green-500/5' : darkMode ? 'border-stone-800 bg-stone-950/40' : 'border-[#d9c8b4] bg-[#fffaf5]'}`}>
+                <input type="file" id="job-search-file-picker" accept=".pdf,.docx" className="hidden" onChange={(e) => setSearchFile(e.target.files?.[0] || null)} />
+                <label htmlFor="job-search-file-picker" className="cursor-pointer block space-y-2">
+                  <FileText className={`w-8 h-8 mx-auto ${searchFile ? 'text-green-500' : 'text-slate-400'}`} />
+                  <div className="text-xxs font-bold uppercase tracking-wide">
+                    {searchFile ? `CV Attached: ${searchFile.name}` : 'Attach CV in PDF or DOCX format'}
+                  </div>
+                </label>
+
+                {searchFile && (
+                  <button type="button" onClick={() => setSearchFile(null)} className="mt-2 text-[10px] font-bold text-rose-600 hover:underline">
+                    Remove Attached CV
+                  </button>
+                )}
+              </div>
+
+              <button type="submit" disabled={searchLoading} className="w-full bg-amber-900 hover:bg-amber-800 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 text-xxs uppercase tracking-widest disabled:opacity-60">
+                {searchLoading ? (
+                  <>
+                    <RefreshCw className="animate-spin w-4 h-4 text-amber-200" /> Searching Active Jobs...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 text-amber-400" /> Find 40 Active Matches
+                  </>
+                )}
+              </button>
+            </form>
+
+            {jobResults && (
+              <div className="space-y-6 pt-2 border-t border-dashed border-amber-900/10 dark:border-stone-800">
+                <div className="overflow-x-auto rounded-xl border border-stone-200 dark:border-stone-800 shadow-inner">
+                  <table className="w-full text-left border-collapse text-xxs leading-relaxed">
+                    <thead>
+                      <tr className={`${darkMode ? 'bg-stone-950 text-amber-400' : 'bg-stone-100 text-amber-950'} font-black uppercase tracking-wider`}>
+                        <th className="p-3">Job Title</th>
+                        <th className="p-3">Company Name</th>
+                        <th className="p-3">Location</th>
+                        <th className="p-3">Salary Range</th>
+                        <th className="p-3">Required Skills</th>
+                        <th className="p-3">Application Link</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-stone-100 dark:divide-stone-800 font-medium">
+                      {jobResults.jobs?.map((job: any, index: number) => (
+                        <tr key={index}>
+                          <td className="p-3 font-bold">{job.title}</td>
+                          <td className="p-3">{job.company}</td>
+                          <td className="p-3">{job.location}</td>
+                          <td className="p-3">{job.salary}</td>
+                          <td className="p-3">{Array.isArray(job.skills) ? job.skills.join(', ') : job.skills}</td>
+                          <td className="p-3">
+                            {job.link && job.link.startsWith('http') ? (
+                              <a href={job.link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-bold text-indigo-600 dark:text-indigo-400 hover:underline">
+                                Apply Here <ArrowRight className="w-3 h-3" />
+                              </a>
+                            ) : (
+                              <span className="italic text-stone-400">search on company website</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {jobResults.best_match_summary && (
+                  <div className={`p-4 rounded-xl border flex items-start gap-2 text-xs font-semibold leading-relaxed ${darkMode ? 'bg-indigo-950/20 border-indigo-900/40 text-slate-200' : 'bg-indigo-50 border-indigo-100 text-indigo-900'}`}>
+                    <Sparkles className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5" />
+                    <div>{jobResults.best_match_summary}</div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      <footer className="w-full text-center py-6 mt-12 border-t border-dashed border-amber-900/10 dark:border-stone-800">
+        <p className="text-[11px] font-bold tracking-widest text-stone-400 dark:text-stone-500 uppercase flex items-center justify-center gap-1.5">
+          Crafted with <Heart className="w-3.5 h-3.5 text-rose-600 fill-rose-600" /> & Developed by <span className="text-amber-900 dark:text-indigo-400 font-extrabold font-mono">Kuldeep Sharma</span>
+        </p>
+      </footer>
+    </main>
+  );
 }
-
-Rules:
-- Return only real job openings you can infer from search results.
-- Prefer active jobs posted in the last 10 days.
-- Never invent links.
-- If a reliable application link is not visible, use exactly "search on company website".
-- Do not return markdown fences or commentary.
-"""
-
-    response = gemini_client.models.generate_content(
-        model=SEARCH_MODEL,
-        contents=f"Search Query: {query}\nCandidate Context:\n{candidate_context}",
-        config=types.GenerateContentConfig(
-            system_instruction=system_prompt,
-            tools=[types.Tool(google_search=types.GoogleSearch())],
-            temperature=0.2,
-        ),
-    )
-
-    parsed = safe_json_loads(response.text or "")
-    jobs = parsed.get("jobs", [])
-    if not isinstance(jobs, list):
-        return []
-    return jobs
-
-
-def rank_jobs_with_gemini(candidate_context: str, jobs: list[dict]) -> dict:
-    ranking_prompt = """You are an expert recruiting analyst.
-Given a candidate profile and a list of jobs, choose the best matches.
-
-Return valid JSON only:
-{
-  "jobs": [
-    {
-      "title": "Job Title",
-      "company": "Company Name",
-      "location": "City, State or Remote",
-      "salary": "$Range or Not Disclosed",
-      "skills": ["skill1", "skill2"],
-      "link": "real link or 'search on company website'"
-    }
-  ],
-  "best_match_summary": "One-line summary of the 3 best jobs and why."
-}
-
-Rules:
-- Keep only genuinely relevant jobs.
-- Prefer jobs that best match role, seniority, domain, and skills.
-- Keep up to 40 jobs.
-- Preserve real links if present.
-- Never invent fields.
-"""
-
-    response = gemini_client.models.generate_content(
-        model=SEARCH_MODEL,
-        contents=f"Candidate Context:\n{candidate_context}\n\nJobs:\n{json.dumps(jobs[:60], ensure_ascii=False)}",
-        config=types.GenerateContentConfig(
-            system_instruction=ranking_prompt,
-            response_mime_type="application/json",
-            temperature=0.1,
-        ),
-    )
-
-    ranked = safe_json_loads(response.text or "")
-    if not ranked:
-        return {
-            "jobs": jobs[:40],
-            "best_match_summary": "Top matches were selected based on closest role and skill overlap."
-        }
-    return ranked
-
-
-@app.post("/search-jobs/")
-@app.post("/search-jobs")
-async def search_jobs(
-    target_role: str = Form(...),
-    location_city: str = Form(...),
-    resume_skills: str = Form(""),
-    resume_file: Optional[UploadFile] = File(None),
-):
-    extracted_resume_text = ""
-
-    if resume_file is not None:
-        extracted_resume_text = await extract_resume_text(resume_file)
-
-    candidate_context = build_candidate_context(
-        target_role=target_role,
-        location_city=location_city,
-        resume_skills=resume_skills,
-        extracted_resume_text=extracted_resume_text,
-    )
-
-    # Reduced query count to avoid free-tier exhaustion
-    search_queries = [
-        f'"{target_role}" jobs in "{location_city}" site:linkedin.com/jobs OR site:indeed.com',
-        f'"{target_role}" jobs in "{location_city}" site:greenhouse.io OR site:lever.co OR site:workdayjobs.com',
-        f'"{target_role}" remote jobs site:linkedin.com/jobs OR site:indeed.com',
-        f'"{target_role}" remote jobs site:greenhouse.io OR site:lever.co OR site:workdayjobs.com',
-    ]
-
-    collected_jobs = []
-
-    try:
-        for query in search_queries:
-            raw_jobs = grounded_search_pass(query, candidate_context)
-            for raw_job in raw_jobs:
-                normalized = normalize_job(raw_job, location_city)
-                if normalized:
-                    collected_jobs.append(normalized)
-
-        collected_jobs = dedupe_jobs(collected_jobs)
-        filtered_jobs = filter_jobs(collected_jobs, location_city)
-
-        if not filtered_jobs:
-            return {
-                "jobs": [],
-                "best_match_summary": "No verified matching jobs were found from the current search sources."
-            }
-
-        # Single ranking pass only to reduce quota usage
-        final_ranked = rank_jobs_with_gemini(candidate_context, filtered_jobs[:60])
-        final_jobs = final_ranked.get("jobs", [])
-        best_match_summary = str(
-            final_ranked.get(
-                "best_match_summary",
-                "Top matches were selected based on closest role, domain, and skill alignment."
-            )
-        )
-
-        sanitized_final_jobs = []
-        if isinstance(final_jobs, list):
-            for job in final_jobs:
-                normalized = normalize_job(job, location_city)
-                if normalized:
-                    sanitized_final_jobs.append(normalized)
-
-        sanitized_final_jobs = dedupe_jobs(sanitized_final_jobs)[:40]
-
-        if not sanitized_final_jobs:
-            sanitized_final_jobs = filtered_jobs[:40]
-
-        return {
-            "jobs": sanitized_final_jobs,
-            "best_match_summary": best_match_summary,
-        }
-
-    except Exception as search_error:
-        if is_quota_error(search_error):
-            raise HTTPException(
-                status_code=429,
-                detail="Gemini free-tier quota is exhausted for job search right now. Please wait a few minutes and try again, or reduce repeated searches."
-            )
-        raise HTTPException(status_code=500, detail=f"Web Grounding Compilation Exception: {str(search_error)}")
