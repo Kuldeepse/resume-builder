@@ -22,16 +22,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 🔐 INFRASTRUCTURE SECURITY SETUP
+# 🔐 CLOUD STORAGE SECURE CONNECTION
 supabase_url = os.getenv("SUPABASE_URL")
 supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY")
 if not supabase_url or not supabase_key:
     raise ValueError("CRITICAL FAILURE: Missing required Supabase credentials.")
 supabase: Client = create_client(supabase_url, supabase_key)
 
+# 🚀 HIGHEST ACCURACY FREE LOGIC ENGINE (GEMINI 1.5 PRO)
 gemini_client = genai.Client()
 
-# 📋 Schema Framework Configuration (Locked via Pydantic for Absolute Accuracy)
+# 📋 Pydantic Architectural Blueprints (Guarantees Strict Output Validation)
 class ExperienceItem(BaseModel):
     company: str
     role: str
@@ -60,8 +61,6 @@ class CareerDashboardSchema(BaseModel):
 @app.get("/health/")
 async def health_check():
     return {"status": "healthy"}
-
-
 @app.post("/build-resume")
 async def build_and_compare_resume(
     full_name: str = Form(...),
@@ -72,27 +71,29 @@ async def build_and_compare_resume(
     interview_duration: str = Form("30 minutes"),
     total_questions_requested: str = Form("5")
 ):
+    # Parse total requested questions to keep within safety bounds
     try:
         requested_count = int(total_questions_requested)
         requested_count = max(1, min(25, requested_count))
     except ValueError:
         requested_count = 5
 
+    # Split output items evenly between Behavioral and System Design tracks
     hr_limit = math.ceil(requested_count / 2)
     tech_limit = math.floor(requested_count / 2)
 
     system_prompt = (
-        f"You are a strict corporate ATS parsing script and senior technical hiring architect.\n"
-        f"Analyze the candidate's career parameters against the provided job description requirements.\n"
+        f"You are an expert tech recruiter and automated ATS tracking system script.\n"
+        f"Analyze the candidate parameters explicitly against the provided job description criteria.\n"
         f"CRITICAL COMPLIANCE TARGETS:\n"
         f"1. match_score: Grade technical fit critically from 0 to 100 based strictly on overlap.\n"
-        f"2. missing_skills: Isolate explicit hard tools/languages omitted in the experience text.\n"
-        f"3. hr_interview: Generate exactly {hr_limit} high-impact behavioral question entities tailored to the requested {interview_duration} interview frame.\n"
-        f"4. technical_interview: Generate exactly {tech_limit} platform architectural question entities based on the role description.\n"
-        f"5. resume: Reconstruct experience bullet points to cleanly integrate core target keywords."
+        f"2. missing_skills: Isolate explicit hard tools/languages omitted in the experience profile text.\n"
+        f"3. hr_interview: Generate exactly {hr_limit} high-impact behavioral questions matching a target {interview_duration} timeframe.\n"
+        f"4. technical_interview: Generate exactly {tech_limit} architectural questions tracking specific role tools.\n"
+        f"5. resume: Reconstruct experience bullets to weave in relevant missing keywords natively."
     )
 
-    linkedin_context = f"\nCandidate LinkedIn Profile URL Target Node: {linkedin_profile}" if linkedin_profile else ""
+    linkedin_context = f"\nCandidate LinkedIn URL Profile Data: {linkedin_profile}" if linkedin_profile else ""
 
     try:
         response = gemini_client.models.generate_content(
@@ -107,11 +108,12 @@ async def build_and_compare_resume(
         )
         analysis_result = json.loads(response.text.strip())
     except Exception as ai_err:
-        raise HTTPException(status_code=500, detail=f"AI Validation Model Engine Exception: {str(ai_err)}")
+        raise HTTPException(status_code=500, detail=f"AI Analytics Processing Error: {str(ai_err)}")
 
     resume_data = analysis_result.get("resume", {})
     public_url = ""
 
+    # 🗂️ DYNAMIC DOCUMENT COMPILATION PIPELINE
     try:
         pdf_filename = f"{full_name.replace(' ', '_')}_Resume.pdf"
         doc = SimpleDocTemplate(pdf_filename, pagesize=letter, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
@@ -155,14 +157,18 @@ async def build_and_compare_resume(
             os.remove(pdf_filename)
             
     except Exception:
-        public_url = "PDF Layout Engine Fallback"
+        public_url = "PDF Engine Fallback"
+
+    # Precise structural slicing to enforce strict array size limits requested by user
+    final_hr = analysis_result.get("hr_interview", [])[:hr_limit]
+    final_tech = analysis_result.get("technical_interview", [])[:tech_limit]
 
     return {
         "match_score": analysis_result.get("match_score", 70),
         "missing_skills": analysis_result.get("missing_skills", []),
         "tailoring_tips": analysis_result.get("tailoring_tips", []),
-        "hr_interview": analysis_result.get("hr_interview", [])[:hr_limit],
-        "technical_interview": analysis_result.get("technical_interview", [])[:tech_limit],
+        "hr_interview": final_hr,
+        "technical_interview": final_tech,
         "resume": resume_data, 
         "shareable_url": public_url
     }
