@@ -40,7 +40,7 @@ export default function Home() {
           <button type="button" onClick={() => setDarkMode(!darkMode)} className={`absolute top-2 right-2 p-2 rounded-xl border flex items-center gap-1.5 font-bold text-[10px] uppercase tracking-wider cursor-pointer shadow-sm transition-all ${darkMode ? 'bg-stone-900 border-stone-800 text-amber-500' : 'bg-white border-stone-200 text-stone-800'}`}>
             {darkMode ? <><Sun className="w-3.5 h-3.5"/> Light Theme</> : <><Moon className="w-3.5 h-3.5"/> Dark Theme</>}
           </button>
-          <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] uppercase tracking-wider font-semibold border ${darkMode ? 'bg-indigo-500/10 border-slate-800 text-indigo-400' : 'bg-indigo-50 border-indigo-100 text-indigo-700'}`}><Sparkles className="w-3 h-3 text-indigo-500" /> Engine Active: Gemini 2.5 Pro</div>
+          <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] uppercase tracking-wider font-semibold border ${darkMode ? 'bg-indigo-500/10 border-slate-800 text-indigo-400' : 'bg-indigo-50 border-indigo-100 text-indigo-700'}`}><Sparkles className="w-3 h-3 text-indigo-500" /> Engine Active: Gemini 2.5 Pro Tier</div>
           <h1 className="text-3xl md:text-5xl font-black tracking-tight">AI Career Intelligence Matrix</h1>
           <p className={`text-xs md:text-sm max-w-xl mx-auto leading-relaxed font-medium ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>Bridge the gap between your engineering experience profile and ATS screening rules to secure premium interview placement.</p>
         </header>
@@ -63,11 +63,11 @@ export default function Home() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="font-bold text-xxs uppercase tracking-wider text-slate-500">Applicant Full Name</label>
-                  <input type="text" className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-200' : 'bg-stone-50 border-stone-200 text-stone-800'}`} placeholder="e.g. Alex Mercer" value={fullName} onChange={(e) => setFullName(e.target.value)} />
+                  <input type="text" className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-200' : 'bg-stone-50 border-stone-200 text-slate-800'}`} placeholder="e.g. Alex Mercer" value={fullName} onChange={(e) => setFullName(e.target.value)} />
                 </div>
                 <div className="space-y-1.5">
                   <label className="font-bold text-xxs uppercase tracking-wider text-slate-500">Target Role Objective</label>
-                  <input type="text" className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-200' : 'bg-stone-50 border-stone-200 text-stone-800'}`} placeholder="e.g. Senior Frontend Architect" value={targetRole} onChange={(e) => setTargetRole(e.target.value)} />
+                  <input type="text" className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${darkMode ? 'bg-stone-950 border-slate-800 text-slate-200' : 'bg-stone-50 border-stone-200 text-slate-800'}`} placeholder="e.g. Senior Frontend Architect" value={targetRole} onChange={(e) => setTargetRole(e.target.value)} />
                 </div>
               </div>
 
@@ -85,7 +85,7 @@ export default function Home() {
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="font-bold text-xxs uppercase tracking-wider text-slate-500 flex items-center gap-1"><ListOrdered className="w-3 h-3 text-indigo-500"/> Total Questions: <span className="text-indigo-600 dark:text-indigo-400 font-extrabold ml-1">{totalQuestions}</span></label>
+                  <label className="font-bold text-xxs uppercase tracking-wider text-slate-500 flex items-center gap-1"><ListOrdered className="w-3 h-3 text-indigo-500"/> Total Questions Needed: <span className="text-indigo-600 dark:text-indigo-400 font-extrabold ml-1">{totalQuestions}</span></label>
                   <div className="flex items-center gap-2 pt-2">
                     <input type="range" min="1" max="25" className="w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-600" value={totalQuestions} onChange={(e) => setTotalQuestions(parseInt(e.target.value))} />
                   </div>
