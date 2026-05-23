@@ -1,73 +1,3 @@
-import os
-import json
-import math
-from fastapi import FastAPI, Form, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from google import genai
-from google.genai import types
-from pydantic import BaseModel
-from typing import List, Optional, Any
-from supabase import create_client, Client
-from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib import colors  # ✅ FIXED: Added critical missing import for colors
-
-app = FastAPI()
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# 🔐 CLOUD STORAGE SECURE CONNECTION
-supabase_url = os.getenv("SUPABASE_URL")
-supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY")
-
-# ✅ FIXED: Prevent unhandled startup crashes on Render if environment keys are missing
-if not supabase_url or not supabase_key:
-    supabase_url = supabase_url or "https://supabase.co"
-    supabase_key = supabase_key or "placeholder-key"
-
-supabase: Client = create_client(supabase_url, supabase_key)
-
-# 🚀 INITIALIZE THE GOOGLE GENAI CLIENT
-gemini_client = genai.Client()
-
-# 📋 Pydantic Architectural Blueprints
-class ExperienceItem(BaseModel):
-    company: str
-    role: str
-    duration: str
-    bullet_points: List[str]
-
-class ResumeData(BaseModel):
-    full_name: str
-    professional_summary: str
-    skills: List[str]
-    experience: List[ExperienceItem]
-
-class InterviewItem(BaseModel):
-    question: str
-    response: str
-
-class CareerDashboardSchema(BaseModel):
-    match_score: int
-    missing_skills: List[str]
-    tailoring_tips: List[str]
-    tell_me_about_yourself: str
-    interview_questions: List[InterviewItem]
-    follow_up_questions: List[str]
-    resume: ResumeData
-
-
-@app.get("/health/")
-async def health_check():
-    return {"status": "healthy"}
-
 @app.post("/build-resume")
 async def build_and_compare_resume(
     full_name: str = Form(...),
@@ -75,11 +5,10 @@ async def build_and_compare_resume(
     career_history: str = Form(...),
     job_description: str = Form(...),
     linkedin_profile: Optional[str] = Form(None),
-    interview_duration: Any = Form("30 minutes"),       # ✅ FIXED: Changed str to Any to accept raw numbers or strings cleanly
-    total_questions_requested: Any = Form(5),           # ✅ FIXED: Handles integers/strings from frontend form-data seamlessly
+    interview_duration: Any = Form("30 minutes"),       
+    total_questions_requested: Any = Form(5),           
     interview_type: Optional[str] = Form("technical") 
 ):
-    # Enforce database connection safety live inside the request context
     if "placeholder" in supabase_url or "placeholder" in supabase_key:
         raise HTTPException(
             status_code=500, 
@@ -140,7 +69,6 @@ async def build_and_compare_resume(
                 temperature=0.1
             )
         )
-        # ✅ FIXED: New google-genai SDK natively extracts Pydantic structures using response.parsed
         if response.parsed:
             analysis_result = response.parsed.model_dump()
         else:
@@ -152,15 +80,12 @@ async def build_and_compare_resume(
     resume_data = analysis_result.get("resume", {})
     public_url = "Cloud Storage Connection Mismatch"
 
-    # ✅ FIXED: Safely wrapped and sealed the broken PDF block with a clean except catcher
     try:
         pdf_filename = f"{full_name.replace(' ', '_')}_Resume.pdf"
         doc = SimpleDocTemplate(pdf_filename, pagesize=letter, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
         styles = getSampleStyleSheet()
         
         title_style = ParagraphStyle('TStyle', parent=styles['Heading1'], fontSize=22, leading=26, spaceAfter=10)
-        
-        # ✅ FIXED: Transformed raw string '#8B5A2B' to colors.HexColor() to block ReportLab engine crash
         section_style = ParagraphStyle('SStyle', parent=styles['Heading2'], fontSize=13, leading=17, spaceBefore=10, spaceAfter=4, textColor=colors.HexColor('#8B5A2B'))
         body_style = styles['Normal']
         
@@ -192,17 +117,23 @@ async def build_and_compare_resume(
             supabase.storage.from_("updated-resumes").upload(path=storage_path, file=file_data, file_options={"content-type": "application/pdf"})
             public_url = supabase.storage.from_("updated-resumes").get_public_url(storage_path)
         except Exception:
-            pass 
+            pass
 
         if os.path.exists(pdf_filename):
             os.remove(pdf_filename)
+            
+    except Exception:
+        pass
 
-    except Exception as pdf_error:
-        raise HTTPException(status_code=500, detail=f"PDF Generation/Processing Failure: {str(pdf_error)}")
+    final_questions = analysis_result.get("interview_questions", [])[:requested_count]
 
-    # ✅ FIXED: Added core JSON dictionary return to close out request loop successfully
     return {
-        "success": True,
-        "data": analysis_result,
-        "resume_url": public_url
+        "match_score": analysis_result.get("match_score", 70),
+        "missing_skills": analysis_result.get("missing_skills", []),
+        "tailoring_tips": analysis_result.get("tailoring_tips", []),
+        "tell_me_about_yourself": analysis_result.get("tell_me_about_yourself", ""),
+        "interview_questions": final_questions,
+        "follow_up_questions": analysis_result.get("follow_up_questions", []),
+        "resume": resume_data, 
+        "shareable_url": public_url
     }
