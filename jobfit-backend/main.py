@@ -35,7 +35,6 @@ supabase: Client = create_client(supabase_url, supabase_key)
 # 🚀 INITIALIZE THE GOOGLE GENAI CLIENT
 gemini_client = genai.Client()
 
-
 @app.get("/health/")
 async def health_check():
     return {"status": "healthy"}
@@ -62,7 +61,8 @@ async def build_and_compare_resume(
     except (ValueError, TypeError):
         requested_count = 5
 
-    current_type = str(interview_type).lower() if interview_type else "technical"
+    # Defensive validation to handle case changes or empty track selections smoothly
+    current_type = str(interview_type).strip().lower() if interview_type else "technical"
 
     if current_type == "technical":
         tech_count = math.ceil(requested_count / 2)
@@ -76,7 +76,6 @@ async def build_and_compare_resume(
             f"Generate exactly {requested_count} items total focusing 100% strictly on HR, behavioral, core values, and cultural fit scenarios."
         )
 
-    # 🎯 FIX: Hard-locked structural parameters directly into the required object keys to guarantee STAR enforcement
     system_prompt = f"""You are an expert tech recruiter and automated ATS tracking system.
 Analyze the candidate parameters explicitly against the provided job description requirements.
 You must return a single, valid JSON object containing exactly the listed keys. 
@@ -200,12 +199,12 @@ CRITICAL INSTRUCTIONS:
     final_questions = []
     for item in raw_questions:
         if isinstance(item, dict):
-            # 🎯 Concatenates the broken down structural fields natively into a clear STAR block for the frontend
+            # Formats each part of the STAR response on a new line with bold headers using clean HTML line breaks
             formatted_star_response = (
-                f"Situation: {str(item.get('situation', ''))}\\n"
-                f"Task: {str(item.get('task', ''))}\\n"
-                f"Action: {str(item.get('action', ''))}\\n"
-                f"Result: {str(item.get('result', ''))}"
+                f"<b>Situation:</b> {str(item.get('situation', ''))}<br/>"
+                f"<b>Task:</b> {str(item.get('task', ''))}<br/>"
+                f"<b>Action:</b> {str(item.get('action', ''))}<br/>"
+                f"<b>Result:</b> {str(item.get('result', ''))}"
             )
             final_questions.append({
                 "question": str(item.get("question", "")),
