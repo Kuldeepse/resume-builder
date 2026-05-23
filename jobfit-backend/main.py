@@ -29,8 +29,7 @@ if not supabase_url or not supabase_key:
     raise ValueError("CRITICAL FAILURE: Missing required Supabase credentials.")
 supabase: Client = create_client(supabase_url, supabase_key)
 
-# 🚀 INITIALIZE THE CORRECT GOOGLE GENAI CLIENT VIA ENVIRONMENT VARIABLE
-# Ensure GEMINI_API_KEY is configured in your Render settings panel!
+# 🚀 INITIALIZE THE GOOGLE GENAI CLIENT
 gemini_client = genai.Client()
 
 # 📋 Pydantic Architectural Blueprints (Guarantees Strict Output Validation)
@@ -72,14 +71,12 @@ async def build_and_compare_resume(
     interview_duration: str = Form("30 minutes"),
     total_questions_requested: str = Form("5")
 ):
-    # Parse total requested questions to keep within safety bounds
     try:
         requested_count = int(total_questions_requested)
         requested_count = max(1, min(25, requested_count))
     except ValueError:
         requested_count = 5
 
-    # Split output items evenly between Behavioral and System Design tracks
     hr_limit = math.ceil(requested_count / 2)
     tech_limit = math.floor(requested_count / 2)
 
@@ -97,9 +94,10 @@ async def build_and_compare_resume(
     linkedin_context = f"\nCandidate LinkedIn URL Profile Data: {linkedin_profile}" if linkedin_profile else ""
 
     try:
-        # Enforce structured validation output tracking utilizing gemini-2.5-pro
+        # 🎯 FIXED MODEL STRINGS SPECIFICATION LAYER
+        # Swapped to 'gemini-2.5-pro-preview' or 'gemini-1.5-pro' to completely clear the client naming engine error
         response = gemini_client.models.generate_content(
-            model='gemini-2.5-pro',
+            model='gemini-2.5-pro-preview',
             contents=f"Candidate Name: {full_name}\nTarget: {target_role}{linkedin_context}\nHistory: {career_history}\nJD:\n{job_description}",
             config=types.GenerateContentConfig(
                 system_instruction=system_prompt,
@@ -110,12 +108,11 @@ async def build_and_compare_resume(
         )
         analysis_result = json.loads(response.text.strip())
     except Exception as ai_err:
-        raise HTTPException(status_code=500, detail=f"AI Analytics Processing Error: {str(ai_err)}")
+        raise HTTPException(status_code=500, detail=f"AI Analytics Model Code Execution Error: {str(ai_err)}")
 
     resume_data = analysis_result.get("resume", {})
     public_url = ""
 
-    # 🗂️ DYNAMIC DOCUMENT COMPILATION PIPELINE
     try:
         pdf_filename = f"{full_name.replace(' ', '_')}_Resume.pdf"
         doc = SimpleDocTemplate(pdf_filename, pagesize=letter, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
@@ -161,7 +158,6 @@ async def build_and_compare_resume(
     except Exception:
         public_url = "PDF Engine Fallback"
 
-    # Precise structural slicing to enforce strict array size limits requested by user
     final_hr = analysis_result.get("hr_interview", [])[:hr_limit]
     final_tech = analysis_result.get("technical_interview", [])[:tech_limit]
 
