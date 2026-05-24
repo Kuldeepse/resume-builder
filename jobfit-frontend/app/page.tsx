@@ -188,7 +188,7 @@ export default function Home() {
               darkMode ? 'bg-amber-500/10 border-amber-500/20 text-amber-200' : 'bg-[#fff7e8] border-amber-300 text-amber-900'
             }`}
           >
-            <Sparkles className="w-3 h-3" /> Engine Active: Custome
+            <Sparkles className="w-3 h-3" /> Engine Active: Custom
           </div>
 
           <h1 className="text-3xl md:text-5xl font-black tracking-tight">RoleCraft AI</h1>
