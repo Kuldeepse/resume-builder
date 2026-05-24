@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AI Career Intelligence Matrix - Kuldeep Sharma",
-  description: "Tailor resumes, generate interview prep, and discover relevant job opportunities with AI Career Intelligence Matrix by Kuldeep Sharma.",
+  title: "RoleCraft AI - Kuldeep Sharma",
+  description: "Tailor resumes, generate interview prep, and discover relevant job opportunities with RoleCraft AI by Kuldeep Sharma.",
 };
 
 export default function RootLayout({
