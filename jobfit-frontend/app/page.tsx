@@ -6,7 +6,6 @@ import {
   ArrowLeftRight,
   ArrowRight,
   BarChart3,
-  Briefcase,
   CheckCircle2,
   ClipboardCheck,
   Clock,
@@ -19,6 +18,7 @@ import {
   Moon,
   RefreshCw,
   RotateCcw,
+  Search,
   Sparkles,
   Sun,
   Target,
@@ -146,26 +146,30 @@ export default function Home() {
   }
 
   const pageTheme = darkMode
-    ? 'bg-stone-950 text-slate-100'
-    : 'bg-[radial-gradient(circle_at_top,_#fff8ef_0%,_#f5ede3_45%,_#eee2d1_100%)] text-slate-900';
+    ? 'bg-[radial-gradient(circle_at_top,_#171717_0%,_#111827_45%,_#09090b_100%)] text-stone-100'
+    : 'bg-[radial-gradient(circle_at_top,_#fffdf8_0%,_#f7efe4_42%,_#ede2d1_100%)] text-stone-950';
 
   const panelTheme = darkMode
-    ? 'bg-stone-900/50 border-stone-800/70'
-    : 'bg-white/90 border-[#dbc8b1]';
+    ? 'bg-stone-900/72 border-stone-700/70 shadow-[0_20px_60px_rgba(0,0,0,0.28)]'
+    : 'bg-white/88 border-[#d9c3a7] shadow-[0_20px_60px_rgba(115,74,28,0.08)]';
 
   const inputTheme = darkMode
-    ? 'bg-stone-950 border-stone-800 text-slate-200 focus:border-amber-700'
-    : 'bg-[#fffaf4] border-[#dcc9b5] text-stone-800 focus:border-amber-800';
+    ? 'bg-stone-950/90 border-stone-700 text-stone-100 placeholder:text-stone-500 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20'
+    : 'bg-[#fffaf3] border-[#d6c0a7] text-stone-900 placeholder:text-stone-400 focus:border-amber-700 focus:ring-2 focus:ring-amber-700/15';
+
+  const fieldLabelTheme = darkMode ? 'text-stone-200' : 'text-stone-700';
+  const sectionLabelTheme = darkMode ? 'text-amber-300' : 'text-amber-900';
+  const mutedTextTheme = darkMode ? 'text-stone-400' : 'text-stone-600';
 
   return (
     <main className={`min-h-screen p-4 md:p-8 font-sans antialiased transition-colors duration-300 ${pageTheme}`}>
       <div className="max-w-6xl mx-auto space-y-6">
-        <header className="relative flex flex-col items-center text-center space-y-4 py-6 border-b border-dashed border-amber-900/20 dark:border-stone-800">
+        <header className="relative flex flex-col items-center text-center space-y-4 py-6 border-b border-dashed border-amber-900/20 dark:border-stone-700/70">
           <button
             type="button"
             onClick={() => setDarkMode(!darkMode)}
             className={`absolute top-2 right-2 p-2 rounded-xl border flex items-center gap-1.5 font-bold text-[10px] uppercase tracking-wider shadow-sm transition-all ${
-              darkMode ? 'bg-stone-900 border-stone-800 text-amber-400' : 'bg-white border-[#d9c8b4] text-stone-800'
+              darkMode ? 'bg-stone-900 border-stone-700 text-amber-300' : 'bg-white/95 border-[#d7c1a5] text-stone-800'
             }`}
           >
             {darkMode ? (
@@ -181,14 +185,14 @@ export default function Home() {
 
           <div
             className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] uppercase tracking-wider font-semibold border ${
-              darkMode ? 'bg-indigo-500/10 border-stone-800 text-indigo-300' : 'bg-amber-50 border-amber-200 text-amber-900'
+              darkMode ? 'bg-amber-500/10 border-amber-500/20 text-amber-200' : 'bg-[#fff7e8] border-amber-300 text-amber-900'
             }`}
           >
             <Sparkles className="w-3 h-3" /> Engine Active: Gemini 2.5 Flash
           </div>
 
           <h1 className="text-3xl md:text-5xl font-black tracking-tight">AI Career Intelligence Matrix</h1>
-          <p className={`text-xs md:text-sm max-w-2xl mx-auto leading-relaxed font-medium ${darkMode ? 'text-slate-400' : 'text-stone-600'}`}>
+          <p className={`text-xs md:text-sm max-w-2xl mx-auto leading-relaxed font-medium ${mutedTextTheme}`}>
             Optimize resume fit, generate interview prep, and search real active roles from a cleaner career workflow.
           </p>
         </header>
@@ -209,7 +213,7 @@ export default function Home() {
               tab === 'job_search' ? 'bg-amber-900 text-white shadow-md scale-[1.01]' : darkMode ? 'text-stone-300 hover:bg-stone-800' : 'text-stone-700 hover:bg-amber-50'
             }`}
           >
-            <Briefcase className="w-3.5 h-3.5" /> Web Job Discovery Tool
+            <Search className="w-3.5 h-3.5" /> Web Job Discovery Tool
           </button>
 
           {results && (
@@ -245,7 +249,7 @@ export default function Home() {
         {tab === 'builder' && (
           <div className={`border p-6 rounded-2xl shadow-sm space-y-6 ${panelTheme}`}>
             <div className={`flex justify-between items-center border-b pb-3 ${darkMode ? 'border-stone-800/60' : 'border-stone-200'}`}>
-              <h2 className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${darkMode ? 'text-amber-400' : 'text-amber-900'}`}>
+              <h2 className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${sectionLabelTheme}`}>
                 <ArrowLeftRight className="w-4 h-4" /> Core Variable Mapping
               </h2>
 
@@ -275,26 +279,26 @@ export default function Home() {
             <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="font-bold text-xxs uppercase tracking-wider text-slate-500">Applicant Full Name</label>
+                  <label className={`font-bold text-xxs uppercase tracking-wider ${fieldLabelTheme}`}>Applicant Full Name</label>
                   <input className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${inputTheme}`} placeholder="e.g. Alex Mercer" value={fullName} onChange={(e) => setFullName(e.target.value)} />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="font-bold text-xxs uppercase tracking-wider text-slate-500">Target Role Objective</label>
+                  <label className={`font-bold text-xxs uppercase tracking-wider ${fieldLabelTheme}`}>Target Role Objective</label>
                   <input className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${inputTheme}`} placeholder="e.g. Senior Frontend Architect" value={targetRole} onChange={(e) => setTargetRole(e.target.value)} />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 border-t border-b border-dashed border-slate-200 dark:border-stone-800 py-4">
                 <div className="space-y-1.5">
-                  <label className="font-bold text-xxs uppercase tracking-wider text-slate-500 flex items-center gap-1">
+                  <label className={`font-bold text-xxs uppercase tracking-wider flex items-center gap-1 ${fieldLabelTheme}`}>
                     <Link className="w-3 h-3 text-indigo-500" /> LinkedIn Profile URL
                   </label>
                   <input className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${inputTheme}`} placeholder="e.g. https://linkedin.com/in/..." value={linkedin} onChange={(e) => setLinkedin(e.target.value)} />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="font-bold text-xxs uppercase tracking-wider text-slate-500 flex items-center gap-1">
+                  <label className={`font-bold text-xxs uppercase tracking-wider flex items-center gap-1 ${fieldLabelTheme}`}>
                     <Clock className="w-3 h-3 text-indigo-500" /> Interview Duration
                   </label>
                   <select className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${inputTheme}`} value={duration} onChange={(e) => setDuration(e.target.value)}>
@@ -305,7 +309,7 @@ export default function Home() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="font-bold text-xxs uppercase tracking-wider text-slate-500 flex items-center gap-1">
+                  <label className={`font-bold text-xxs uppercase tracking-wider flex items-center gap-1 ${fieldLabelTheme}`}>
                     <UserCheck className="w-3 h-3 text-indigo-500" /> Interview Category
                   </label>
                   <select className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${inputTheme}`} value={interviewType} onChange={(e) => setInterviewType(e.target.value as 'hr' | 'technical')}>
@@ -315,7 +319,7 @@ export default function Home() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="font-bold text-xxs uppercase tracking-wider text-slate-500 flex items-center gap-1">
+                  <label className={`font-bold text-xxs uppercase tracking-wider flex items-center gap-1 ${fieldLabelTheme}`}>
                     <ListOrdered className="w-3 h-3 text-indigo-500" />
                     Number of Questions: <span className="text-indigo-600 dark:text-indigo-400 font-extrabold">{totalQuestions}</span>
                   </label>
@@ -331,15 +335,15 @@ export default function Home() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className={`space-y-1.5 p-4 rounded-xl border ${darkMode ? 'bg-stone-950/40 border-slate-800/60' : 'bg-stone-50/60 border-stone-200/60'}`}>
-                  <label className="font-bold text-xxs uppercase tracking-wider flex items-center gap-1 text-amber-900 dark:text-amber-400">
+                <div className={`space-y-1.5 p-4 rounded-xl border ${darkMode ? 'bg-stone-950/35 border-stone-700/60' : 'bg-[#fffaf2] border-[#ead8c2]'}`}>
+                  <label className={`font-bold text-xxs uppercase tracking-wider flex items-center gap-1 ${sectionLabelTheme}`}>
                     <FileText className="w-3.5 h-3.5" /> Legacy Career Profile
                   </label>
                   <textarea rows={6} className={`w-full border p-3 rounded-xl focus:outline-none font-mono text-[11px] leading-relaxed ${inputTheme}`} placeholder="Describe your experience, tools, achievements, and roles..." value={careerHistory} onChange={(e) => setCareerHistory(e.target.value)} />
                 </div>
 
-                <div className={`space-y-1.5 p-4 rounded-xl border ${darkMode ? 'bg-stone-950/40 border-slate-800/60' : 'bg-stone-50/60 border-stone-200/60'}`}>
-                  <label className="font-bold text-xxs uppercase tracking-wider flex items-center gap-1 text-amber-900 dark:text-amber-400">
+                <div className={`space-y-1.5 p-4 rounded-xl border ${darkMode ? 'bg-stone-950/35 border-stone-700/60' : 'bg-[#fffaf2] border-[#ead8c2]'}`}>
+                  <label className={`font-bold text-xxs uppercase tracking-wider flex items-center gap-1 ${sectionLabelTheme}`}>
                     <Target className="w-3.5 h-3.5" /> Job Description Target
                   </label>
                   <textarea rows={6} className={`w-full border p-3 rounded-xl focus:outline-none font-mono text-[11px] leading-relaxed ${inputTheme}`} placeholder="Paste the target job description here..." value={jobDescription} onChange={(e) => setJobDescription(e.target.value)} />
@@ -631,20 +635,20 @@ export default function Home() {
         {tab === 'job_search' && (
           <div className={`border p-6 rounded-2xl shadow-sm space-y-6 ${panelTheme}`}>
             <div className={`border-b pb-3 ${darkMode ? 'border-stone-800' : 'border-stone-200'}`}>
-              <h2 className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${darkMode ? 'text-amber-400' : 'text-amber-900'}`}>
-                <Target className="w-4 h-4" /> Web Job Discovery Tool
+              <h2 className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${sectionLabelTheme}`}>
+                <Search className="w-4 h-4" /> Web Job Discovery Tool
               </h2>
             </div>
 
             <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); handleSearchJobs(); }}>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="font-bold text-xxs uppercase tracking-wider text-slate-500">Target Location City</label>
+                  <label className={`font-bold text-xxs uppercase tracking-wider ${fieldLabelTheme}`}>Target Location City</label>
                   <input className={`w-full border p-3 rounded-xl focus:outline-none transition-all text-xs ${inputTheme}`} placeholder="e.g. London or Remote" value={searchCity} onChange={(e) => setSearchCity(e.target.value)} />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="font-bold text-xxs uppercase tracking-wider text-slate-500">Target Role / Skills Summary</label>
+                  <label className={`font-bold text-xxs uppercase tracking-wider ${fieldLabelTheme}`}>Target Role / Skills Summary</label>
                   <input className={`w-full border p-3 rounded-xl focus:outline-none transition-all text-xs ${inputTheme}`} placeholder="e.g. Lead Technical Program Manager, Agile, AI, SaaS, Strategy" value={searchRoleSkills} onChange={(e) => setSearchRoleSkills(e.target.value)} />
                 </div>
               </div>
@@ -727,11 +731,4 @@ export default function Home() {
         )}
       </div>
 
-      <footer className="w-full text-center py-6 mt-12 border-t border-dashed border-amber-900/10 dark:border-stone-800">
-        <p className="text-[11px] font-bold tracking-widest text-stone-400 dark:text-stone-500 uppercase flex items-center justify-center gap-1.5">
-          Crafted with <Heart className="w-3.5 h-3.5 text-rose-600 fill-rose-600" /> & Developed by <span className="text-amber-900 dark:text-indigo-400 font-extrabold font-mono">Kuldeep Sharma</span>
-        </p>
-      </footer>
-    </main>
-  );
-}
+      <footer className="w-full text-center py-6 mt-12 border-t border-dashed border-amber-900/1
