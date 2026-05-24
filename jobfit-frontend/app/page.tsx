@@ -731,4 +731,11 @@ export default function Home() {
         )}
       </div>
 
-      <footer className="w-full text-center py-6 mt-12 border-t border-dashed border-amber-900/1
+      <footer className="w-full text-center py-6 mt-12 border-t border-dashed border-amber-900/10 dark:border-stone-800">
+        <p className="text-[11px] font-bold tracking-widest text-stone-400 dark:text-stone-500 uppercase flex items-center justify-center gap-1.5">
+          Crafted with <Heart className="w-3.5 h-3.5 text-rose-600 fill-rose-600" /> & Developed by <span className="text-amber-900 dark:text-indigo-400 font-extrabold font-mono">Kuldeep Sharma</span>
+        </p>
+      </footer>
+    </main>
+  );
+}
