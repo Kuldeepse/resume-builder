@@ -11,6 +11,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
+from fastapi import UploadFile, File
 
 app = FastAPI()
 
@@ -226,12 +227,49 @@ CRITICAL INSTRUCTIONS:
 async def search_jobs(
     target_role: str = Form(...),
     location_city: str = Form(...),
-    resume_skills: str = Form(...)
+    resume_skills: Optional[str] = Form(None), # Made optional to support dual modes
+    resume_file: Optional[UploadFile] = File(None) # Added support for physical file stream uploads
 ):
-    search_query = f'"{target_role}" jobs in "{location_city}" site:://linkedin.com OR site:://indeed.com OR site:lever.co OR site:greenhouse.io'
+    # Determine the background context based on user submission choice
+    candidate_profile_context = ""
     
+    if resume_file:
+        try:
+            # Native extraction reads file stream bytes directly
+            file_bytes = await resume_file.read()
+            # Decode textual information from raw bytes securely
+            candidate_profile_context = file_bytes.decode("utf-8", errors="ignore")
+        except Exception:
+            candidate_profile_context = "Could not parse uploaded file format contents."
+    else:
+        candidate_profile_context = resume_skills or ""
+
+    # Formulate a clean, uncorrupted live open web search grounding query parameter string
+    search_query = f'"{target_role}" openings in "{location_city}" posted last 10 days site:://linkedin.com OR site:indeed.com OR site:lever.co OR site:greenhouse.io'
+    
+    # --- STEP 1: LIVE WEB SEARCH RETRIEVAL (JSON MODE DISABLED TO PREVENT 400 ERRORS) ---
+    search_prompt = (
+        f"Perform an active live web search using the query constraint provided below.\n"
+        f"Locate actual, real, current job openings matching these parameters.\n"
+        f"Query Constraint: {search_query}"
+    )
+    
+    try:
+        search_response = gemini_client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=search_prompt,
+            config=types.GenerateContentConfig(
+                tools=[types.Tool(google_search=types.GoogleSearch())], # 🌐 Active live web search layer
+                temperature=0.2
+            )
+        )
+        raw_web_data = getattr(search_response, 'text', '') or str(search_response)
+    except Exception as search_error:
+        raise HTTPException(status_code=500, detail=f"Web Grounding Compilation Exception: {str(search_error)}")
+
+    # --- STEP 2: SCHEMA STRUCTURING & TARGET PROFILES PARSING (SEARCH TOOL DISABLED) ---
     system_prompt = """You are an automated live job matching extraction tool.
-Analyze the parameters to return up to 40 active, real job listings posted in the last 10 days.
+Analyze the provided raw web search data text against the candidate's background profile data to extract up to 40 active, real job listings.
 
 REQUIRED OUTPUT JSON STRUCTURE EXACTLY:
 {
@@ -245,37 +283,39 @@ REQUIRED OUTPUT JSON STRUCTURE EXACTLY:
       "link": "The real open source link url or 'search on company website'"
     }
   ],
-  "best_match_summary": "A high-density one-line statement analyzing which 3 jobs are top matches for this user based on their input skills and why."
+  "best_match_summary": "A high-density one-line statement analyzing which 3 jobs are top matches for this user based on their parsed skills/file parameters and why."
 }
 
 CRITICAL DATA RETRIEVAL RULES:
-1. Compile up to 40 unique listings matching the parameters.
-2. If real tracking URLs are unavailable, write 'search on company website'. Never guess or fabricate links.
-3. Your output must be pure raw valid JSON string content only. Do not wrap in markdown or backticks."""
+1. Compile up to 40 unique listings matching the parameters found in the raw web data text.
+2. Cross-reference listings critically against the candidate background profile context text to isolate relevant alignments.
+3. If real tracking URLs are unavailable, write 'search on company website'. Never guess or fabricate links.
+4. Your output must be pure raw valid JSON string content only. Do not wrap in markdown or backticks."""
 
     try:
-        # 🌐 FIXED: Replaced legacy string tool mapping with official modern Google Search tool SDK configuration layout blocks
-        response = gemini_client.models.generate_content(
+        formatting_response = gemini_client.models.generate_content(
             model='gemini-2.5-flash',
-            contents=f"Query Constraints: {search_query}\nUser Skills Context: {resume_skills}\nTarget Role Context: {target_role}",
+            contents=(
+                f"Raw Web Search Data to Filter:\n{raw_web_data}\n\n"
+                f"Candidate Background Profile Data Context:\n{candidate_profile_context}\n\n"
+                f"Target Role Objective Fit:\n{target_role}"
+            ),
             config=types.GenerateContentConfig(
                 system_instruction=system_prompt,
-                response_mime_type="application/json",
-                tools=[types.Tool(google_search=types.GoogleSearch())],
-                temperature=0.2
+                response_mime_type="application/json", # 🎯 Decoupled JSON mode safely executes here
+                temperature=0.1
             )
         )
         
-        # ✅ FIXED: Placed extraction loops safely into separate structural lines to eliminate layout parsing exceptions
-        clean_text = response.text.strip()
+        clean_text = formatting_response.text.strip()
         if "```json" in clean_text:
             clean_text = clean_text.split("```json")[-1].split("```")[0].strip()
         elif "```" in clean_text:
             clean_text = clean_text.split("```")[-1].split("```")[0].strip()
             
         jobs_result = json.loads(clean_text)
-    except Exception as search_error:
-        raise HTTPException(status_code=500, detail=f"Web Grounding Compilation Exception: {str(search_error)}")
+    except Exception as parsing_error:
+        raise HTTPException(status_code=500, detail=f"Data Schema Extraction Exception: {str(parsing_error)}")
 
     raw_jobs = jobs_result.get("jobs", [])
     if not isinstance(raw_jobs, list):
