@@ -15,6 +15,13 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "RoleCraft AI - Kuldeep Sharma",
   description: "Tailor resumes, generate interview prep, and discover relevant job opportunities with RoleCraft AI by Kuldeep Sharma.",
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+    ],
+    shortcut: "/icon.svg",
+    apple: "/icon.svg",
+  },
 };
 
 export default function RootLayout({
