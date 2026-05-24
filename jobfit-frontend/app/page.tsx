@@ -188,10 +188,10 @@ export default function Home() {
               darkMode ? 'bg-amber-500/10 border-amber-500/20 text-amber-200' : 'bg-[#fff7e8] border-amber-300 text-amber-900'
             }`}
           >
-            <Sparkles className="w-3 h-3" /> Engine Active: Gemini 2.5 Flash
+            <Sparkles className="w-3 h-3" /> Engine Active: Custome
           </div>
 
-          <h1 className="text-3xl md:text-5xl font-black tracking-tight">AI Career Intelligence Matrix</h1>
+          <h1 className="text-3xl md:text-5xl font-black tracking-tight">RoleCraft AI</h1>
           <p className={`text-xs md:text-sm max-w-2xl mx-auto leading-relaxed font-medium ${mutedTextTheme}`}>
             Optimize resume fit, generate interview prep, and search real active roles from a cleaner career workflow.
           </p>
