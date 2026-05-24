@@ -207,14 +207,16 @@ export default function Home() {
             <Sparkles className="w-3.5 h-3.5" /> Pipeline Builder
           </button>
 
-          <button
-            onClick={() => setTab('job_search')}
-            className={`px-4 py-2 font-bold rounded-xl flex items-center gap-1.5 transition-all duration-200 text-xxs tracking-wide ${
-              tab === 'job_search' ? 'bg-amber-900 text-white shadow-md scale-[1.01]' : darkMode ? 'text-stone-300 hover:bg-stone-800' : 'text-stone-700 hover:bg-amber-50'
-            }`}
-          >
-            <Search className="w-3.5 h-3.5" /> Web Job Discovery Tool
-          </button>
+          {!results && (
+            <button
+              onClick={() => setTab('job_search')}
+              className={`px-4 py-2 font-bold rounded-xl flex items-center gap-1.5 transition-all duration-200 text-xxs tracking-wide ${
+                tab === 'job_search' ? 'bg-amber-900 text-white shadow-md scale-[1.01]' : darkMode ? 'text-stone-300 hover:bg-stone-800' : 'text-stone-700 hover:bg-amber-50'
+              }`}
+            >
+              <Search className="w-3.5 h-3.5" /> Web Job Discovery Tool
+            </button>
+          )}
 
           {results && (
             <>
@@ -241,6 +243,14 @@ export default function Home() {
                 }`}
               >
                 <User className="w-3.5 h-3.5" /> Interview Vectors
+              </button>
+              <button
+                onClick={() => setTab('job_search')}
+                className={`px-4 py-2 font-bold rounded-xl flex items-center gap-1.5 transition-all duration-200 text-xxs tracking-wide ${
+                  tab === 'job_search' ? 'bg-amber-900 text-white shadow-md scale-[1.01]' : darkMode ? 'text-stone-300 hover:bg-stone-800' : 'text-stone-700 hover:bg-amber-50'
+                }`}
+              >
+                <Search className="w-3.5 h-3.5" /> Web Job Discovery Tool
               </button>
             </>
           )}
