@@ -414,7 +414,7 @@ export default function Home() {
             <div className={`border p-6 rounded-xl space-y-6 max-h-[640px] overflow-y-auto ${darkMode ? 'border-stone-800 bg-stone-950' : 'border-stone-200 bg-white'}`}>
               <div className="space-y-3 border-b border-dashed border-stone-200 dark:border-stone-800 pb-4">
                 <h2 className="text-2xl font-extrabold tracking-tight">{results.resume?.full_name}</h2>
-                <div className={`text-[11px] uppercase tracking-[0.14em] font-bold ${darkMode ? 'text-indigo-400' : 'text-indigo-700'}`}>
+                <div className={`text-[11px] uppercase tracking-[0.14em] font-bold ${darkMode ? 'text-stone-300' : 'text-stone-700'}`}>
                   {results.resume?.headline || `Tailored Resume Draft for ${targetRole || 'Target Role'}`}
                 </div>
                 {(results.resume?.contact?.linkedin || results.resume?.contact?.location) && (
@@ -427,7 +427,7 @@ export default function Home() {
               </div>
 
               <section className="space-y-3">
-                <div className={`text-[11px] uppercase tracking-[0.14em] font-black ${darkMode ? 'text-amber-400' : 'text-amber-900'}`}>
+                <div className={`text-[11px] uppercase tracking-[0.14em] font-black ${darkMode ? 'text-stone-200' : 'text-stone-800'}`}>
                   Core Skills
                 </div>
                 <div className="flex flex-wrap gap-1.5">
@@ -436,7 +436,7 @@ export default function Home() {
                       <span
                         key={i}
                         className={`font-bold px-2.5 py-1 rounded-md border text-[10px] tracking-wide ${
-                          darkMode ? 'bg-slate-900 border-slate-800 text-indigo-400' : 'bg-slate-50 border-slate-200 text-indigo-700'
+                          darkMode ? 'bg-slate-900 border-slate-800 text-stone-200' : 'bg-slate-50 border-slate-200 text-stone-700'
                         }`}
                       >
                         {s}
@@ -449,7 +449,7 @@ export default function Home() {
               </section>
 
               <section className="space-y-4">
-                <div className={`text-[11px] uppercase tracking-[0.14em] font-black ${darkMode ? 'text-amber-400' : 'text-amber-900'}`}>
+                <div className={`text-[11px] uppercase tracking-[0.14em] font-black ${darkMode ? 'text-stone-200' : 'text-stone-800'}`}>
                   Professional Experience
                 </div>
                 {results.resume?.experience?.length ? (
@@ -461,7 +461,7 @@ export default function Home() {
                           <div className="font-extrabold text-sm">{exp.role}</div>
                           <div className={`text-xs font-semibold ${darkMode ? 'text-stone-300' : 'text-stone-700'}`}>{exp.company}</div>
                         </div>
-                        <div className="text-indigo-600 dark:text-indigo-400 text-[10px] tracking-wider font-mono whitespace-nowrap">
+                        <div className="text-stone-500 dark:text-stone-400 text-[10px] tracking-wider font-mono whitespace-nowrap">
                           {exp.duration}
                         </div>
                       </div>
@@ -481,7 +481,7 @@ export default function Home() {
               </section>
 
               <section className="space-y-4">
-                <div className={`text-[11px] uppercase tracking-[0.14em] font-black ${darkMode ? 'text-amber-400' : 'text-amber-900'}`}>
+                <div className={`text-[11px] uppercase tracking-[0.14em] font-black ${darkMode ? 'text-stone-200' : 'text-stone-800'}`}>
                   Education
                 </div>
                 {results.resume?.education?.length ? (
@@ -490,7 +490,7 @@ export default function Home() {
                       <div key={i} className={`rounded-xl border p-3 ${darkMode ? 'border-stone-800 bg-stone-900/40' : 'border-stone-200 bg-stone-50/60'}`}>
                         <div className="font-bold text-sm">{edu.qualification}</div>
                         <div className="text-xs opacity-80">{edu.institution}</div>
-                        <div className="text-[10px] font-mono mt-1 text-indigo-600 dark:text-indigo-400">{edu.duration}</div>
+                        <div className="text-[10px] font-mono mt-1 text-stone-500 dark:text-stone-400">{edu.duration}</div>
                       </div>
                     ))}
                   </div>
@@ -500,14 +500,14 @@ export default function Home() {
               </section>
 
               <section className="space-y-3">
-                <div className={`text-[11px] uppercase tracking-[0.14em] font-black ${darkMode ? 'text-amber-400' : 'text-amber-900'}`}>
+                <div className={`text-[11px] uppercase tracking-[0.14em] font-black ${darkMode ? 'text-stone-200' : 'text-stone-800'}`}>
                   Certifications
                 </div>
                 {results.resume?.certifications?.length ? (
                   <ul className="space-y-2">
                     {results.resume.certifications.map((cert: string, i: number) => (
                       <li key={i} className="flex items-start gap-2 text-xs leading-6">
-                        <CheckCircle2 className="w-4 h-4 shrink-0 mt-1 text-amber-700 dark:text-amber-400" />
+                        <CheckCircle2 className="w-4 h-4 shrink-0 mt-1 text-stone-500 dark:text-stone-400" />
                         <span>{cert}</span>
                       </li>
                     ))}
@@ -518,7 +518,7 @@ export default function Home() {
               </section>
 
               <section className="space-y-4">
-                <div className={`text-[11px] uppercase tracking-[0.14em] font-black ${darkMode ? 'text-amber-400' : 'text-amber-900'}`}>
+                <div className={`text-[11px] uppercase tracking-[0.14em] font-black ${darkMode ? 'text-stone-200' : 'text-stone-800'}`}>
                   Selected Projects
                 </div>
                 {results.resume?.projects?.length ? (
@@ -527,7 +527,7 @@ export default function Home() {
                       <div key={i} className={`rounded-xl border p-4 space-y-1.5 ${darkMode ? 'border-stone-800 bg-stone-900/40' : 'border-stone-200 bg-stone-50/60'}`}>
                         <div className="font-bold text-sm">{project.name}</div>
                         <p className="text-xs leading-6">{project.description}</p>
-                        {project.impact && <p className={`text-xs font-semibold ${darkMode ? 'text-indigo-300' : 'text-indigo-700'}`}>{project.impact}</p>}
+                        {project.impact && <p className={`text-xs font-semibold ${darkMode ? 'text-stone-300' : 'text-stone-700'}`}>{project.impact}</p>}
                       </div>
                     ))}
                   </div>
@@ -537,14 +537,14 @@ export default function Home() {
               </section>
 
               <section className="space-y-3">
-                <div className={`text-[11px] uppercase tracking-[0.14em] font-black ${darkMode ? 'text-amber-400' : 'text-amber-900'}`}>
+                <div className={`text-[11px] uppercase tracking-[0.14em] font-black ${darkMode ? 'text-stone-200' : 'text-stone-800'}`}>
                   Achievements
                 </div>
                 {results.resume?.achievements?.length ? (
                   <ul className="space-y-2">
                     {results.resume.achievements.map((achievement: string, i: number) => (
                       <li key={i} className="flex items-start gap-2 text-xs leading-6">
-                        <CheckCircle2 className="w-4 h-4 shrink-0 mt-1 text-amber-700 dark:text-amber-400" />
+                        <CheckCircle2 className="w-4 h-4 shrink-0 mt-1 text-stone-500 dark:text-stone-400" />
                         <span>{achievement}</span>
                       </li>
                     ))}
@@ -555,14 +555,14 @@ export default function Home() {
               </section>
 
               <section className="space-y-3 border-t border-dashed border-stone-200 dark:border-stone-800 pt-4">
-                <div className={`text-[11px] uppercase tracking-[0.14em] font-black ${darkMode ? 'text-amber-400' : 'text-amber-900'}`}>
+                <div className={`text-[11px] uppercase tracking-[0.14em] font-black ${darkMode ? 'text-stone-200' : 'text-stone-800'}`}>
                   Tailoring Notes
                 </div>
                 <ul className="space-y-2">
                   {results.tailoring_tips?.length ? (
                     results.tailoring_tips.map((tip: string, idx: number) => (
                       <li key={idx} className="flex items-start gap-2 text-xs leading-6">
-                        <CheckCircle2 className="w-4 h-4 shrink-0 mt-1 text-amber-700 dark:text-amber-400" />
+                        <CheckCircle2 className="w-4 h-4 shrink-0 mt-1 text-stone-500 dark:text-stone-400" />
                         <span>{tip}</span>
                       </li>
                     ))
