@@ -1,6 +1,7 @@
 import os
 import json
 import math
+from urllib.parse import urlparse
 from fastapi import FastAPI, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from google import genai
@@ -64,6 +65,26 @@ def extract_grounding_urls(search_response: Any) -> List[str]:
         return urls
 
     return urls
+
+
+def infer_link_from_grounding_urls(job: dict, grounding_urls: List[str]) -> str:
+    company = str(job.get("company", "")).strip().lower()
+    title = str(job.get("title", "")).strip().lower()
+
+    company_tokens = [token for token in company.replace("&", " ").replace("-", " ").split() if len(token) > 2]
+    title_tokens = [token for token in title.replace("/", " ").replace("-", " ").split() if len(token) > 3]
+
+    for url in grounding_urls:
+        parsed = urlparse(url)
+        haystack = f"{parsed.netloc} {parsed.path}".lower()
+
+        company_match = any(token in haystack for token in company_tokens) if company_tokens else False
+        title_match = any(token in haystack for token in title_tokens) if title_tokens else False
+
+        if company_match or title_match:
+            return url
+
+    return "search on company website"
 
 
 @app.get("/health/")
@@ -286,6 +307,7 @@ async def search_jobs(
         f"Query Constraint: {search_query}"
     )
     
+    grounding_urls: List[str] = []
     try:
         search_response = gemini_client.models.generate_content(
             model='gemini-2.5-flash',
@@ -378,22 +400,4 @@ CRITICAL DATA RETRIEVAL RULES:
             )
             link = str(raw_link).strip()
             if link.startswith("www."):
-                link = f"https://{link}"
-            if link and not link.startswith(("http://", "https://")) and "." in link and " " not in link:
-                link = f"https://{link}"
-            if not link.startswith(("http://", "https://")):
-                link = "search on company website"
-
-            sanitized_jobs.append({
-                "title": str(job.get("title", "Opportunities Tracker")),
-                "company": str(job.get("company", "Enterprise Resource")),
-                "location": str(job.get("location", location_city)),
-                "salary": str(job.get("salary", "Not Disclosed")),
-                "skills": [str(s) for s in skills_arr],
-                "link": link
-            })
-
-    return {
-        "jobs": sanitized_jobs,
-        "best_match_summary": str(jobs_result.get("best_match_summary", "Review the table matrix results above to locate best technical alignments."))
-    }
+        
