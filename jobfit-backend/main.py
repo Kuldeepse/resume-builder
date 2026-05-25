@@ -399,5 +399,6 @@ CRITICAL DATA RETRIEVAL RULES:
                 or ""
             )
             link = str(raw_link).strip()
+
             if link.startswith("www."):
-        
+       
