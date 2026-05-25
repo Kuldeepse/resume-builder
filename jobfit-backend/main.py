@@ -245,12 +245,17 @@ async def search_jobs(
         candidate_profile_context = resume_skills or ""
 
     # Formulate a clean, uncorrupted live open web search grounding query parameter string
-    search_query = f'"{target_role}" openings in "{location_city}" posted last 10 days site:://linkedin.com OR site:indeed.com OR site:lever.co OR site:greenhouse.io'
+    search_query = (
+        f'"{target_role}" openings in "{location_city}" posted last 10 days '
+        f'site:linkedin.com/jobs OR site:indeed.com OR site:lever.co OR site:greenhouse.io'
+    )
     
     # --- STEP 1: LIVE WEB SEARCH RETRIEVAL (JSON MODE DISABLED TO PREVENT 400 ERRORS) ---
     search_prompt = (
         f"Perform an active live web search using the query constraint provided below.\n"
-        f"Locate actual, real, current job openings matching these parameters.\n"
+        f"Find up to 40 real and currently active job openings that are genuinely relevant to the candidate profile.\n"
+        f"Only include jobs posted in the last 10 days when visible, and prioritize active listings from multiple sources including LinkedIn, Indeed, company career pages, Lever, Greenhouse, and other job boards.\n"
+        f"The jobs must match the entered role and the candidate's skills, experience, and background, and must be located in the entered city or be remote.\n"
         f"Query Constraint: {search_query}"
     )
     
@@ -269,7 +274,7 @@ async def search_jobs(
 
     # --- STEP 2: SCHEMA STRUCTURING & TARGET PROFILES PARSING (SEARCH TOOL DISABLED) ---
     system_prompt = """You are an automated live job matching extraction tool.
-Analyze the provided raw web search data text against the candidate's background profile data to extract up to 40 active, real job listings.
+Analyze the provided raw web search data text against the candidate's background profile data to extract up to 40 real, currently active, and genuinely relevant job listings.
 
 REQUIRED OUTPUT JSON STRUCTURE EXACTLY:
 {
@@ -287,10 +292,16 @@ REQUIRED OUTPUT JSON STRUCTURE EXACTLY:
 }
 
 CRITICAL DATA RETRIEVAL RULES:
-1. Compile up to 40 unique listings matching the parameters found in the raw web data text.
-2. Cross-reference listings critically against the candidate background profile context text to isolate relevant alignments.
-3. If real tracking URLs are unavailable, write 'search on company website'. Never guess or fabricate links.
-4. Your output must be pure raw valid JSON string content only. Do not wrap in markdown or backticks."""
+1. Compile up to 40 unique listings only.
+2. Include only jobs that are genuinely relevant to the entered role or uploaded candidate profile, including skills, experience, and background.
+3. Include only jobs in the entered city or remote.
+4. Only include jobs that appear currently active and posted in the last 10 days when that information is visible.
+5. Search across multiple sources including LinkedIn, Indeed, company career pages, Lever, Greenhouse, Workday, and other job boards when visible in the raw search data.
+6. Preserve these exact output fields for each result: job title, company name, location, salary range, required skills, and application link.
+7. If a direct application URL or job posting URL is visible, return it exactly.
+8. If no usable URL is visible, write exactly "search on company website". Never guess or fabricate links.
+9. After the jobs list, return a one-line summary explaining which 3 jobs are the best match for the candidate and why.
+10. Your output must be pure raw valid JSON string content only. Do not wrap in markdown or backticks."""
 
     try:
         formatting_response = gemini_client.models.generate_content(
@@ -326,13 +337,30 @@ CRITICAL DATA RETRIEVAL RULES:
         if isinstance(job, dict):
             skills_raw = job.get("skills", [])
             skills_arr = skills_raw if isinstance(skills_raw, list) else [str(skills_raw)]
+            raw_link = (
+                job.get("link")
+                or job.get("application_link")
+                or job.get("apply_link")
+                or job.get("apply_url")
+                or job.get("job_url")
+                or job.get("url")
+                or ""
+            )
+            link = str(raw_link).strip()
+            if link.startswith("www."):
+                link = f"https://{link}"
+            if link and not link.startswith(("http://", "https://")) and "." in link and " " not in link:
+                link = f"https://{link}"
+            if not link.startswith(("http://", "https://")):
+                link = "search on company website"
+
             sanitized_jobs.append({
                 "title": str(job.get("title", "Opportunities Tracker")),
                 "company": str(job.get("company", "Enterprise Resource")),
                 "location": str(job.get("location", location_city)),
                 "salary": str(job.get("salary", "Not Disclosed")),
                 "skills": [str(s) for s in skills_arr],
-                "link": str(job.get("link", "search on company website"))
+                "link": link
             })
 
     return {
