@@ -39,6 +39,33 @@ supabase: Client = create_client(supabase_url, supabase_key)
 gemini_client = genai.Client()
 
 
+def extract_grounding_urls(search_response: Any) -> List[str]:
+    urls: List[str] = []
+    seen = set()
+
+    try:
+        candidates = getattr(search_response, "candidates", None) or []
+        for candidate in candidates:
+            grounding_metadata = getattr(candidate, "grounding_metadata", None)
+            if grounding_metadata is None:
+                continue
+
+            grounding_chunks = getattr(grounding_metadata, "grounding_chunks", None) or []
+            for chunk in grounding_chunks:
+                web_data = getattr(chunk, "web", None)
+                uri = getattr(web_data, "uri", None) if web_data is not None else None
+                if not uri:
+                    continue
+                clean_uri = str(uri).strip()
+                if clean_uri and clean_uri not in seen:
+                    seen.add(clean_uri)
+                    urls.append(clean_uri)
+    except Exception:
+        return urls
+
+    return urls
+
+
 @app.get("/health/")
 @app.get("/health")
 async def health_check():
@@ -269,6 +296,9 @@ async def search_jobs(
             )
         )
         raw_web_data = getattr(search_response, 'text', '') or str(search_response)
+        grounding_urls = extract_grounding_urls(search_response)
+        if grounding_urls:
+            raw_web_data += "\n\nGrounded Source URLs:\n" + "\n".join(grounding_urls)
     except Exception as search_error:
         raise HTTPException(status_code=500, detail=f"Web Grounding Compilation Exception: {str(search_error)}")
 
