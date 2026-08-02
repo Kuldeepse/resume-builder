@@ -1,20 +1,9 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
 const siteTitle = "RoleCraft AI - Career Intelligence and Trusted Access";
 const siteDescription = "Tailor CV evidence, prepare for interviews, discover jobs, and create referral-ready requests through RoleCraft Career Network.";
 const siteUrl = "https://rolecraftai.duckdns.org";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -54,10 +43,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
+    <html lang="en" className="h-full antialiased">
       <body className="min-h-full bg-[#f7efe4]">
         <header className="sticky top-0 z-50 border-b border-amber-900/15 bg-white/90 px-4 py-3 backdrop-blur-xl md:px-8">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3">

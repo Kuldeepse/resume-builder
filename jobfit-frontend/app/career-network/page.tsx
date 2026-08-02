@@ -119,8 +119,8 @@ export default function CareerNetworkRegistrationPage() {
         <section className="grid gap-6 rounded-3xl border border-[#d9c3a7] bg-white/92 p-6 shadow-[0_20px_60px_rgba(115,74,28,0.08)] lg:grid-cols-[1.15fr_0.85fr] md:p-9">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-amber-900"><Network className="h-3.5 w-3.5" /> RoleCraft Career Network</div>
-            <h1 className="mt-5 text-3xl font-black tracking-tight md:text-5xl">Register for trusted career introductions and referrals.</h1>
-            <p className="mt-4 max-w-3xl text-sm leading-7 text-stone-600 md:text-base">Registration is private and subject to verification. No candidate, referrer, mentor, employer, or contact information is displayed in a public directory.</p>
+            <h1 className="mt-5 text-3xl font-black tracking-tight md:text-5xl">Register privately for referral support, guidance, or mentoring.</h1>
+            <p className="mt-4 max-w-3xl text-sm leading-7 text-stone-600 md:text-base">This page is public so people can register, but the submitted information is private, reviewed manually, and never displayed in a public directory.</p>
           </div>
           <div className="space-y-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
             <h2 className="flex items-center gap-2 text-sm font-black text-emerald-900"><ShieldCheck className="h-5 w-5" /> Privacy by default</h2>
@@ -148,7 +148,7 @@ export default function CareerNetworkRegistrationPage() {
 
         <section className="grid gap-6 lg:grid-cols-[1fr_0.72fr]">
           <form onSubmit={submit} className="space-y-5 rounded-3xl border border-[#d9c3a7] bg-white/92 p-6 shadow-[0_20px_60px_rgba(115,74,28,0.08)] md:p-8">
-            <div><h2 className="text-xl font-black">Private registration</h2><p className="mt-2 text-xs leading-6 text-stone-600">Required fields are limited to what is needed to verify and administer access.</p></div>
+            <div><h2 className="text-xl font-black">Private registration</h2><p className="mt-2 text-xs leading-6 text-stone-600">Required fields are limited to what is needed to verify and administer access in line with the Privacy Notice.</p></div>
             <div className="grid gap-4 md:grid-cols-2">
               <Field label="Full name" value={form.fullName} onChange={(value) => update('fullName', value)} placeholder="Your name" />
               <Field label="Email" type="email" value={form.email} onChange={(value) => update('email', value)} placeholder="you@example.com" />
