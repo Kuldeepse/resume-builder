@@ -42,6 +42,29 @@ const landingPoints = [
   'WhatsApp group access only after separate consent and manual approval.',
 ];
 
+const processSteps = [
+  {
+    step: '1',
+    title: 'Register privately',
+    copy: 'Submit only the minimum information required for a manual review and optional WhatsApp consent handling.',
+  },
+  {
+    step: '2',
+    title: 'Receive tracking code',
+    copy: 'After submission, keep your private code so you can check progress later without exposing your details publicly.',
+  },
+  {
+    step: '3',
+    title: 'Manual review',
+    copy: 'RoleCraft reviews the request, verifies fit, and separately decides whether WhatsApp access can move forward.',
+  },
+  {
+    step: '4',
+    title: 'Track progress',
+    copy: 'Use the status page to see whether your registration is pending, verified, or whether a WhatsApp invite has been approved.',
+  },
+];
+
 export default function CareerNetworkLandingPage() {
   const marqueeItems = [...companies, ...companies];
 
@@ -73,6 +96,13 @@ export default function CareerNetworkLandingPage() {
                 className="inline-flex items-center gap-2 rounded-full border border-[var(--surface-border)] bg-white/80 px-5 py-3 text-sm font-black text-slate-900 hover:border-[var(--accent)] hover:bg-[var(--accent-soft)]"
               >
                 Privacy Notice
+                <ChevronRight className="h-4 w-4" />
+              </a>
+              <a
+                href="/career-network/status"
+                className="inline-flex items-center gap-2 rounded-full border border-[var(--surface-border)] bg-white/80 px-5 py-3 text-sm font-black text-slate-900 hover:border-[var(--accent)] hover:bg-[var(--accent-soft)]"
+              >
+                Check Status
                 <ChevronRight className="h-4 w-4" />
               </a>
             </div>
@@ -116,6 +146,30 @@ export default function CareerNetworkLandingPage() {
             title="Clearer journey"
             copy="The network becomes easier to understand: discover first, register second, approve third, then optionally invite to WhatsApp."
           />
+        </section>
+
+        <section className="rounded-[2rem] border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-xl)] md:p-8">
+          <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.24em] text-[var(--accent-strong)]">How it works</p>
+              <h2 className="mt-2 text-2xl font-black text-slate-950">A clearer private registration journey</h2>
+            </div>
+            <p className="max-w-2xl text-sm leading-7 text-[var(--ink-soft)]">
+              This keeps the public page informative while the identifiable parts of the process stay in the protected registration and status-check flows.
+            </p>
+          </div>
+
+          <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {processSteps.map((item) => (
+              <div key={item.step} className="rounded-[1.5rem] border border-[var(--surface-border)] bg-white/80 p-5">
+                <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[linear-gradient(135deg,var(--accent)_0%,var(--highlight)_100%)] text-sm font-black text-white">
+                  {item.step}
+                </div>
+                <h3 className="mt-4 text-lg font-black text-slate-950">{item.title}</h3>
+                <p className="mt-2 text-xs leading-6 text-[var(--ink-soft)]">{item.copy}</p>
+              </div>
+            ))}
+          </div>
         </section>
 
         <section className="overflow-hidden rounded-[2rem] border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-xl)] md:p-8">

@@ -20,6 +20,10 @@ const PRIVACY_NOTICE_VERSION = '2026-08-02';
 const WHATSAPP_GROUP_NAME = 'RoleCraft IT Jobs referrals UK';
 
 type NetworkRole = 'candidate' | 'referrer' | 'mentor';
+type SuccessState = {
+  registrationId: string | null;
+  statusLookupCode: string | null;
+};
 type FormState = {
   fullName: string;
   email: string;
@@ -62,13 +66,13 @@ export function CareerNetworkRegistrationContent() {
   const [form, setForm] = useState<FormState>(initialForm);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState(false);
+  const [success, setSuccess] = useState<SuccessState | null>(null);
   const privacyReady = Boolean(PRIVACY_CONTACT);
 
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((current) => ({ ...current, [key]: value }));
     setError('');
-    setSuccess(false);
+    setSuccess(null);
   };
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
@@ -109,7 +113,10 @@ export function CareerNetworkRegistrationContent() {
       });
       const data = await response.json().catch(() => null);
       if (!response.ok) throw new Error(data?.detail || 'Registration could not be completed securely.');
-      setSuccess(true);
+      setSuccess({
+        registrationId: data?.registration_id || null,
+        statusLookupCode: data?.status_lookup_code || null,
+      });
       setForm(initialForm);
     } catch (submissionError) {
       setError(submissionError instanceof Error ? submissionError.message : 'Registration failed.');
@@ -180,7 +187,23 @@ export function CareerNetworkRegistrationContent() {
 
             {!privacyReady && <div className="rounded-[1.25rem] border border-rose-200 bg-rose-50 p-4 text-xs leading-6 text-rose-800"><strong>Launch gate:</strong> configure <code>NEXT_PUBLIC_PRIVACY_CONTACT_EMAIL</code> in Vercel before enabling registration.</div>}
             {error && <div className="rounded-[1.25rem] border border-rose-200 bg-rose-50 p-4 text-xs text-rose-800">{error}</div>}
-            {success && <div className="flex items-start gap-3 rounded-[1.25rem] border border-teal-200 bg-teal-50 p-4 text-xs leading-6 text-teal-950"><CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" /><span><strong>Registration received.</strong> Your details remain private and will be reviewed before access is granted or any WhatsApp invite is approved.</span></div>}
+            {success && (
+              <div className="rounded-[1.25rem] border border-teal-200 bg-teal-50 p-4 text-xs leading-6 text-teal-950">
+                <div className="flex items-start gap-3">
+                  <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" />
+                  <span><strong>Registration received.</strong> Your details remain private and will be reviewed before access is granted or any WhatsApp invite is approved.</span>
+                </div>
+                {success.statusLookupCode && (
+                  <div className="mt-4 rounded-[1rem] border border-teal-200 bg-white/80 p-4">
+                    <div className="text-[10px] font-black uppercase tracking-[0.22em] text-teal-900">Tracking code</div>
+                    <div className="mt-2 font-mono text-sm font-black tracking-[0.24em] text-slate-950">{success.statusLookupCode}</div>
+                    <p className="mt-2 text-xs leading-6 text-[var(--ink-soft)]">
+                      Keep this code with your registration email address. You can use both on the private <a href="/career-network/status" className="font-black text-teal-900 underline">status page</a>.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
 
             <button type="submit" disabled={loading || !privacyReady} className="flex w-full items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,var(--accent)_0%,var(--highlight)_100%)] px-5 py-3 text-sm font-black text-white shadow-lg shadow-teal-900/20 disabled:cursor-not-allowed disabled:opacity-50">{loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <BadgeCheck className="h-4 w-4" />}{loading ? 'Submitting securely…' : 'Register for Career Network'}</button>
           </form>
@@ -190,6 +213,7 @@ export function CareerNetworkRegistrationContent() {
             <InfoCard icon={<Users className="h-5 w-5" />} title="Controlled matching">Members are connected only after suitability checks and the insider accepts the request.</InfoCard>
             <InfoCard icon={<HeartHandshake className="h-5 w-5" />} title="WhatsApp by consent">An invite to {WHATSAPP_GROUP_NAME} can be requested, but only after separate consent and manual approval by RoleCraft.</InfoCard>
             <InfoCard icon={<ShieldCheck className="h-5 w-5" />} title="No referral guarantee">Registration does not guarantee guidance, an introduction, an interview, a referral, or employment.</InfoCard>
+            <InfoCard icon={<BadgeCheck className="h-5 w-5" />} title="Track your review">After submission, use your email address and tracking code on the private status page to see whether your review or WhatsApp request has moved forward.</InfoCard>
             <div className="rounded-2xl border border-[#d9c3a7] bg-white/90 p-5 text-xs leading-6 text-stone-600"><strong className="text-stone-900">Data controller:</strong> {CONTROLLER_NAME}<br /><strong className="text-stone-900">Privacy contact:</strong> {PRIVACY_CONTACT || 'Must be configured before launch'}</div>
           </aside>
         </section>

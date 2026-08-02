@@ -63,11 +63,12 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const stored = (await storageResponse.json().catch(() => [])) as Array<{ id?: string }>;
+  const stored = (await storageResponse.json().catch(() => [])) as Array<{ id?: string; status_lookup_code?: string }>;
   return NextResponse.json(
     {
       status: 'pending_verification',
       registration_id: stored[0]?.id || null,
+      status_lookup_code: stored[0]?.status_lookup_code || null,
       message: 'Registration received. Your details remain private and are not published.',
     },
     {
