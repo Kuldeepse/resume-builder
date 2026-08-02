@@ -76,7 +76,7 @@ export default function PrivacyNoticePage() {
           <p>Material changes will be versioned and presented before new processing occurs. We will not silently expand the use of registration information beyond the stated purposes.</p>
         </Section>
 
-        <a href="/career-network" className="mt-10 inline-flex rounded-full bg-[linear-gradient(135deg,var(--accent)_0%,var(--highlight)_100%)] px-5 py-3 text-sm font-black text-white shadow-lg shadow-teal-900/20">Return to registration</a>
+        <a href="/career-network/register" className="mt-10 inline-flex rounded-full bg-[linear-gradient(135deg,var(--accent)_0%,var(--highlight)_100%)] px-5 py-3 text-sm font-black text-white shadow-lg shadow-teal-900/20">Return to registration</a>
       </article>
     </main>
   );

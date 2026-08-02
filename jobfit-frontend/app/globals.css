@@ -67,3 +67,12 @@ a {
 ::selection {
   background: rgba(15, 118, 110, 0.18);
 }
+
+@keyframes logo-marquee {
+  from {
+    transform: translateX(-50%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
