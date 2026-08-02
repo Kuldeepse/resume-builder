@@ -1,29 +1,39 @@
 'use client';
 
 import {
+  BadgeDollarSign,
+  Blocks,
+  BrainCircuit,
+  BriefcaseBusiness,
+  Building2,
+  Cloud,
+  Cpu,
+  Landmark,
   ArrowRight,
   CheckCircle2,
   ChevronRight,
   Globe2,
   Network,
+  Search,
   ShieldCheck,
   Sparkles,
   Users,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 const companies = [
-  { name: 'Microsoft', mark: 'MS' },
-  { name: 'Google', mark: 'GO' },
-  { name: 'Amazon', mark: 'AM' },
-  { name: 'Meta', mark: 'ME' },
-  { name: 'Barclays', mark: 'BA' },
-  { name: 'HSBC', mark: 'HS' },
-  { name: 'Accenture', mark: 'AC' },
-  { name: 'Deloitte', mark: 'DE' },
-  { name: 'IBM', mark: 'IB' },
-  { name: 'Capgemini', mark: 'CA' },
-  { name: 'TCS', mark: 'TC' },
-  { name: 'Infosys', mark: 'IN' },
+  { name: 'Microsoft', icon: Blocks, accent: 'from-sky-500 to-cyan-400', tag: 'Platform' },
+  { name: 'Google', icon: Search, accent: 'from-amber-500 to-red-400', tag: 'Search & AI' },
+  { name: 'Amazon', icon: BadgeDollarSign, accent: 'from-orange-500 to-amber-400', tag: 'Commerce & Cloud' },
+  { name: 'Meta', icon: BrainCircuit, accent: 'from-blue-500 to-fuchsia-500', tag: 'Social & XR' },
+  { name: 'Barclays', icon: Landmark, accent: 'from-sky-600 to-indigo-500', tag: 'Banking' },
+  { name: 'HSBC', icon: Building2, accent: 'from-rose-600 to-red-500', tag: 'Global Finance' },
+  { name: 'Accenture', icon: BriefcaseBusiness, accent: 'from-violet-500 to-fuchsia-500', tag: 'Consulting' },
+  { name: 'Deloitte', icon: Building2, accent: 'from-emerald-500 to-lime-400', tag: 'Advisory' },
+  { name: 'IBM', icon: Cpu, accent: 'from-cyan-600 to-blue-500', tag: 'Enterprise Tech' },
+  { name: 'Capgemini', icon: Cloud, accent: 'from-teal-500 to-sky-400', tag: 'Cloud Delivery' },
+  { name: 'TCS', icon: Network, accent: 'from-indigo-500 to-sky-500', tag: 'Services' },
+  { name: 'Infosys', icon: Globe2, accent: 'from-cyan-500 to-teal-500', tag: 'Digital Systems' },
 ];
 
 const landingPoints = [
@@ -128,12 +138,12 @@ export default function CareerNetworkLandingPage() {
                   key={`${company.name}-${index}`}
                   className="flex min-w-[200px] items-center gap-3 rounded-full border border-[var(--surface-border)] bg-[var(--surface-strong)] px-4 py-3 shadow-sm"
                 >
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[linear-gradient(135deg,var(--accent)_0%,var(--highlight)_100%)] text-xs font-black tracking-[0.16em] text-white">
-                    {company.mark}
+                  <div className={`flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br ${company.accent} text-white shadow-sm`}>
+                    <company.icon className="h-4.5 w-4.5" />
                   </div>
                   <div>
                     <div className="text-sm font-black text-slate-950">{company.name}</div>
-                    <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--ink-soft)]">Career network</div>
+                    <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--ink-soft)]">{company.tag}</div>
                   </div>
                 </div>
               ))}
