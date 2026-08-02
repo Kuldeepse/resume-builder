@@ -1,5 +1,6 @@
 const PRIVACY_CONTACT = process.env.NEXT_PUBLIC_PRIVACY_CONTACT_EMAIL || '';
 const CONTROLLER_NAME = process.env.NEXT_PUBLIC_DATA_CONTROLLER_NAME || 'RoleCraft AI';
+const WHATSAPP_GROUP_NAME = 'RoleCraft IT Jobs referrals UK';
 
 export default function PrivacyNoticePage() {
   return (
@@ -7,7 +8,7 @@ export default function PrivacyNoticePage() {
       <article className="mx-auto max-w-4xl rounded-3xl border border-[#d9c3a7] bg-white p-6 shadow-[0_20px_60px_rgba(115,74,28,0.08)] md:p-10">
         <p className="text-xs font-black uppercase tracking-wider text-amber-800">RoleCraft Career Network</p>
         <h1 className="mt-3 text-3xl font-black tracking-tight md:text-5xl">Privacy Notice</h1>
-        <p className="mt-4 text-sm leading-7 text-stone-600">Version 2026-08-02 · Applies to Career Network registration and optional WhatsApp group invite requests.</p>
+        <p className="mt-4 text-sm leading-7 text-stone-600">Version 2026-08-02 · Applies to Career Network registration and optional WhatsApp group invite requests for {WHATSAPP_GROUP_NAME}.</p>
 
         {!PRIVACY_CONTACT && (
           <div className="mt-6 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm leading-6 text-rose-800">
@@ -26,7 +27,7 @@ export default function PrivacyNoticePage() {
             <li>Selected network role: candidate, referrer, or mentor.</li>
             <li>Professional area.</li>
             <li>LinkedIn profile, only when you choose to provide it.</li>
-            <li>WhatsApp number and WhatsApp-group consent, only if you choose to request a group invite.</li>
+            <li>WhatsApp number and WhatsApp-group consent, only if you choose to request an invite to {WHATSAPP_GROUP_NAME}.</li>
             <li>Current company, required only for referrer verification.</li>
             <li>Records of privacy-notice acceptance, age confirmation, and optional marketing preference.</li>
           </ul>
@@ -36,7 +37,7 @@ export default function PrivacyNoticePage() {
         <Section title="Why we use it and lawful basis">
           <ul>
             <li>To receive, verify, and administer your requested Career Network registration: steps at your request and, where applicable, performance of the service terms.</li>
-            <li>To review and, if approved, administer an optional RoleCraft WhatsApp group invite that you separately requested: your consent and our legitimate interests in running a moderated support community.</li>
+            <li>To review and, if approved, administer an optional invite to {WHATSAPP_GROUP_NAME} that you separately requested: your consent and our legitimate interests in running a moderated support community.</li>
             <li>To protect the network against abuse, impersonation, and fraud: our legitimate interests in operating a safe professional service.</li>
             <li>To send optional product updates: your separate consent. You may withdraw this consent without affecting network registration.</li>
           </ul>
@@ -46,6 +47,7 @@ export default function PrivacyNoticePage() {
           <p>Registration data is not published and is not available through a public directory or public read API. Access is limited to authorised RoleCraft administrators and contracted service providers who need the information to operate or secure the service.</p>
           <p>Your identity or professional details will not be disclosed to another network member merely because you registered. Any later matching workflow must use a separate, explicit disclosure step.</p>
           <p>If you request a WhatsApp invite, your number must remain private until RoleCraft approves the request and performs the invite through an authorised administrator workflow.</p>
+          <p>Viewing the private admin dashboard requires separate administrator credentials and is not granted automatically because a person registers.</p>
         </Section>
 
         <Section title="Automated decisions and AI">

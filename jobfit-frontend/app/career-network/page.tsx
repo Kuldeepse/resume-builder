@@ -17,6 +17,7 @@ import {
 const PRIVACY_CONTACT = process.env.NEXT_PUBLIC_PRIVACY_CONTACT_EMAIL || '';
 const CONTROLLER_NAME = process.env.NEXT_PUBLIC_DATA_CONTROLLER_NAME || 'RoleCraft AI';
 const PRIVACY_NOTICE_VERSION = '2026-08-02';
+const WHATSAPP_GROUP_NAME = 'RoleCraft IT Jobs referrals UK';
 
 type NetworkRole = 'candidate' | 'referrer' | 'mentor';
 type FormState = {
@@ -124,7 +125,7 @@ export default function CareerNetworkRegistrationPage() {
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-amber-900"><Network className="h-3.5 w-3.5" /> RoleCraft Career Network</div>
             <h1 className="mt-5 text-3xl font-black tracking-tight md:text-5xl">Register privately for referral support, guidance, or mentoring.</h1>
-            <p className="mt-4 max-w-3xl text-sm leading-7 text-stone-600 md:text-base">This page is public so people can register, but the submitted information is private, reviewed manually, and never displayed in a public directory. WhatsApp group access, if requested, is optional and subject to approval.</p>
+            <p className="mt-4 max-w-3xl text-sm leading-7 text-stone-600 md:text-base">This page is public so people can register, but the submitted information is private, reviewed manually, and never displayed in a public directory. WhatsApp group access to {WHATSAPP_GROUP_NAME}, if requested, is optional and subject to approval.</p>
           </div>
           <div className="space-y-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
             <h2 className="flex items-center gap-2 text-sm font-black text-emerald-900"><ShieldCheck className="h-5 w-5" /> Privacy by default</h2>
@@ -168,7 +169,7 @@ export default function CareerNetworkRegistrationPage() {
             <div className="space-y-3 rounded-2xl border border-stone-200 bg-stone-50 p-4 text-xs leading-5">
               <Checkbox checked={form.ageConfirmed} onChange={(value) => update('ageConfirmed', value)}>I confirm that I am at least 18 years old.</Checkbox>
               <Checkbox checked={form.termsAccepted} onChange={(value) => update('termsAccepted', value)}>I have read the <a href="/privacy" className="font-black text-amber-800 underline">Privacy Notice</a> and agree to the Career Network terms.</Checkbox>
-              <Checkbox checked={form.whatsappGroupConsent} onChange={(value) => update('whatsappGroupConsent', value)}>I separately consent to being invited to a private RoleCraft WhatsApp group after manual approval. This is optional and requires a WhatsApp number.</Checkbox>
+              <Checkbox checked={form.whatsappGroupConsent} onChange={(value) => update('whatsappGroupConsent', value)}>I separately consent to being invited to the private WhatsApp group <strong>{WHATSAPP_GROUP_NAME}</strong> after manual approval. This is optional and requires a WhatsApp number.</Checkbox>
               <Checkbox checked={form.marketingOptIn} onChange={(value) => update('marketingOptIn', value)}>I separately opt in to occasional product updates. This is optional.</Checkbox>
             </div>
 
@@ -182,7 +183,7 @@ export default function CareerNetworkRegistrationPage() {
           <aside className="space-y-4">
             <InfoCard icon={<LockKeyhole className="h-5 w-5" />} title="Not publicly searchable">Profiles are not indexed, listed, or exposed to unauthenticated visitors.</InfoCard>
             <InfoCard icon={<Users className="h-5 w-5" />} title="Controlled matching">Members are connected only after suitability checks and the insider accepts the request.</InfoCard>
-            <InfoCard icon={<HeartHandshake className="h-5 w-5" />} title="WhatsApp by consent">A WhatsApp group invite can be requested, but only after separate consent and manual approval by RoleCraft.</InfoCard>
+            <InfoCard icon={<HeartHandshake className="h-5 w-5" />} title="WhatsApp by consent">An invite to {WHATSAPP_GROUP_NAME} can be requested, but only after separate consent and manual approval by RoleCraft.</InfoCard>
             <InfoCard icon={<ShieldCheck className="h-5 w-5" />} title="No referral guarantee">Registration does not guarantee guidance, an introduction, an interview, a referral, or employment.</InfoCard>
             <div className="rounded-2xl border border-[#d9c3a7] bg-white/90 p-5 text-xs leading-6 text-stone-600"><strong className="text-stone-900">Data controller:</strong> {CONTROLLER_NAME}<br /><strong className="text-stone-900">Privacy contact:</strong> {PRIVACY_CONTACT || 'Must be configured before launch'}</div>
           </aside>
