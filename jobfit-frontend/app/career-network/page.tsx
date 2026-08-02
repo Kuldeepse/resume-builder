@@ -24,17 +24,19 @@ type FormState = {
   email: string;
   role: NetworkRole;
   linkedinProfile: string;
+  whatsappNumber: string;
   currentCompany: string;
   professionalArea: string;
   ageConfirmed: boolean;
   termsAccepted: boolean;
   marketingOptIn: boolean;
+  whatsappGroupConsent: boolean;
   website: string;
 };
 
 const initialForm: FormState = {
-  fullName: '', email: '', role: 'candidate', linkedinProfile: '', currentCompany: '',
-  professionalArea: '', ageConfirmed: false, termsAccepted: false, marketingOptIn: false, website: '',
+  fullName: '', email: '', role: 'candidate', linkedinProfile: '', whatsappNumber: '', currentCompany: '',
+  professionalArea: '', ageConfirmed: false, termsAccepted: false, marketingOptIn: false, whatsappGroupConsent: false, website: '',
 };
 
 const roles: Record<NetworkRole, { title: string; description: string; icon: typeof Users }> = {
@@ -93,12 +95,14 @@ export default function CareerNetworkRegistrationPage() {
           email: form.email.trim(),
           role: form.role,
           linkedin_profile: form.linkedinProfile.trim() || null,
+          whatsapp_number: form.whatsappNumber.trim() || null,
           current_company: form.currentCompany.trim() || null,
           professional_area: form.professionalArea.trim(),
           privacy_notice_version: PRIVACY_NOTICE_VERSION,
           terms_accepted: form.termsAccepted,
           age_confirmed: form.ageConfirmed,
           marketing_opt_in: form.marketingOptIn,
+          whatsapp_group_consent: form.whatsappGroupConsent,
           website: form.website,
         }),
       });
@@ -120,7 +124,7 @@ export default function CareerNetworkRegistrationPage() {
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-amber-900"><Network className="h-3.5 w-3.5" /> RoleCraft Career Network</div>
             <h1 className="mt-5 text-3xl font-black tracking-tight md:text-5xl">Register privately for referral support, guidance, or mentoring.</h1>
-            <p className="mt-4 max-w-3xl text-sm leading-7 text-stone-600 md:text-base">This page is public so people can register, but the submitted information is private, reviewed manually, and never displayed in a public directory.</p>
+            <p className="mt-4 max-w-3xl text-sm leading-7 text-stone-600 md:text-base">This page is public so people can register, but the submitted information is private, reviewed manually, and never displayed in a public directory. WhatsApp group access, if requested, is optional and subject to approval.</p>
           </div>
           <div className="space-y-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
             <h2 className="flex items-center gap-2 text-sm font-black text-emerald-900"><ShieldCheck className="h-5 w-5" /> Privacy by default</h2>
@@ -128,6 +132,7 @@ export default function CareerNetworkRegistrationPage() {
             <PrivacyPoint>Data is submitted to a private server-side table.</PrivacyPoint>
             <PrivacyPoint>No CV or job description is collected at registration.</PrivacyPoint>
             <PrivacyPoint>Details are shared only after verification and an explicit match decision.</PrivacyPoint>
+            <PrivacyPoint>WhatsApp group access requires separate consent and manual approval.</PrivacyPoint>
           </div>
         </section>
 
@@ -153,6 +158,7 @@ export default function CareerNetworkRegistrationPage() {
               <Field label="Full name" value={form.fullName} onChange={(value) => update('fullName', value)} placeholder="Your name" />
               <Field label="Email" type="email" value={form.email} onChange={(value) => update('email', value)} placeholder="you@example.com" />
               <Field label="LinkedIn profile (optional)" value={form.linkedinProfile} onChange={(value) => update('linkedinProfile', value)} placeholder="https://linkedin.com/in/..." wide />
+              <Field label="WhatsApp number (optional)" value={form.whatsappNumber} onChange={(value) => update('whatsappNumber', value)} placeholder="+44 7700 900123" wide />
               {form.role === 'referrer' && <Field label="Current company" value={form.currentCompany} onChange={(value) => update('currentCompany', value)} placeholder="Employer name" />}
               <Field label="Professional area" value={form.professionalArea} onChange={(value) => update('professionalArea', value)} placeholder="Cybersecurity, product, cloud…" wide={form.role !== 'referrer'} />
             </div>
@@ -162,12 +168,13 @@ export default function CareerNetworkRegistrationPage() {
             <div className="space-y-3 rounded-2xl border border-stone-200 bg-stone-50 p-4 text-xs leading-5">
               <Checkbox checked={form.ageConfirmed} onChange={(value) => update('ageConfirmed', value)}>I confirm that I am at least 18 years old.</Checkbox>
               <Checkbox checked={form.termsAccepted} onChange={(value) => update('termsAccepted', value)}>I have read the <a href="/privacy" className="font-black text-amber-800 underline">Privacy Notice</a> and agree to the Career Network terms.</Checkbox>
+              <Checkbox checked={form.whatsappGroupConsent} onChange={(value) => update('whatsappGroupConsent', value)}>I separately consent to being invited to a private RoleCraft WhatsApp group after manual approval. This is optional and requires a WhatsApp number.</Checkbox>
               <Checkbox checked={form.marketingOptIn} onChange={(value) => update('marketingOptIn', value)}>I separately opt in to occasional product updates. This is optional.</Checkbox>
             </div>
 
             {!privacyReady && <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs leading-6 text-rose-800"><strong>Launch gate:</strong> configure <code>NEXT_PUBLIC_PRIVACY_CONTACT_EMAIL</code> in Vercel before enabling registration.</div>}
             {error && <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-800">{error}</div>}
-            {success && <div className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-xs leading-6 text-emerald-900"><CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" /><span><strong>Registration received.</strong> Your details remain private and will be reviewed before access is granted.</span></div>}
+            {success && <div className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-xs leading-6 text-emerald-900"><CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" /><span><strong>Registration received.</strong> Your details remain private and will be reviewed before access is granted or any WhatsApp invite is approved.</span></div>}
 
             <button type="submit" disabled={loading || !privacyReady} className="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-900 px-5 py-3 text-sm font-black text-white shadow-lg disabled:cursor-not-allowed disabled:opacity-50">{loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <BadgeCheck className="h-4 w-4" />}{loading ? 'Submitting securely…' : 'Register for Career Network'}</button>
           </form>
@@ -175,6 +182,7 @@ export default function CareerNetworkRegistrationPage() {
           <aside className="space-y-4">
             <InfoCard icon={<LockKeyhole className="h-5 w-5" />} title="Not publicly searchable">Profiles are not indexed, listed, or exposed to unauthenticated visitors.</InfoCard>
             <InfoCard icon={<Users className="h-5 w-5" />} title="Controlled matching">Members are connected only after suitability checks and the insider accepts the request.</InfoCard>
+            <InfoCard icon={<HeartHandshake className="h-5 w-5" />} title="WhatsApp by consent">A WhatsApp group invite can be requested, but only after separate consent and manual approval by RoleCraft.</InfoCard>
             <InfoCard icon={<ShieldCheck className="h-5 w-5" />} title="No referral guarantee">Registration does not guarantee guidance, an introduction, an interview, a referral, or employment.</InfoCard>
             <div className="rounded-2xl border border-[#d9c3a7] bg-white/90 p-5 text-xs leading-6 text-stone-600"><strong className="text-stone-900">Data controller:</strong> {CONTROLLER_NAME}<br /><strong className="text-stone-900">Privacy contact:</strong> {PRIVACY_CONTACT || 'Must be configured before launch'}</div>
           </aside>

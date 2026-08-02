@@ -1,5 +1,6 @@
 export const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const LINKEDIN_PATTERN = /^https:\/\/(www\.)?linkedin\.com\//i;
+export const PHONE_PATTERN = /^[0-9+\s().-]{7,30}$/;
 export const ALLOWED_ROLES = new Set(['candidate', 'referrer', 'mentor']);
 
 const defaultOrigins = [
@@ -40,12 +41,14 @@ export function validateRegistrationPayload(body) {
   const email = cleanText(body.email, 254).toLowerCase();
   const role = cleanText(body.role, 20);
   const linkedinProfile = cleanText(body.linkedin_profile, 500);
+  const whatsappNumber = cleanText(body.whatsapp_number, 30);
   const currentCompany = cleanText(body.current_company, 160);
   const professionalArea = cleanText(body.professional_area, 160);
   const privacyNoticeVersion = cleanText(body.privacy_notice_version, 40);
   const termsAccepted = body.terms_accepted === true;
   const ageConfirmed = body.age_confirmed === true;
   const marketingOptIn = body.marketing_opt_in === true;
+  const whatsappGroupConsent = body.whatsapp_group_consent === true;
   const honeypotTriggered = Boolean(cleanText(body.website, 200));
 
   if (honeypotTriggered) {
@@ -58,6 +61,14 @@ export function validateRegistrationPayload(body) {
 
   if (linkedinProfile && !LINKEDIN_PATTERN.test(linkedinProfile)) {
     return { ok: false, detail: 'LinkedIn profile must use a linkedin.com URL.' };
+  }
+
+  if (whatsappNumber && !PHONE_PATTERN.test(whatsappNumber)) {
+    return { ok: false, detail: 'WhatsApp number must look like a valid phone number.' };
+  }
+
+  if (whatsappGroupConsent && !whatsappNumber) {
+    return { ok: false, detail: 'Enter a WhatsApp number if you want group-invite consent recorded.' };
   }
 
   if (role === 'referrer' && !currentCompany) {
@@ -76,6 +87,9 @@ export function validateRegistrationPayload(body) {
       email,
       role,
       linkedin_profile: linkedinProfile || null,
+      whatsapp_number: whatsappNumber || null,
+      whatsapp_group_consent: whatsappGroupConsent,
+      whatsapp_group_status: whatsappGroupConsent ? 'pending_approval' : 'not_requested',
       current_company: currentCompany || null,
       professional_area: professionalArea,
       privacy_notice_version: privacyNoticeVersion,

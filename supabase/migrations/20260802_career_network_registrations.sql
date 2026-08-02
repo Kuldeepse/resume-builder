@@ -11,6 +11,10 @@ create table if not exists public.career_network_registrations (
   email text not null check (char_length(email) between 5 and 254),
   role text not null check (role in ('candidate', 'referrer', 'mentor')),
   linkedin_profile text,
+  whatsapp_number text,
+  whatsapp_group_consent boolean not null default false,
+  whatsapp_group_status text not null default 'not_requested'
+    check (whatsapp_group_status in ('not_requested', 'pending_approval', 'approved', 'invited', 'declined', 'withdrawn')),
   current_company text,
   professional_area text not null,
   privacy_notice_version text not null,

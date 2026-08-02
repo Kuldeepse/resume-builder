@@ -7,7 +7,7 @@ export default function PrivacyNoticePage() {
       <article className="mx-auto max-w-4xl rounded-3xl border border-[#d9c3a7] bg-white p-6 shadow-[0_20px_60px_rgba(115,74,28,0.08)] md:p-10">
         <p className="text-xs font-black uppercase tracking-wider text-amber-800">RoleCraft Career Network</p>
         <h1 className="mt-3 text-3xl font-black tracking-tight md:text-5xl">Privacy Notice</h1>
-        <p className="mt-4 text-sm leading-7 text-stone-600">Version 2026-08-02 · Applies to Career Network registration.</p>
+        <p className="mt-4 text-sm leading-7 text-stone-600">Version 2026-08-02 · Applies to Career Network registration and optional WhatsApp group invite requests.</p>
 
         {!PRIVACY_CONTACT && (
           <div className="mt-6 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm leading-6 text-rose-800">
@@ -26,6 +26,7 @@ export default function PrivacyNoticePage() {
             <li>Selected network role: candidate, referrer, or mentor.</li>
             <li>Professional area.</li>
             <li>LinkedIn profile, only when you choose to provide it.</li>
+            <li>WhatsApp number and WhatsApp-group consent, only if you choose to request a group invite.</li>
             <li>Current company, required only for referrer verification.</li>
             <li>Records of privacy-notice acceptance, age confirmation, and optional marketing preference.</li>
           </ul>
@@ -35,6 +36,7 @@ export default function PrivacyNoticePage() {
         <Section title="Why we use it and lawful basis">
           <ul>
             <li>To receive, verify, and administer your requested Career Network registration: steps at your request and, where applicable, performance of the service terms.</li>
+            <li>To review and, if approved, administer an optional RoleCraft WhatsApp group invite that you separately requested: your consent and our legitimate interests in running a moderated support community.</li>
             <li>To protect the network against abuse, impersonation, and fraud: our legitimate interests in operating a safe professional service.</li>
             <li>To send optional product updates: your separate consent. You may withdraw this consent without affecting network registration.</li>
           </ul>
@@ -43,6 +45,7 @@ export default function PrivacyNoticePage() {
         <Section title="Who can access it">
           <p>Registration data is not published and is not available through a public directory or public read API. Access is limited to authorised RoleCraft administrators and contracted service providers who need the information to operate or secure the service.</p>
           <p>Your identity or professional details will not be disclosed to another network member merely because you registered. Any later matching workflow must use a separate, explicit disclosure step.</p>
+          <p>If you request a WhatsApp invite, your number must remain private until RoleCraft approves the request and performs the invite through an authorised administrator workflow.</p>
         </Section>
 
         <Section title="Automated decisions and AI">
@@ -51,6 +54,7 @@ export default function PrivacyNoticePage() {
 
         <Section title="Retention">
           <p>Pending registration information is retained for no longer than 12 months unless it is still required to administer an active account, handle a legal obligation, resolve a dispute, or respond to your request. Records are reviewed and deleted or anonymised when no longer needed.</p>
+          <p>If you withdraw WhatsApp-group consent before an invite is approved, the WhatsApp invite request should be cancelled and the number should no longer be used for that purpose.</p>
         </Section>
 
         <Section title="Security">
@@ -63,7 +67,7 @@ export default function PrivacyNoticePage() {
         </Section>
 
         <Section title="International processing and suppliers">
-          <p>Before public launch, RoleCraft must document the final hosting, database, email, monitoring, and other processors, their processing locations, contracts, retention controls, and any required international-transfer safeguards. The registration service must remain disabled until this record is complete.</p>
+          <p>Before public launch, RoleCraft must document the final hosting, database, email, monitoring, WhatsApp administration workflow, and other processors, their processing locations, contracts, retention controls, and any required international-transfer safeguards. The registration service must remain disabled until this record is complete.</p>
         </Section>
 
         <Section title="Changes to this notice">

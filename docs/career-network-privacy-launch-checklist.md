@@ -14,6 +14,7 @@ The registration feature must remain disabled until every mandatory launch gate 
 - [ ] Complete a Data Protection Impact Assessment before adding AI scoring, CV processing, identity verification, employee verification, or automated matching.
 - [ ] Complete the ICO data-protection-fee self-assessment and pay/register where required.
 - [ ] Put processor contracts and data-processing terms in place for Vercel, Supabase, email, monitoring, and any other supplier.
+- [ ] If WhatsApp invites are enabled, document the lawful basis, administrator workflow, supplier terms, retention controls, and international-transfer safeguards for WhatsApp group processing.
 - [ ] Define a 12-month maximum pending-registration retention schedule and implement deletion or anonymisation when the purpose ends.
 - [ ] Establish procedures for access, correction, erasure, restriction, objection, consent withdrawal, and complaints.
 - [ ] Establish incident detection, escalation, breach assessment, and notification procedures.
@@ -23,6 +24,7 @@ The registration feature must remain disabled until every mandatory launch gate 
 
 - Do not collect CVs, job descriptions, passports, immigration records, bank information, date of birth, home address, or special-category data.
 - Do not expose a public member, employee, employer, or candidate directory.
+- Do not add anyone to a WhatsApp group without separate consent and manual approval.
 - Do not send registration data to an AI model.
 - Do not accept or reject registration solely through automated decision-making.
 - Do not disclose a referrer's identity or employer to a candidate until the referrer explicitly accepts a controlled match.
@@ -38,3 +40,4 @@ The registration feature must remain disabled until every mandatory launch gate 
 6. Confirm duplicate email-and-role registration updates the private record rather than creating uncontrolled duplicates.
 7. Confirm optional marketing remains false unless separately selected.
 8. Confirm the registration button is disabled when the privacy contact environment variable is absent.
+9. Confirm WhatsApp group consent remains false unless separately selected and that no invite is sent automatically on registration.
