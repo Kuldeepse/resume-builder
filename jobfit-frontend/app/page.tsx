@@ -191,7 +191,7 @@ export default function Home() {
               </div>
 
               <div className="space-y-3">
-                <h1 className="max-w-3xl text-4xl font-black tracking-tight md:text-6xl">
+                <h1 className="max-w-3xl text-4xl font-black tracking-tight md:text-5xl">
                   Build sharper applications with the same RoleCraft portal language.
                 </h1>
                 <p className={`max-w-2xl text-sm leading-7 md:text-base ${mutedTextTheme}`}>
@@ -215,12 +215,12 @@ export default function Home() {
             <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1">
               <div className={`rounded-[1.5rem] border p-4 ${softPanelTheme}`}>
                 <div className={`text-[10px] font-bold uppercase tracking-[0.22em] ${sectionLabelTheme}`}>Studio Flow</div>
-                <div className="mt-3 text-2xl font-black">3 Tracks</div>
+                <div className="mt-3 text-xl font-black">3 Tracks</div>
                 <p className={`mt-1 text-xs leading-6 ${mutedTextTheme}`}>Build, validate, and prepare without leaving the portal.</p>
               </div>
               <div className={`rounded-[1.5rem] border p-4 ${softPanelTheme}`}>
                 <div className={`text-[10px] font-bold uppercase tracking-[0.22em] ${sectionLabelTheme}`}>Question Depth</div>
-                <div className="mt-3 text-2xl font-black">{totalQuestions}</div>
+                <div className="mt-3 text-xl font-black">{totalQuestions}</div>
                 <p className={`mt-1 text-xs leading-6 ${mutedTextTheme}`}>Interview prompts adapt to your selected role and track.</p>
               </div>
               <div className={`rounded-[1.5rem] border p-4 ${softPanelTheme}`}>
@@ -423,7 +423,7 @@ export default function Home() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className={`rounded-[1.75rem] border p-8 text-center ${softPanelTheme}`}>
-                <div className="text-6xl font-black">{results.match_score}%</div>
+                <div className="text-5xl font-black md:text-6xl">{results.match_score}%</div>
               </div>
 
               <div className={`rounded-[1.75rem] border p-6 ${softPanelTheme}`}>

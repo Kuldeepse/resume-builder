@@ -124,7 +124,7 @@ export function CareerNetworkRegistrationContent() {
         <section className="grid gap-6 overflow-hidden rounded-[2rem] border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-xl)] md:p-9 lg:grid-cols-[1.15fr_0.85fr]">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-[10px] font-black uppercase tracking-[0.24em] text-teal-900"><Network className="h-3.5 w-3.5" /> RoleCraft Career Network</div>
-            <h1 className="mt-5 max-w-3xl text-3xl font-black tracking-tight text-slate-950 md:text-5xl">Register once. Get private access to referral support, mentoring, and trusted introductions.</h1>
+            <h1 className="mt-5 max-w-3xl text-3xl font-black tracking-tight text-slate-950 md:text-[2.85rem]">Register once. Get private access to referral support, mentoring, and trusted introductions.</h1>
             <p className="mt-4 max-w-3xl text-sm leading-7 text-[var(--ink-soft)] md:text-base">The page is open, but the network is not. Every registration is reviewed privately, never listed publicly, and approved deliberately before any access or WhatsApp invite is granted.</p>
             <div className="mt-6 flex flex-wrap gap-3 text-xs font-bold uppercase tracking-[0.18em] text-slate-700">
               <span className="rounded-full border border-teal-200 bg-white/80 px-3 py-2">Manual review</span>

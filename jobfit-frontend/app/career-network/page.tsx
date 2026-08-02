@@ -43,7 +43,7 @@ export default function CareerNetworkLandingPage() {
             <div className="inline-flex items-center gap-2 rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-[10px] font-black uppercase tracking-[0.24em] text-teal-900">
               <Network className="h-3.5 w-3.5" /> RoleCraft Career Network
             </div>
-            <h1 className="mt-5 max-w-3xl text-3xl font-black tracking-tight text-slate-950 md:text-5xl">
+            <h1 className="mt-5 max-w-3xl text-3xl font-black tracking-tight text-slate-950 md:text-[2.85rem]">
               A trusted referral network with a public front door and a private approval process.
             </h1>
             <p className="mt-4 max-w-3xl text-sm leading-7 text-[var(--ink-soft)] md:text-base">

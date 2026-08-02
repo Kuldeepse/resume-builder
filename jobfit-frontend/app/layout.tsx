@@ -1,6 +1,17 @@
 import type { Metadata } from "next";
+import { Plus_Jakarta_Sans, Sora } from "next/font/google";
 import "./globals.css";
 import ThemeToggle from "./theme-toggle";
+
+const bodyFont = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  variable: "--font-rolecraft-sans",
+});
+
+const displayFont = Sora({
+  subsets: ["latin"],
+  variable: "--font-rolecraft-display",
+});
 
 const siteTitle = "RoleCraft AI - Career Intelligence and Trusted Access";
 const siteDescription = "Tailor CV evidence, prepare for interviews, discover jobs, and create referral-ready requests through RoleCraft Career Network.";
@@ -45,17 +56,17 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="h-full antialiased" suppressHydrationWarning>
-      <body className="min-h-full text-[var(--foreground)]">
+      <body className={`${bodyFont.variable} ${displayFont.variable} min-h-full text-[var(--foreground)]`}>
         <header className="sticky top-0 z-50 px-4 pt-4 md:px-8">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 rounded-[2rem] border border-[var(--surface-border)] bg-[var(--surface)] px-4 py-3 shadow-[var(--shadow-xl)] backdrop-blur-2xl md:px-6">
             <a href="/" className="flex items-center gap-3 font-black text-slate-950">
               <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,var(--accent)_0%,var(--highlight)_100%)] text-xs text-white shadow-lg shadow-teal-900/20">RC</span>
               <span className="flex flex-col leading-none">
                 <span className="text-sm uppercase tracking-[0.24em] text-[var(--ink-soft)]">RoleCraft</span>
-                <span className="mt-1 text-lg">Career Network</span>
+                <span className="mt-1 font-[var(--font-rolecraft-display)] text-base tracking-[-0.02em] md:text-lg">Career Network</span>
               </span>
             </a>
-            <nav className="flex items-center gap-2 text-xs font-bold">
+            <nav className="flex items-center gap-2 text-[11px] font-bold">
               <a href="/" className="rounded-full px-4 py-2 text-[var(--ink-soft)] hover:bg-white/70 hover:text-slate-950">Career Studio</a>
               <a href="/career-network" className="flex items-center gap-2 rounded-full bg-[var(--accent)] px-4 py-2 text-white shadow-lg shadow-teal-900/20 hover:bg-[var(--accent-strong)]">
                 Career Network
