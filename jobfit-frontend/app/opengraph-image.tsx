@@ -20,7 +20,7 @@ export default function OpenGraphImage() {
           background:
             "radial-gradient(circle at top, #fffaf3 0%, #f5e8d4 42%, #ead4b3 100%)",
           color: "#111827",
-          padding: "56px 64px",
+          padding: "48px 56px",
           fontFamily: "sans-serif",
         }}
       >
@@ -53,28 +53,28 @@ export default function OpenGraphImage() {
             style={{
               display: "flex",
               flexDirection: "column",
-              gap: 8,
+              gap: 10,
             }}
           >
             <div
               style={{
-                fontSize: 24,
+                fontSize: 22,
                 fontWeight: 700,
-                color: "#92400e",
+                color: "#0f766e",
                 textTransform: "uppercase",
-                letterSpacing: 2,
+                letterSpacing: 3,
               }}
             >
               RoleCraft AI
             </div>
             <div
               style={{
-                fontSize: 18,
+                fontSize: 20,
                 fontWeight: 600,
                 color: "#57534e",
               }}
             >
-              Kuldeep Sharma
+              Career Studio + Trusted Referral Network
             </div>
           </div>
         </div>
@@ -90,21 +90,21 @@ export default function OpenGraphImage() {
           <div
             style={{
               fontSize: 72,
-              lineHeight: 1.02,
+              lineHeight: 1.04,
               fontWeight: 800,
               color: "#111827",
             }}
           >
-            AI Career Platform for resumes, interviews, and job discovery.
+            Resume building, interview prep, and private referral support.
           </div>
           <div
             style={{
-              fontSize: 30,
+              fontSize: 28,
               lineHeight: 1.35,
               color: "#44403c",
             }}
           >
-            Tailor resumes to job descriptions, generate interview prep, and find relevant roles from one polished workflow.
+            RoleCraft AI helps professionals tailor applications, prepare faster, and request trusted introductions through a moderated career network.
           </div>
         </div>
 
@@ -119,8 +119,8 @@ export default function OpenGraphImage() {
             paddingTop: 22,
           }}
         >
-          <div>jobfitcareer.vercel.app</div>
-          <div style={{ color: "#92400e", fontWeight: 700 }}>RoleCraft AI</div>
+          <div>rolecraftai.duckdns.org</div>
+          <div style={{ color: "#0f766e", fontWeight: 700 }}>Career Network • Status Tracking • Privacy First</div>
         </div>
       </div>
     ),

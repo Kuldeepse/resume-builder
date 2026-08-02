@@ -22,6 +22,33 @@ export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: siteTitle,
   description: siteDescription,
+  applicationName: "RoleCraft AI",
+  keywords: [
+    "AI resume builder",
+    "career network",
+    "job referrals UK",
+    "interview preparation",
+    "job search platform",
+    "RoleCraft AI",
+  ],
+  authors: [{ name: "Kuldeep Sharma" }],
+  creator: "Kuldeep Sharma",
+  publisher: "RoleCraft AI",
+  category: "career technology",
+  alternates: {
+    canonical: siteUrl,
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
   icons: {
     icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
     shortcut: "/icon.svg",
@@ -47,6 +74,9 @@ export const metadata: Metadata = {
     title: siteTitle,
     description: siteDescription,
     images: ["/opengraph-image"],
+  },
+  other: {
+    "google-site-verification": process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || "",
   },
 };
 
