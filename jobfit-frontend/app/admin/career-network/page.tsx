@@ -1,4 +1,4 @@
-import { CheckCircle2, Clock3, LogOut, ShieldCheck, Users, XCircle } from 'lucide-react';
+import { CheckCircle2, Clock3, LogOut, Save, ShieldCheck, Users, XCircle } from 'lucide-react';
 import { requireAdminAuth } from './auth';
 import { buildSupabaseRestHeaders } from '@/lib/supabase-rest.mjs';
 
@@ -90,6 +90,10 @@ export default async function CareerNetworkAdminDashboardPage() {
           </div>
         )}
 
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs leading-6 text-amber-900">
+          Update each row to move a person from registration review into verified access, and separately manage the WhatsApp invite lifecycle.
+        </div>
+
         <section className="overflow-hidden rounded-3xl border border-[#d9c3a7] bg-white/92 shadow-[0_20px_60px_rgba(115,74,28,0.08)]">
           <div className="border-b border-[#e6d4bf] px-6 py-4">
             <h2 className="text-lg font-black">Private registrations</h2>
@@ -109,12 +113,13 @@ export default async function CareerNetworkAdminDashboardPage() {
                   <th className="px-4 py-3 font-black">Company</th>
                   <th className="px-4 py-3 font-black">Registration</th>
                   <th className="px-4 py-3 font-black">WhatsApp</th>
+                  <th className="px-4 py-3 font-black">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {registrations.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-sm text-stone-500">
+                    <td colSpan={8} className="px-4 py-8 text-center text-sm text-stone-500">
                       No registrations available yet.
                     </td>
                   </tr>
@@ -151,6 +156,46 @@ export default async function CareerNetworkAdminDashboardPage() {
                       <div className="mt-2">
                         <Badge tone={record.whatsapp_group_consent ? 'green' : 'slate'}>{record.whatsapp_group_status}</Badge>
                       </div>
+                    </td>
+                    <td className="px-4 py-4">
+                      <form action={`/api/admin/career-network/registrations/${record.id}`} method="post" className="space-y-3">
+                        <label className="block text-[11px] font-black uppercase tracking-wider text-stone-600">
+                          Registration status
+                          <select
+                            name="registration_status"
+                            defaultValue={record.status}
+                            className="mt-1 w-full rounded-xl border border-[#d6c0a7] bg-[#fffaf3] p-2 text-xs font-medium text-stone-900 outline-none focus:border-amber-700"
+                          >
+                            <option value="pending_verification">Pending verification</option>
+                            <option value="verified">Verified</option>
+                            <option value="declined">Declined</option>
+                            <option value="deleted">Deleted</option>
+                          </select>
+                        </label>
+
+                        <label className="block text-[11px] font-black uppercase tracking-wider text-stone-600">
+                          WhatsApp status
+                          <select
+                            name="whatsapp_status"
+                            defaultValue={record.whatsapp_group_status}
+                            className="mt-1 w-full rounded-xl border border-[#d6c0a7] bg-[#fffaf3] p-2 text-xs font-medium text-stone-900 outline-none focus:border-amber-700"
+                          >
+                            <option value="not_requested">Not requested</option>
+                            <option value="pending_approval">Pending approval</option>
+                            <option value="approved">Approved</option>
+                            <option value="invited">Invited</option>
+                            <option value="declined">Declined</option>
+                            <option value="withdrawn">Withdrawn</option>
+                          </select>
+                        </label>
+
+                        <button
+                          type="submit"
+                          className="inline-flex items-center gap-2 rounded-xl bg-amber-900 px-3 py-2 text-xs font-black text-white shadow-sm hover:opacity-95"
+                        >
+                          <Save className="h-3.5 w-3.5" /> Save status
+                        </button>
+                      </form>
                     </td>
                   </tr>
                 ))}
