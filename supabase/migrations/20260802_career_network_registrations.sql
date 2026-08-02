@@ -12,25 +12,22 @@ create table if not exists public.career_network_registrations (
   role text not null check (role in ('candidate', 'referrer', 'mentor')),
   linkedin_profile text,
   current_company text,
-  professional_area text,
+  professional_area text not null,
   privacy_notice_version text not null,
   terms_accepted boolean not null default false,
   age_confirmed boolean not null default false,
   marketing_opt_in boolean not null default false,
   status text not null default 'pending_verification'
     check (status in ('pending_verification', 'verified', 'declined', 'deleted')),
-  retention_until date not null default (current_date + interval '12 months')::date
+  retention_until date not null default (current_date + interval '12 months')::date,
+  constraint career_network_registration_email_role_uq unique (email, role)
 );
-
-create unique index if not exists career_network_registration_email_role_uq
-  on public.career_network_registrations (lower(email), role);
 
 alter table public.career_network_registrations enable row level security;
 
 -- No public read, insert, update, or delete policies are intentionally created.
--- The backend uses the Supabase service role and exposes only an insert/upsert API.
+-- The server-side API uses the Supabase service role. Never expose that key to the browser.
 revoke all on table public.career_network_registrations from anon, authenticated;
-
 grant all on table public.career_network_registrations to service_role;
 
 create or replace function public.set_career_network_updated_at()
