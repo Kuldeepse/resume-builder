@@ -15,12 +15,10 @@ import {
   Link,
   ListOrdered,
   MessageSquarePlus,
-  Moon,
   RefreshCw,
   RotateCcw,
   Search,
   Sparkles,
-  Sun,
   Target,
   User,
   UserCheck,
@@ -49,7 +47,14 @@ export default function Home() {
   const [jobResults, setJobResults] = useState<any>(null);
 
   useEffect(() => {
+    const syncTheme = () => {
+      setDarkMode(document.documentElement.dataset.theme === 'dark');
+    };
+
     setMounted(true);
+    syncTheme();
+    window.addEventListener('rolecraft-theme-change', syncTheme);
+    return () => window.removeEventListener('rolecraft-theme-change', syncTheme);
   }, []);
 
   const handleGenerate = async () => {
@@ -174,24 +179,6 @@ export default function Home() {
             <div className={`absolute -left-12 top-0 h-36 w-36 rounded-full blur-3xl ${darkMode ? 'bg-cyan-400/12' : 'bg-[color:rgba(15,118,110,0.14)]'}`} />
             <div className={`absolute right-0 top-10 h-40 w-40 rounded-full blur-3xl ${darkMode ? 'bg-orange-400/10' : 'bg-[color:rgba(194,108,58,0.18)]'}`} />
           </div>
-
-          <button
-            type="button"
-            onClick={() => setDarkMode(!darkMode)}
-            className={`absolute right-4 top-4 z-10 flex items-center gap-1.5 rounded-full border px-3 py-2 text-[10px] font-bold uppercase tracking-[0.2em] transition-all ${
-              darkMode ? 'border-white/10 bg-slate-950/80 text-cyan-100' : 'border-[var(--surface-border)] bg-white/90 text-stone-800'
-            }`}
-          >
-            {darkMode ? (
-              <>
-                <Sun className="w-3.5 h-3.5" /> Light Theme
-              </>
-            ) : (
-              <>
-                <Moon className="w-3.5 h-3.5" /> Dark Theme
-              </>
-            )}
-          </button>
 
           <div className="relative z-10 grid gap-8 lg:grid-cols-[1.3fr_0.7fr] lg:items-end">
             <div className="space-y-5 text-left">

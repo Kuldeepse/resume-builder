@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import ThemeToggle from "./theme-toggle";
 
 const siteTitle = "RoleCraft AI - Career Intelligence and Trusted Access";
 const siteDescription = "Tailor CV evidence, prepare for interviews, discover jobs, and create referral-ready requests through RoleCraft Career Network.";
@@ -43,7 +44,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="h-full antialiased">
+    <html lang="en" className="h-full antialiased" suppressHydrationWarning>
       <body className="min-h-full text-[var(--foreground)]">
         <header className="sticky top-0 z-50 px-4 pt-4 md:px-8">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 rounded-[2rem] border border-[var(--surface-border)] bg-[var(--surface)] px-4 py-3 shadow-[var(--shadow-xl)] backdrop-blur-2xl md:px-6">
@@ -61,6 +62,7 @@ export default function RootLayout({
                 <span className="rounded-full bg-white/20 px-2 py-0.5 text-[9px] uppercase tracking-[0.22em] text-white">Live</span>
               </a>
               <a href="/admin/career-network" className="rounded-full border border-[var(--surface-border)] px-4 py-2 text-[var(--ink-soft)] hover:border-[var(--accent)] hover:bg-[var(--accent-soft)] hover:text-[var(--accent-strong)]">Admin</a>
+              <ThemeToggle />
             </nav>
           </div>
         </header>

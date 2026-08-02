@@ -4,8 +4,9 @@ import { ADMIN_COOKIE_NAME } from '@/app/admin/career-network/auth';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function POST() {
-  const response = NextResponse.json({ status: 'ok' }, { status: 200, headers: { 'Cache-Control': 'no-store' } });
+export async function POST(request: Request) {
+  const response = NextResponse.redirect(new URL('/admin/career-network/login?logged_out=1', request.url), 303);
+  response.headers.set('Cache-Control', 'no-store');
   response.cookies.set({
     name: ADMIN_COOKIE_NAME,
     value: '',
