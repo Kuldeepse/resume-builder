@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isAllowedOrigin, validateRegistrationPayload } from './policy.mjs';
 import { buildSupabaseRestHeaders } from '@/lib/supabase-rest.mjs';
+import { sendCareerNetworkRegistrationEmails } from '@/lib/career-network-email.mjs';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -10,6 +11,8 @@ const NO_STORE_HEADERS = {
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'X-Content-Type-Options': 'nosniff',
 };
+
+const WHATSAPP_GROUP_NAME = 'RoleCraft IT Jobs referrals UK';
 
 export async function POST(request: NextRequest) {
   const origin = request.headers.get('origin');
@@ -42,6 +45,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ detail: validation.detail }, { status: 400, headers: NO_STORE_HEADERS });
   }
 
+  const storageRecord = validation.record;
   const storageResponse = await fetch(
     `${supabaseUrl.replace(/\/$/, '')}/rest/v1/career_network_registrations?on_conflict=email,role`,
     {
@@ -51,7 +55,7 @@ export async function POST(request: NextRequest) {
         accept: 'application/json',
         prefer: 'resolution=merge-duplicates,return=representation',
       }),
-      body: JSON.stringify(validation.record),
+      body: JSON.stringify(storageRecord),
       cache: 'no-store',
     },
   );
@@ -64,6 +68,32 @@ export async function POST(request: NextRequest) {
   }
 
   const stored = (await storageResponse.json().catch(() => [])) as Array<{ id?: string; status_lookup_code?: string }>;
+  const storedRecord = {
+    ...storageRecord,
+    id: stored[0]?.id || null,
+    status_lookup_code: stored[0]?.status_lookup_code || null,
+  };
+
+  const emailApiKey = process.env.RESEND_API_KEY;
+  const emailFrom = process.env.CAREER_NETWORK_EMAIL_FROM;
+  const adminAlertEmail = process.env.CAREER_NETWORK_ADMIN_ALERT_EMAIL || process.env.NEXT_PUBLIC_PRIVACY_CONTACT_EMAIL;
+
+  if (storedRecord.status_lookup_code) {
+    sendCareerNetworkRegistrationEmails({
+      registration: storedRecord,
+      siteUrl: request.nextUrl.origin,
+      adminUrl: `${request.nextUrl.origin}/admin/career-network`,
+      groupName: WHATSAPP_GROUP_NAME,
+      emailConfig: {
+        apiKey: emailApiKey,
+        from: emailFrom,
+        adminAlertEmail,
+      },
+    }).catch((error) => {
+      console.error('Career Network email notification failed', error);
+    });
+  }
+
   return NextResponse.json(
     {
       status: 'pending_verification',

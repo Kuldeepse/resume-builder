@@ -24,6 +24,12 @@ Also required for the current production flow:
 - `NEXT_PUBLIC_PRIVACY_CONTACT_EMAIL`
 - `CAREER_NETWORK_ADMIN_PASSWORD`
 
+Optional but recommended for registration notifications:
+
+- `RESEND_API_KEY`
+- `CAREER_NETWORK_EMAIL_FROM`
+- `CAREER_NETWORK_ADMIN_ALERT_EMAIL`
+
 Never expose the service-role key through a `NEXT_PUBLIC_` variable.
 
 ## 3. Supabase key compatibility
@@ -44,6 +50,8 @@ Vercel environment variable changes only apply to new deployments. After saving 
 ## 5. Expected behaviour after a healthy deployment
 
 - `/career-network` should submit successfully and return `pending_verification`
+- the user should receive a confirmation email with a tracking code if the email env vars are configured
+- the admin should receive a new-registration alert email if the email env vars are configured
 - `/admin/career-network/login` should load
 - `/admin/career-network` should show private registrations after admin login
 
