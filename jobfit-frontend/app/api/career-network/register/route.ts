@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isAllowedOrigin, validateRegistrationPayload } from './policy.mjs';
+import { buildSupabaseRestHeaders } from '@/lib/supabase-rest.mjs';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -45,13 +46,11 @@ export async function POST(request: NextRequest) {
     `${supabaseUrl.replace(/\/$/, '')}/rest/v1/career_network_registrations?on_conflict=email,role`,
     {
       method: 'POST',
-      headers: {
-        apikey: serviceRoleKey,
-        Authorization: `Bearer ${serviceRoleKey}`,
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-        Prefer: 'resolution=merge-duplicates,return=representation',
-      },
+      headers: buildSupabaseRestHeaders(serviceRoleKey, {
+        contentType: 'application/json',
+        accept: 'application/json',
+        prefer: 'resolution=merge-duplicates,return=representation',
+      }),
       body: JSON.stringify(validation.record),
       cache: 'no-store',
     },

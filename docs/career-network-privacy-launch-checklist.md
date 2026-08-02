@@ -7,6 +7,7 @@ The registration feature must remain disabled until every mandatory launch gate 
 - [ ] Identify the legal data controller, business address, and privacy contact.
 - [ ] Configure `NEXT_PUBLIC_DATA_CONTROLLER_NAME` and `NEXT_PUBLIC_PRIVACY_CONTACT_EMAIL` in Vercel.
 - [ ] Configure server-only `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` in Vercel. Never prefix the service key with `NEXT_PUBLIC_`.
+- [ ] If you use a newer `sb_secret_...` key, keep it server-only. The app now sends `Authorization: Bearer` only for legacy JWT-style keys and uses `apikey` for both formats.
 - [ ] Configure a server-only `CAREER_NETWORK_ADMIN_PASSWORD` before using the admin dashboard.
 - [ ] Run `supabase/migrations/20260802_career_network_registrations.sql` in the correct Supabase project.
 - [ ] Verify Row Level Security is enabled and that `anon` and `authenticated` roles cannot select, insert, update, or delete registration rows.

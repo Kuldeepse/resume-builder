@@ -1,6 +1,6 @@
-import { redirect } from 'next/navigation';
 import { CheckCircle2, Clock3, LogOut, ShieldCheck, Users, XCircle } from 'lucide-react';
 import { requireAdminAuth } from './auth';
+import { buildSupabaseRestHeaders } from '@/lib/supabase-rest.mjs';
 
 type RegistrationRecord = {
   id: string;
@@ -30,11 +30,9 @@ async function loadRegistrations() {
     `${supabaseUrl.replace(/\/$/, '')}/rest/v1/career_network_registrations?select=id,created_at,full_name,email,role,linkedin_profile,whatsapp_number,whatsapp_group_consent,whatsapp_group_status,current_company,professional_area,marketing_opt_in,status&order=created_at.desc`,
     {
       method: 'GET',
-      headers: {
-        apikey: serviceRoleKey,
-        Authorization: `Bearer ${serviceRoleKey}`,
-        Accept: 'application/json',
-      },
+      headers: buildSupabaseRestHeaders(serviceRoleKey, {
+        accept: 'application/json',
+      }),
       cache: 'no-store',
     },
   );
