@@ -54,23 +54,23 @@ export default async function CareerNetworkAdminDashboardPage() {
   const { registrations, error } = await loadRegistrations();
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,_#fffdf8_0%,_#f7efe4_42%,_#ede2d1_100%)] px-4 py-8 text-stone-950 md:px-8">
+    <main className="min-h-screen px-4 py-8 text-slate-950 md:px-8">
       <div className="mx-auto max-w-7xl space-y-6">
-        <section className="flex flex-wrap items-start justify-between gap-4 rounded-3xl border border-[#d9c3a7] bg-white/92 p-6 shadow-[0_20px_60px_rgba(115,74,28,0.08)] md:p-8">
+        <section className="flex flex-wrap items-start justify-between gap-4 rounded-[2rem] border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-xl)] md:p-8">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-amber-900">
+            <div className="inline-flex items-center gap-2 rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-[10px] font-black uppercase tracking-[0.24em] text-teal-900">
               <ShieldCheck className="h-3.5 w-3.5" /> Admin Dashboard
             </div>
-            <h1 className="mt-4 text-3xl font-black tracking-tight md:text-5xl">Career Network registrations</h1>
-            <p className="mt-3 max-w-3xl text-sm leading-7 text-stone-600 md:text-base">
-              Private registration data for authorised RoleCraft administrators. Registration consent does not grant member access to this dashboard.
+            <h1 className="mt-4 text-3xl font-black tracking-tight md:text-5xl">Command center for approvals</h1>
+            <p className="mt-3 max-w-3xl text-sm leading-7 text-[var(--ink-soft)] md:text-base">
+              Review applications, verify network access, and manage WhatsApp invite progression without exposing the underlying registration data publicly.
             </p>
           </div>
 
           <form action="/api/admin/career-network/logout" method="post">
             <button
               type="submit"
-              className="inline-flex items-center gap-2 rounded-xl border border-[#d9c3a7] bg-white px-4 py-2 text-xs font-black text-stone-700 hover:bg-amber-50"
+              className="inline-flex items-center gap-2 rounded-full border border-[var(--surface-border)] bg-white/70 px-4 py-2 text-xs font-black text-slate-700 hover:border-[var(--accent)] hover:bg-[var(--accent-soft)]"
             >
               <LogOut className="h-4 w-4" /> Sign out
             </button>
@@ -85,26 +85,26 @@ export default async function CareerNetworkAdminDashboardPage() {
         </section>
 
         {error && (
-          <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+          <div className="rounded-[1.5rem] border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
             {error}
           </div>
         )}
 
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs leading-6 text-amber-900">
+        <div className="rounded-[1.5rem] border border-teal-200 bg-teal-50 p-4 text-xs leading-6 text-teal-950">
           Update each row to move a person from registration review into verified access, and separately manage the WhatsApp invite lifecycle.
         </div>
 
-        <section className="overflow-hidden rounded-3xl border border-[#d9c3a7] bg-white/92 shadow-[0_20px_60px_rgba(115,74,28,0.08)]">
+        <section className="overflow-hidden rounded-[2rem] border border-[var(--surface-border)] bg-[var(--surface)] shadow-[var(--shadow-xl)]">
           <div className="border-b border-[#e6d4bf] px-6 py-4">
             <h2 className="text-lg font-black">Private registrations</h2>
-            <p className="mt-1 text-xs leading-6 text-stone-600">
+            <p className="mt-1 text-xs leading-6 text-[var(--ink-soft)]">
               Use this list for manual review, approval, and moderated WhatsApp follow-up only.
             </p>
           </div>
 
           <div className="overflow-x-auto">
             <table className="min-w-full text-left text-sm">
-              <thead className="bg-[#fff8ef] text-xs uppercase tracking-wider text-stone-600">
+              <thead className="bg-[#f6fbfa] text-xs uppercase tracking-[0.18em] text-slate-600">
                 <tr>
                   <th className="px-4 py-3 font-black">Name</th>
                   <th className="px-4 py-3 font-black">Role</th>
@@ -137,7 +137,7 @@ export default async function CareerNetworkAdminDashboardPage() {
                         <Badge tone={record.status === 'pending_verification' ? 'slate' : 'green'}>{record.status}</Badge>
                       </div>
                     </td>
-                    <td className="px-4 py-4 text-xs leading-6 text-stone-700">
+                    <td className="px-4 py-4 text-xs leading-6 text-slate-700">
                       <div>{record.email}</div>
                       {record.linkedin_profile && (
                         <a href={record.linkedin_profile} className="text-amber-800 underline" target="_blank" rel="noreferrer">
@@ -145,12 +145,12 @@ export default async function CareerNetworkAdminDashboardPage() {
                         </a>
                       )}
                     </td>
-                    <td className="px-4 py-4 text-xs leading-6 text-stone-700">{record.professional_area}</td>
-                    <td className="px-4 py-4 text-xs leading-6 text-stone-700">{record.current_company || 'Not provided'}</td>
-                    <td className="px-4 py-4 text-xs leading-6 text-stone-700">
+                    <td className="px-4 py-4 text-xs leading-6 text-slate-700">{record.professional_area}</td>
+                    <td className="px-4 py-4 text-xs leading-6 text-slate-700">{record.current_company || 'Not provided'}</td>
+                    <td className="px-4 py-4 text-xs leading-6 text-slate-700">
                       <div>Marketing: {record.marketing_opt_in ? 'Opted in' : 'Not requested'}</div>
                     </td>
-                    <td className="px-4 py-4 text-xs leading-6 text-stone-700">
+                    <td className="px-4 py-4 text-xs leading-6 text-slate-700">
                       <div>{record.whatsapp_number || 'No number provided'}</div>
                       <div className="mt-1">Consent: {record.whatsapp_group_consent ? 'Yes' : 'No'}</div>
                       <div className="mt-2">
@@ -164,7 +164,7 @@ export default async function CareerNetworkAdminDashboardPage() {
                           <select
                             name="registration_status"
                             defaultValue={record.status}
-                            className="mt-1 w-full rounded-xl border border-[#d6c0a7] bg-[#fffaf3] p-2 text-xs font-medium text-stone-900 outline-none focus:border-amber-700"
+                            className="mt-1 w-full rounded-2xl border border-[var(--surface-border)] bg-white/90 p-2 text-xs font-medium text-slate-900 outline-none focus:border-[var(--accent)]"
                           >
                             <option value="pending_verification">Pending verification</option>
                             <option value="verified">Verified</option>
@@ -178,7 +178,7 @@ export default async function CareerNetworkAdminDashboardPage() {
                           <select
                             name="whatsapp_status"
                             defaultValue={record.whatsapp_group_status}
-                            className="mt-1 w-full rounded-xl border border-[#d6c0a7] bg-[#fffaf3] p-2 text-xs font-medium text-stone-900 outline-none focus:border-amber-700"
+                            className="mt-1 w-full rounded-2xl border border-[var(--surface-border)] bg-white/90 p-2 text-xs font-medium text-slate-900 outline-none focus:border-[var(--accent)]"
                           >
                             <option value="not_requested">Not requested</option>
                             <option value="pending_approval">Pending approval</option>
@@ -191,7 +191,7 @@ export default async function CareerNetworkAdminDashboardPage() {
 
                         <button
                           type="submit"
-                          className="inline-flex items-center gap-2 rounded-xl bg-amber-900 px-3 py-2 text-xs font-black text-white shadow-sm hover:opacity-95"
+                          className="inline-flex items-center gap-2 rounded-full bg-[linear-gradient(135deg,var(--accent)_0%,var(--highlight)_100%)] px-3 py-2 text-xs font-black text-white shadow-sm shadow-teal-900/20 hover:opacity-95"
                         >
                           <Save className="h-3.5 w-3.5" /> Save status
                         </button>
@@ -210,8 +210,8 @@ export default async function CareerNetworkAdminDashboardPage() {
 
 function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: number }) {
   return (
-    <div className="rounded-2xl border border-[#d9c3a7] bg-white/92 p-5 shadow-[0_20px_60px_rgba(115,74,28,0.08)]">
-      <div className="flex items-center gap-2 text-sm font-black text-amber-900">{icon}{label}</div>
+    <div className="rounded-[1.6rem] border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-xl)]">
+      <div className="flex items-center gap-2 text-sm font-black text-slate-900">{icon}{label}</div>
       <div className="mt-3 text-3xl font-black tracking-tight">{value}</div>
     </div>
   );
@@ -219,8 +219,8 @@ function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string
 
 function Badge({ children, tone }: { children: React.ReactNode; tone: 'amber' | 'green' | 'slate' }) {
   const styles = {
-    amber: 'border-amber-200 bg-amber-50 text-amber-900',
-    green: 'border-emerald-200 bg-emerald-50 text-emerald-900',
+    amber: 'border-orange-200 bg-orange-50 text-orange-900',
+    green: 'border-teal-200 bg-teal-50 text-teal-900',
     slate: 'border-stone-200 bg-stone-100 text-stone-700',
   };
 

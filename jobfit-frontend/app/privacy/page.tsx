@@ -4,14 +4,14 @@ const WHATSAPP_GROUP_NAME = 'RoleCraft IT Jobs referrals UK';
 
 export default function PrivacyNoticePage() {
   return (
-    <main className="min-h-screen bg-[#f7efe4] px-4 py-10 text-stone-950 md:px-8">
-      <article className="mx-auto max-w-4xl rounded-3xl border border-[#d9c3a7] bg-white p-6 shadow-[0_20px_60px_rgba(115,74,28,0.08)] md:p-10">
-        <p className="text-xs font-black uppercase tracking-wider text-amber-800">RoleCraft Career Network</p>
+    <main className="min-h-screen px-4 py-10 text-slate-950 md:px-8">
+      <article className="mx-auto max-w-4xl rounded-[2rem] border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-xl)] md:p-10">
+        <p className="text-xs font-black uppercase tracking-[0.24em] text-teal-800">RoleCraft Career Network</p>
         <h1 className="mt-3 text-3xl font-black tracking-tight md:text-5xl">Privacy Notice</h1>
-        <p className="mt-4 text-sm leading-7 text-stone-600">Version 2026-08-02 · Applies to Career Network registration and optional WhatsApp group invite requests for {WHATSAPP_GROUP_NAME}.</p>
+        <p className="mt-4 text-sm leading-7 text-[var(--ink-soft)]">Version 2026-08-02 · Applies to Career Network registration and optional WhatsApp group invite requests for {WHATSAPP_GROUP_NAME}.</p>
 
         {!PRIVACY_CONTACT && (
-          <div className="mt-6 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm leading-6 text-rose-800">
+          <div className="mt-6 rounded-[1.25rem] border border-rose-200 bg-rose-50 p-4 text-sm leading-6 text-rose-800">
             Registration must remain disabled until a privacy contact address is configured and this notice is reviewed for the final operating entity and processors.
           </div>
         )}
@@ -76,7 +76,7 @@ export default function PrivacyNoticePage() {
           <p>Material changes will be versioned and presented before new processing occurs. We will not silently expand the use of registration information beyond the stated purposes.</p>
         </Section>
 
-        <a href="/career-network" className="mt-10 inline-flex rounded-xl bg-amber-900 px-5 py-3 text-sm font-black text-white">Return to registration</a>
+        <a href="/career-network" className="mt-10 inline-flex rounded-full bg-[linear-gradient(135deg,var(--accent)_0%,var(--highlight)_100%)] px-5 py-3 text-sm font-black text-white shadow-lg shadow-teal-900/20">Return to registration</a>
       </article>
     </main>
   );
@@ -86,7 +86,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   return (
     <section className="mt-8 border-t border-stone-200 pt-6">
       <h2 className="text-lg font-black">{title}</h2>
-      <div className="mt-3 space-y-3 text-sm leading-7 text-stone-600 [&_ul]:list-disc [&_ul]:space-y-2 [&_ul]:pl-5">{children}</div>
+      <div className="mt-3 space-y-3 text-sm leading-7 text-[var(--ink-soft)] [&_ul]:list-disc [&_ul]:space-y-2 [&_ul]:pl-5">{children}</div>
     </section>
   );
 }

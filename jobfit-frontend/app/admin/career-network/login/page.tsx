@@ -34,38 +34,38 @@ export default function CareerNetworkAdminLoginPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,_#fffdf8_0%,_#f7efe4_42%,_#ede2d1_100%)] px-4 py-10 text-stone-950 md:px-8">
-      <div className="mx-auto max-w-lg rounded-3xl border border-[#d9c3a7] bg-white/92 p-6 shadow-[0_20px_60px_rgba(115,74,28,0.08)] md:p-8">
-        <div className="inline-flex items-center gap-2 rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-amber-900">
+    <main className="min-h-screen px-4 py-10 text-slate-950 md:px-8">
+      <div className="mx-auto max-w-lg rounded-[2rem] border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-xl)] md:p-8">
+        <div className="inline-flex items-center gap-2 rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-[10px] font-black uppercase tracking-[0.24em] text-teal-900">
           <ShieldCheck className="h-3.5 w-3.5" /> RoleCraft Admin
         </div>
-        <h1 className="mt-5 text-3xl font-black tracking-tight">Career Network Admin Access</h1>
-        <p className="mt-3 text-sm leading-7 text-stone-600">
-          This dashboard is for authorised RoleCraft administrators only. Registration does not grant access.
+        <h1 className="mt-5 text-3xl font-black tracking-tight">Private operations access</h1>
+        <p className="mt-3 text-sm leading-7 text-[var(--ink-soft)]">
+          Review registrations, approve network access, and manage WhatsApp invitations from one protected control room.
         </p>
 
         <form onSubmit={submit} className="mt-8 space-y-4">
-          <label className="block space-y-1.5 text-xs font-bold">
+          <label className="block space-y-1.5 text-xs font-bold text-slate-800">
             Admin password
             <input
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              className="w-full rounded-xl border border-[#d6c0a7] bg-[#fffaf3] p-3 font-normal outline-none focus:border-amber-700 focus:ring-2 focus:ring-amber-700/10"
+              className="w-full rounded-2xl border border-[var(--surface-border)] bg-white/90 p-3 font-normal outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-teal-600/10"
               placeholder="Enter admin password"
               autoComplete="current-password"
             />
           </label>
 
-          {error && <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-800">{error}</div>}
+          {error && <div className="rounded-[1.25rem] border border-rose-200 bg-rose-50 p-4 text-xs text-rose-800">{error}</div>}
 
           <button
             type="submit"
             disabled={loading}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-900 px-5 py-3 text-sm font-black text-white shadow-lg disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,var(--accent)_0%,var(--highlight)_100%)] px-5 py-3 text-sm font-black text-white shadow-lg shadow-teal-900/20 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <LockKeyhole className="h-4 w-4" />}
-            {loading ? 'Checking access…' : 'Open admin dashboard'}
+            {loading ? 'Checking access…' : 'Enter admin dashboard'}
           </button>
         </form>
       </div>

@@ -119,16 +119,21 @@ export default function CareerNetworkRegistrationPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,_#fffdf8_0%,_#f7efe4_42%,_#ede2d1_100%)] px-4 py-8 text-stone-950 md:px-8">
+    <main className="min-h-screen px-4 py-8 text-slate-950 md:px-8">
       <div className="mx-auto max-w-6xl space-y-6">
-        <section className="grid gap-6 rounded-3xl border border-[#d9c3a7] bg-white/92 p-6 shadow-[0_20px_60px_rgba(115,74,28,0.08)] lg:grid-cols-[1.15fr_0.85fr] md:p-9">
+        <section className="grid gap-6 overflow-hidden rounded-[2rem] border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-xl)] lg:grid-cols-[1.15fr_0.85fr] md:p-9">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-amber-900"><Network className="h-3.5 w-3.5" /> RoleCraft Career Network</div>
-            <h1 className="mt-5 text-3xl font-black tracking-tight md:text-5xl">Register privately for referral support, guidance, or mentoring.</h1>
-            <p className="mt-4 max-w-3xl text-sm leading-7 text-stone-600 md:text-base">This page is public so people can register, but the submitted information is private, reviewed manually, and never displayed in a public directory. WhatsApp group access to {WHATSAPP_GROUP_NAME}, if requested, is optional and subject to approval.</p>
+            <div className="inline-flex items-center gap-2 rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-[10px] font-black uppercase tracking-[0.24em] text-teal-900"><Network className="h-3.5 w-3.5" /> RoleCraft Career Network</div>
+            <h1 className="mt-5 max-w-3xl text-3xl font-black tracking-tight text-slate-950 md:text-5xl">Register once. Get private access to referral support, mentoring, and trusted introductions.</h1>
+            <p className="mt-4 max-w-3xl text-sm leading-7 text-[var(--ink-soft)] md:text-base">The page is open, but the network is not. Every registration is reviewed privately, never listed publicly, and approved deliberately before any access or WhatsApp invite is granted.</p>
+            <div className="mt-6 flex flex-wrap gap-3 text-xs font-bold uppercase tracking-[0.18em] text-slate-700">
+              <span className="rounded-full border border-teal-200 bg-white/80 px-3 py-2">Manual review</span>
+              <span className="rounded-full border border-orange-200 bg-white/80 px-3 py-2">No public directory</span>
+              <span className="rounded-full border border-slate-200 bg-white/80 px-3 py-2">Consent-based WhatsApp</span>
+            </div>
           </div>
-          <div className="space-y-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
-            <h2 className="flex items-center gap-2 text-sm font-black text-emerald-900"><ShieldCheck className="h-5 w-5" /> Privacy by default</h2>
+          <div className="space-y-3 rounded-[1.75rem] border border-teal-200/80 bg-[linear-gradient(160deg,rgba(215,243,239,0.9),rgba(255,255,255,0.86))] p-5">
+            <h2 className="flex items-center gap-2 text-sm font-black uppercase tracking-[0.18em] text-teal-950"><ShieldCheck className="h-5 w-5" /> Privacy by default</h2>
             <PrivacyPoint>Only minimal registration information is collected.</PrivacyPoint>
             <PrivacyPoint>Data is submitted to a private server-side table.</PrivacyPoint>
             <PrivacyPoint>No CV or job description is collected at registration.</PrivacyPoint>
@@ -143,7 +148,7 @@ export default function CareerNetworkRegistrationPage() {
             const Icon = option.icon;
             const selected = form.role === role;
             return (
-              <button key={role} type="button" onClick={() => update('role', role)} className={`rounded-2xl border p-5 text-left transition ${selected ? 'border-amber-800 bg-amber-900 text-white shadow-lg' : 'border-[#d9c3a7] bg-white/90 hover:bg-amber-50'}`}>
+              <button key={role} type="button" onClick={() => update('role', role)} className={`rounded-[1.75rem] border p-5 text-left transition duration-200 ${selected ? 'border-teal-900 bg-[linear-gradient(145deg,var(--accent)_0%,#164e63_100%)] text-white shadow-xl shadow-teal-950/20 -translate-y-0.5' : 'border-[var(--surface-border)] bg-[var(--surface)] hover:-translate-y-0.5 hover:bg-white/90'}`}>
                 <Icon className="h-6 w-6" />
                 <h2 className="mt-4 text-base font-black">{option.title}</h2>
                 <p className={`mt-2 text-xs leading-6 ${selected ? 'text-amber-100' : 'text-stone-600'}`}>{option.description}</p>
@@ -153,8 +158,8 @@ export default function CareerNetworkRegistrationPage() {
         </section>
 
         <section className="grid gap-6 lg:grid-cols-[1fr_0.72fr]">
-          <form onSubmit={submit} className="space-y-5 rounded-3xl border border-[#d9c3a7] bg-white/92 p-6 shadow-[0_20px_60px_rgba(115,74,28,0.08)] md:p-8">
-            <div><h2 className="text-xl font-black">Private registration</h2><p className="mt-2 text-xs leading-6 text-stone-600">Required fields are limited to what is needed to verify and administer access in line with the Privacy Notice.</p></div>
+          <form onSubmit={submit} className="space-y-5 rounded-[2rem] border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-xl)] md:p-8">
+            <div><h2 className="text-xl font-black text-slate-950">Private registration</h2><p className="mt-2 text-xs leading-6 text-[var(--ink-soft)]">Tell us just enough to review your request, verify your role, and manage access in line with the Privacy Notice.</p></div>
             <div className="grid gap-4 md:grid-cols-2">
               <Field label="Full name" value={form.fullName} onChange={(value) => update('fullName', value)} placeholder="Your name" />
               <Field label="Email" type="email" value={form.email} onChange={(value) => update('email', value)} placeholder="you@example.com" />
@@ -166,18 +171,18 @@ export default function CareerNetworkRegistrationPage() {
 
             <div className="absolute -left-[10000px] h-px w-px overflow-hidden" aria-hidden="true"><label>Website<input tabIndex={-1} autoComplete="off" value={form.website} onChange={(event) => update('website', event.target.value)} /></label></div>
 
-            <div className="space-y-3 rounded-2xl border border-stone-200 bg-stone-50 p-4 text-xs leading-5">
+            <div className="space-y-3 rounded-[1.5rem] border border-slate-200 bg-white/80 p-4 text-xs leading-5">
               <Checkbox checked={form.ageConfirmed} onChange={(value) => update('ageConfirmed', value)}>I confirm that I am at least 18 years old.</Checkbox>
               <Checkbox checked={form.termsAccepted} onChange={(value) => update('termsAccepted', value)}>I have read the <a href="/privacy" className="font-black text-amber-800 underline">Privacy Notice</a> and agree to the Career Network terms.</Checkbox>
               <Checkbox checked={form.whatsappGroupConsent} onChange={(value) => update('whatsappGroupConsent', value)}>I separately consent to being invited to the private WhatsApp group <strong>{WHATSAPP_GROUP_NAME}</strong> after manual approval. This is optional and requires a WhatsApp number.</Checkbox>
               <Checkbox checked={form.marketingOptIn} onChange={(value) => update('marketingOptIn', value)}>I separately opt in to occasional product updates. This is optional.</Checkbox>
             </div>
 
-            {!privacyReady && <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs leading-6 text-rose-800"><strong>Launch gate:</strong> configure <code>NEXT_PUBLIC_PRIVACY_CONTACT_EMAIL</code> in Vercel before enabling registration.</div>}
-            {error && <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-800">{error}</div>}
-            {success && <div className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-xs leading-6 text-emerald-900"><CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" /><span><strong>Registration received.</strong> Your details remain private and will be reviewed before access is granted or any WhatsApp invite is approved.</span></div>}
+            {!privacyReady && <div className="rounded-[1.25rem] border border-rose-200 bg-rose-50 p-4 text-xs leading-6 text-rose-800"><strong>Launch gate:</strong> configure <code>NEXT_PUBLIC_PRIVACY_CONTACT_EMAIL</code> in Vercel before enabling registration.</div>}
+            {error && <div className="rounded-[1.25rem] border border-rose-200 bg-rose-50 p-4 text-xs text-rose-800">{error}</div>}
+            {success && <div className="flex items-start gap-3 rounded-[1.25rem] border border-teal-200 bg-teal-50 p-4 text-xs leading-6 text-teal-950"><CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" /><span><strong>Registration received.</strong> Your details remain private and will be reviewed before access is granted or any WhatsApp invite is approved.</span></div>}
 
-            <button type="submit" disabled={loading || !privacyReady} className="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-900 px-5 py-3 text-sm font-black text-white shadow-lg disabled:cursor-not-allowed disabled:opacity-50">{loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <BadgeCheck className="h-4 w-4" />}{loading ? 'Submitting securely…' : 'Register for Career Network'}</button>
+            <button type="submit" disabled={loading || !privacyReady} className="flex w-full items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,var(--accent)_0%,var(--highlight)_100%)] px-5 py-3 text-sm font-black text-white shadow-lg shadow-teal-900/20 disabled:cursor-not-allowed disabled:opacity-50">{loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <BadgeCheck className="h-4 w-4" />}{loading ? 'Submitting securely…' : 'Register for Career Network'}</button>
           </form>
 
           <aside className="space-y-4">
@@ -194,14 +199,14 @@ export default function CareerNetworkRegistrationPage() {
 }
 
 function PrivacyPoint({ children }: { children: ReactNode }) {
-  return <div className="flex items-start gap-2 text-xs leading-5 text-emerald-900"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />{children}</div>;
+  return <div className="flex items-start gap-2 text-xs leading-5 text-teal-950"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent)]" />{children}</div>;
 }
 function Field({ label, value, onChange, placeholder, type = 'text', wide = false }: { label: string; value: string; onChange: (value: string) => void; placeholder: string; type?: string; wide?: boolean }) {
-  return <label className={`space-y-1.5 text-xs font-bold ${wide ? 'md:col-span-2' : ''}`}>{label}<input type={type} value={value} onChange={(event) => onChange(event.target.value)} className="w-full rounded-xl border border-[#d6c0a7] bg-[#fffaf3] p-3 font-normal outline-none focus:border-amber-700 focus:ring-2 focus:ring-amber-700/10" placeholder={placeholder} /></label>;
+  return <label className={`space-y-1.5 text-xs font-bold text-slate-800 ${wide ? 'md:col-span-2' : ''}`}>{label}<input type={type} value={value} onChange={(event) => onChange(event.target.value)} className="w-full rounded-2xl border border-[var(--surface-border)] bg-white/90 p-3 font-normal outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-teal-600/10" placeholder={placeholder} /></label>;
 }
 function Checkbox({ checked, onChange, children }: { checked: boolean; onChange: (value: boolean) => void; children: ReactNode }) {
-  return <label className="flex items-start gap-3"><input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} className="mt-1 h-4 w-4 accent-amber-800" /><span>{children}</span></label>;
+  return <label className="flex items-start gap-3 text-slate-700"><input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} className="mt-1 h-4 w-4 accent-teal-700" /><span>{children}</span></label>;
 }
 function InfoCard({ icon, title, children }: { icon: ReactNode; title: string; children: ReactNode }) {
-  return <div className="rounded-2xl border border-[#d9c3a7] bg-white/90 p-5"><div className="flex items-center gap-2 text-sm font-black text-amber-900">{icon}{title}</div><p className="mt-3 text-xs leading-6 text-stone-600">{children}</p></div>;
+  return <div className="rounded-[1.6rem] border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-xl)]"><div className="flex items-center gap-2 text-sm font-black text-slate-900">{icon}{title}</div><p className="mt-3 text-xs leading-6 text-[var(--ink-soft)]">{children}</p></div>;
 }

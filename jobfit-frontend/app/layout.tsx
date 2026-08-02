@@ -44,20 +44,23 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="h-full antialiased">
-      <body className="min-h-full bg-[#f7efe4]">
-        <header className="sticky top-0 z-50 border-b border-amber-900/15 bg-white/90 px-4 py-3 backdrop-blur-xl md:px-8">
-          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3">
-            <a href="/" className="flex items-center gap-3 font-black text-stone-950">
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-900 text-xs text-white">RC</span>
-              <span>RoleCraft AI</span>
+      <body className="min-h-full text-[var(--foreground)]">
+        <header className="sticky top-0 z-50 px-4 pt-4 md:px-8">
+          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 rounded-[2rem] border border-[var(--surface-border)] bg-[var(--surface)] px-4 py-3 shadow-[var(--shadow-xl)] backdrop-blur-2xl md:px-6">
+            <a href="/" className="flex items-center gap-3 font-black text-slate-950">
+              <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,var(--accent)_0%,var(--highlight)_100%)] text-xs text-white shadow-lg shadow-teal-900/20">RC</span>
+              <span className="flex flex-col leading-none">
+                <span className="text-sm uppercase tracking-[0.24em] text-[var(--ink-soft)]">RoleCraft</span>
+                <span className="mt-1 text-lg">Career Network</span>
+              </span>
             </a>
             <nav className="flex items-center gap-2 text-xs font-bold">
-              <a href="/" className="rounded-xl px-3 py-2 text-stone-700 hover:bg-amber-50">Career Studio</a>
-              <a href="/career-network" className="flex items-center gap-2 rounded-xl bg-amber-900 px-3 py-2 text-white">
+              <a href="/" className="rounded-full px-4 py-2 text-[var(--ink-soft)] hover:bg-white/70 hover:text-slate-950">Career Studio</a>
+              <a href="/career-network" className="flex items-center gap-2 rounded-full bg-[var(--accent)] px-4 py-2 text-white shadow-lg shadow-teal-900/20 hover:bg-[var(--accent-strong)]">
                 Career Network
-                <span className="rounded-full bg-amber-200 px-1.5 py-0.5 text-[9px] text-amber-950">New</span>
+                <span className="rounded-full bg-white/20 px-2 py-0.5 text-[9px] uppercase tracking-[0.22em] text-white">Live</span>
               </a>
-              <a href="/admin/career-network" className="rounded-xl px-3 py-2 text-stone-700 hover:bg-amber-50">Admin</a>
+              <a href="/admin/career-network" className="rounded-full border border-[var(--surface-border)] px-4 py-2 text-[var(--ink-soft)] hover:border-[var(--accent)] hover:bg-[var(--accent-soft)] hover:text-[var(--accent-strong)]">Admin</a>
             </nav>
           </div>
         </header>
