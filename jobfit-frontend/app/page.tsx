@@ -146,30 +146,40 @@ export default function Home() {
   }
 
   const pageTheme = darkMode
-    ? 'bg-[radial-gradient(circle_at_top,_#171717_0%,_#111827_45%,_#09090b_100%)] text-stone-100'
-    : 'bg-[radial-gradient(circle_at_top,_#fffdf8_0%,_#f7efe4_42%,_#ede2d1_100%)] text-stone-950';
+    ? 'bg-[radial-gradient(circle_at_top,_rgba(15,23,42,0.95)_0%,_rgba(12,18,32,1)_48%,_rgba(3,7,18,1)_100%)] text-stone-100'
+    : 'bg-transparent text-stone-950';
 
   const panelTheme = darkMode
-    ? 'bg-stone-900/72 border-stone-700/70 shadow-[0_20px_60px_rgba(0,0,0,0.28)]'
-    : 'bg-white/88 border-[#d9c3a7] shadow-[0_20px_60px_rgba(115,74,28,0.08)]';
+    ? 'bg-slate-950/76 border-white/10 shadow-[0_28px_90px_rgba(2,6,23,0.48)] backdrop-blur-xl'
+    : 'bg-[var(--surface)] border-[var(--surface-border)] shadow-[var(--shadow-xl)] backdrop-blur-xl';
 
   const inputTheme = darkMode
-    ? 'bg-stone-950/90 border-stone-700 text-stone-100 placeholder:text-stone-500 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20'
-    : 'bg-[#fffaf3] border-[#d6c0a7] text-stone-900 placeholder:text-stone-400 focus:border-amber-700 focus:ring-2 focus:ring-amber-700/15';
+    ? 'bg-slate-950/90 border-white/10 text-stone-100 placeholder:text-stone-500 focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20'
+    : 'bg-[var(--surface-strong)] border-[var(--surface-border)] text-stone-900 placeholder:text-[var(--ink-soft)] focus:border-[var(--accent)] focus:ring-2 focus:ring-[color:rgba(15,118,110,0.16)]';
 
   const fieldLabelTheme = darkMode ? 'text-stone-200' : 'text-stone-700';
-  const sectionLabelTheme = darkMode ? 'text-amber-300' : 'text-amber-900';
+  const sectionLabelTheme = darkMode ? 'text-cyan-200' : 'text-[var(--accent-strong)]';
   const mutedTextTheme = darkMode ? 'text-stone-400' : 'text-stone-600';
+  const softPanelTheme = darkMode ? 'bg-white/[0.04] border-white/8' : 'bg-[var(--surface-strong)]/80 border-[var(--surface-border)]';
+  const tabIdleTheme = darkMode ? 'text-stone-300 hover:bg-white/[0.06]' : 'text-stone-700 hover:bg-white/70';
+  const tabActiveTheme = darkMode
+    ? 'bg-cyan-400 text-slate-950 shadow-[0_18px_40px_rgba(34,211,238,0.25)]'
+    : 'bg-[var(--accent)] text-white shadow-[0_18px_40px_rgba(15,118,110,0.24)]';
 
   return (
     <main className={`min-h-screen p-4 md:p-8 font-sans antialiased transition-colors duration-300 ${pageTheme}`}>
       <div className="max-w-6xl mx-auto space-y-6">
-        <header className="relative flex flex-col items-center text-center space-y-4 py-6 border-b border-dashed border-amber-900/20 dark:border-stone-700/70">
+        <header className={`relative overflow-hidden rounded-[2rem] border px-6 py-8 md:px-10 md:py-10 ${panelTheme}`}>
+          <div className="absolute inset-0 pointer-events-none">
+            <div className={`absolute -left-12 top-0 h-36 w-36 rounded-full blur-3xl ${darkMode ? 'bg-cyan-400/12' : 'bg-[color:rgba(15,118,110,0.14)]'}`} />
+            <div className={`absolute right-0 top-10 h-40 w-40 rounded-full blur-3xl ${darkMode ? 'bg-orange-400/10' : 'bg-[color:rgba(194,108,58,0.18)]'}`} />
+          </div>
+
           <button
             type="button"
             onClick={() => setDarkMode(!darkMode)}
-            className={`absolute top-2 right-2 p-2 rounded-xl border flex items-center gap-1.5 font-bold text-[10px] uppercase tracking-wider shadow-sm transition-all ${
-              darkMode ? 'bg-stone-900 border-stone-700 text-amber-300' : 'bg-white/95 border-[#d7c1a5] text-stone-800'
+            className={`absolute right-4 top-4 z-10 flex items-center gap-1.5 rounded-full border px-3 py-2 text-[10px] font-bold uppercase tracking-[0.2em] transition-all ${
+              darkMode ? 'border-white/10 bg-slate-950/80 text-cyan-100' : 'border-[var(--surface-border)] bg-white/90 text-stone-800'
             }`}
           >
             {darkMode ? (
@@ -183,25 +193,63 @@ export default function Home() {
             )}
           </button>
 
-          <div
-            className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] uppercase tracking-wider font-semibold border ${
-              darkMode ? 'bg-amber-500/10 border-amber-500/20 text-amber-200' : 'bg-[#fff7e8] border-amber-300 text-amber-900'
-            }`}
-          >
-            <Sparkles className="w-3 h-3" /> Engine Active: Custom
-          </div>
+          <div className="relative z-10 grid gap-8 lg:grid-cols-[1.3fr_0.7fr] lg:items-end">
+            <div className="space-y-5 text-left">
+              <div
+                className={`inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-[10px] font-semibold uppercase tracking-[0.24em] ${
+                  darkMode ? 'border-cyan-400/20 bg-cyan-400/10 text-cyan-100' : 'border-[color:rgba(15,118,110,0.16)] bg-[var(--accent-soft)] text-[var(--accent-strong)]'
+                }`}
+              >
+                <Sparkles className="w-3 h-3" /> Career Studio
+              </div>
 
-          <h1 className="text-3xl md:text-5xl font-black tracking-tight">RoleCraft AI</h1>
-          <p className={`text-xs md:text-sm max-w-2xl mx-auto leading-relaxed font-medium ${mutedTextTheme}`}>
-            Optimize resume fit, generate interview prep, and search real active roles from a cleaner career workflow.
-          </p>
+              <div className="space-y-3">
+                <h1 className="max-w-3xl text-4xl font-black tracking-tight md:text-6xl">
+                  Build sharper applications with the same RoleCraft portal language.
+                </h1>
+                <p className={`max-w-2xl text-sm leading-7 md:text-base ${mutedTextTheme}`}>
+                  Optimize resume fit, pressure-test interview answers, and search active roles from one polished workflow.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-3 text-[11px] font-semibold uppercase tracking-[0.18em]">
+                <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 ${darkMode ? 'border-white/10 bg-white/[0.04] text-stone-200' : 'border-[var(--surface-border)] bg-white/80 text-stone-700'}`}>
+                  <ClipboardCheck className="h-3.5 w-3.5" /> Resume Validation
+                </span>
+                <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 ${darkMode ? 'border-white/10 bg-white/[0.04] text-stone-200' : 'border-[var(--surface-border)] bg-white/80 text-stone-700'}`}>
+                  <User className="h-3.5 w-3.5" /> Interview Prep
+                </span>
+                <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 ${darkMode ? 'border-white/10 bg-white/[0.04] text-stone-200' : 'border-[var(--surface-border)] bg-white/80 text-stone-700'}`}>
+                  <Search className="h-3.5 w-3.5" /> Live Job Search
+                </span>
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1">
+              <div className={`rounded-[1.5rem] border p-4 ${softPanelTheme}`}>
+                <div className={`text-[10px] font-bold uppercase tracking-[0.22em] ${sectionLabelTheme}`}>Studio Flow</div>
+                <div className="mt-3 text-2xl font-black">3 Tracks</div>
+                <p className={`mt-1 text-xs leading-6 ${mutedTextTheme}`}>Build, validate, and prepare without leaving the portal.</p>
+              </div>
+              <div className={`rounded-[1.5rem] border p-4 ${softPanelTheme}`}>
+                <div className={`text-[10px] font-bold uppercase tracking-[0.22em] ${sectionLabelTheme}`}>Question Depth</div>
+                <div className="mt-3 text-2xl font-black">{totalQuestions}</div>
+                <p className={`mt-1 text-xs leading-6 ${mutedTextTheme}`}>Interview prompts adapt to your selected role and track.</p>
+              </div>
+              <div className={`rounded-[1.5rem] border p-4 ${softPanelTheme}`}>
+                <div className={`text-[10px] font-bold uppercase tracking-[0.22em] ${sectionLabelTheme}`}>Current Mode</div>
+                <div className="mt-3 text-lg font-black">{interviewType === 'hr' ? 'HR Interview Tool' : 'Technical Track'}</div>
+                <p className={`mt-1 text-xs leading-6 ${mutedTextTheme}`}>Switch between people-first and technical preparation at any point.</p>
+              </div>
+            </div>
+          </div>
         </header>
 
-        <div className={`flex flex-wrap border p-1.5 gap-1.5 backdrop-blur-md rounded-2xl shadow-sm overflow-x-auto ${panelTheme}`}>
+        <div className={`flex flex-wrap gap-1.5 overflow-x-auto rounded-[1.75rem] border p-2 ${panelTheme}`}>
           <button
             onClick={() => setTab('builder')}
-            className={`px-4 py-2 font-bold rounded-xl flex items-center gap-1.5 transition-all duration-200 text-xxs tracking-wide ${
-              tab === 'builder' ? 'bg-amber-900 text-white shadow-md scale-[1.01]' : darkMode ? 'text-stone-300 hover:bg-stone-800' : 'text-stone-700 hover:bg-amber-50'
+            className={`flex items-center gap-1.5 rounded-2xl px-4 py-2.5 text-xxs font-bold tracking-[0.18em] uppercase transition-all duration-200 ${
+              tab === 'builder' ? tabActiveTheme : tabIdleTheme
             }`}
           >
             <Sparkles className="w-3.5 h-3.5" /> Pipeline Builder
@@ -210,8 +258,8 @@ export default function Home() {
           {!results && (
             <button
               onClick={() => setTab('job_search')}
-              className={`px-4 py-2 font-bold rounded-xl flex items-center gap-1.5 transition-all duration-200 text-xxs tracking-wide ${
-                tab === 'job_search' ? 'bg-amber-900 text-white shadow-md scale-[1.01]' : darkMode ? 'text-stone-300 hover:bg-stone-800' : 'text-stone-700 hover:bg-amber-50'
+              className={`flex items-center gap-1.5 rounded-2xl px-4 py-2.5 text-xxs font-bold tracking-[0.18em] uppercase transition-all duration-200 ${
+                tab === 'job_search' ? tabActiveTheme : tabIdleTheme
               }`}
             >
               <Search className="w-3.5 h-3.5" /> Web Job Discovery Tool
@@ -222,32 +270,32 @@ export default function Home() {
             <>
               <button
                 onClick={() => setTab('validation')}
-                className={`px-4 py-2 font-bold rounded-xl flex items-center gap-1.5 transition-all duration-200 text-xxs tracking-wide ${
-                  tab === 'validation' ? 'bg-amber-900 text-white shadow-md scale-[1.01]' : darkMode ? 'text-stone-300 hover:bg-stone-800' : 'text-stone-700 hover:bg-amber-50'
+                className={`flex items-center gap-1.5 rounded-2xl px-4 py-2.5 text-xxs font-bold tracking-[0.18em] uppercase transition-all duration-200 ${
+                  tab === 'validation' ? tabActiveTheme : tabIdleTheme
                 }`}
               >
                 <ClipboardCheck className="w-3.5 h-3.5" /> Resume Validation
               </button>
               <button
                 onClick={() => setTab('updated_resume')}
-                className={`px-4 py-2 font-bold rounded-xl flex items-center gap-1.5 transition-all duration-200 text-xxs tracking-wide ${
-                  tab === 'updated_resume' ? 'bg-amber-900 text-white shadow-md scale-[1.01]' : darkMode ? 'text-stone-300 hover:bg-stone-800' : 'text-stone-700 hover:bg-amber-50'
+                className={`flex items-center gap-1.5 rounded-2xl px-4 py-2.5 text-xxs font-bold tracking-[0.18em] uppercase transition-all duration-200 ${
+                  tab === 'updated_resume' ? tabActiveTheme : tabIdleTheme
                 }`}
               >
                 <FileText className="w-3.5 h-3.5" /> Tailored Output
               </button>
               <button
                 onClick={() => setTab('prep')}
-                className={`px-4 py-2 font-bold rounded-xl flex items-center gap-1.5 transition-all duration-200 text-xxs tracking-wide ${
-                  tab === 'prep' ? 'bg-amber-900 text-white shadow-md scale-[1.01]' : darkMode ? 'text-stone-300 hover:bg-stone-800' : 'text-stone-700 hover:bg-amber-50'
+                className={`flex items-center gap-1.5 rounded-2xl px-4 py-2.5 text-xxs font-bold tracking-[0.18em] uppercase transition-all duration-200 ${
+                  tab === 'prep' ? tabActiveTheme : tabIdleTheme
                 }`}
               >
                 <User className="w-3.5 h-3.5" /> Interview Vectors
               </button>
               <button
                 onClick={() => setTab('job_search')}
-                className={`px-4 py-2 font-bold rounded-xl flex items-center gap-1.5 transition-all duration-200 text-xxs tracking-wide ${
-                  tab === 'job_search' ? 'bg-amber-900 text-white shadow-md scale-[1.01]' : darkMode ? 'text-stone-300 hover:bg-stone-800' : 'text-stone-700 hover:bg-amber-50'
+                className={`flex items-center gap-1.5 rounded-2xl px-4 py-2.5 text-xxs font-bold tracking-[0.18em] uppercase transition-all duration-200 ${
+                  tab === 'job_search' ? tabActiveTheme : tabIdleTheme
                 }`}
               >
                 <Search className="w-3.5 h-3.5" /> Web Job Discovery Tool
@@ -257,8 +305,8 @@ export default function Home() {
         </div>
 
         {tab === 'builder' && (
-          <div className={`border p-6 rounded-2xl shadow-sm space-y-6 ${panelTheme}`}>
-            <div className={`flex justify-between items-center border-b pb-3 ${darkMode ? 'border-stone-800/60' : 'border-stone-200'}`}>
+          <div className={`space-y-6 rounded-[2rem] border p-6 shadow-sm md:p-8 ${panelTheme}`}>
+            <div className={`flex flex-col gap-4 border-b pb-4 sm:flex-row sm:items-center sm:justify-between ${darkMode ? 'border-white/8' : 'border-[var(--surface-border)]'}`}>
               <h2 className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${sectionLabelTheme}`}>
                 <ArrowLeftRight className="w-4 h-4" /> Core Variable Mapping
               </h2>
@@ -279,7 +327,7 @@ export default function Home() {
                     setJobResults(null);
                     setTab('builder');
                   }}
-                  className={`flex items-center gap-1 font-bold px-3 py-1 rounded-xl border text-xxs tracking-wide ${darkMode ? 'bg-rose-950 text-rose-400 border-rose-500/20' : 'bg-rose-50 text-rose-700 border-rose-200'}`}
+                  className={`flex items-center gap-1 rounded-full border px-3 py-2 text-xxs font-bold uppercase tracking-[0.18em] ${darkMode ? 'border-rose-400/20 bg-rose-950/40 text-rose-300' : 'border-rose-200 bg-rose-50 text-rose-700'}`}
                 >
                   <RotateCcw className="w-3 h-3" /> Reset Form
                 </button>
@@ -299,17 +347,17 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 border-t border-b border-dashed border-slate-200 dark:border-stone-800 py-4">
+              <div className={`grid grid-cols-1 gap-4 border-y border-dashed py-4 sm:grid-cols-4 ${darkMode ? 'border-white/8' : 'border-[var(--surface-border)]'}`}>
                 <div className="space-y-1.5">
                   <label className={`font-bold text-xxs uppercase tracking-wider flex items-center gap-1 ${fieldLabelTheme}`}>
-                    <Link className="w-3 h-3 text-indigo-500" /> LinkedIn Profile URL
+                    <Link className={`w-3 h-3 ${darkMode ? 'text-cyan-300' : 'text-[var(--accent)]'}`} /> LinkedIn Profile URL
                   </label>
                   <input className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${inputTheme}`} placeholder="e.g. https://linkedin.com/in/..." value={linkedin} onChange={(e) => setLinkedin(e.target.value)} />
                 </div>
 
                 <div className="space-y-1.5">
                   <label className={`font-bold text-xxs uppercase tracking-wider flex items-center gap-1 ${fieldLabelTheme}`}>
-                    <Clock className="w-3 h-3 text-indigo-500" /> Interview Duration
+                    <Clock className={`w-3 h-3 ${darkMode ? 'text-cyan-300' : 'text-[var(--accent)]'}`} /> Interview Duration
                   </label>
                   <select className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${inputTheme}`} value={duration} onChange={(e) => setDuration(e.target.value)}>
                     <option value="30 minutes">30 Minutes</option>
@@ -320,7 +368,7 @@ export default function Home() {
 
                 <div className="space-y-1.5">
                   <label className={`font-bold text-xxs uppercase tracking-wider flex items-center gap-1 ${fieldLabelTheme}`}>
-                    <UserCheck className="w-3 h-3 text-indigo-500" /> Interview Category
+                    <UserCheck className={`w-3 h-3 ${darkMode ? 'text-cyan-300' : 'text-[var(--accent)]'}`} /> Interview Category
                   </label>
                   <select className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${inputTheme}`} value={interviewType} onChange={(e) => setInterviewType(e.target.value as 'hr' | 'technical')}>
                     <option value="technical">Technical Interview Track</option>
@@ -331,13 +379,13 @@ export default function Home() {
                 <div className="space-y-2">
                   <label className={`font-bold text-xxs uppercase tracking-wider flex items-center gap-1 ${fieldLabelTheme}`}>
                     <ListOrdered className="w-3 h-3 text-indigo-500" />
-                    Number of Questions: <span className="text-indigo-600 dark:text-indigo-400 font-extrabold">{totalQuestions}</span>
+                    Number of Questions: <span className={`font-extrabold ${darkMode ? 'text-cyan-300' : 'text-[var(--accent)]'}`}>{totalQuestions}</span>
                   </label>
                   <input
                     type="range"
                     min="5"
                     max="25"
-                    className="w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-800"
+                    className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-slate-200 accent-[var(--accent)] dark:bg-slate-800"
                     value={totalQuestions}
                     onChange={(e) => setTotalQuestions(parseInt(e.target.value))}
                   />
@@ -345,14 +393,14 @@ export default function Home() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className={`space-y-1.5 p-4 rounded-xl border ${darkMode ? 'bg-stone-950/35 border-stone-700/60' : 'bg-[#fffaf2] border-[#ead8c2]'}`}>
+                <div className={`space-y-1.5 rounded-[1.5rem] border p-4 ${softPanelTheme}`}>
                   <label className={`font-bold text-xxs uppercase tracking-wider flex items-center gap-1 ${sectionLabelTheme}`}>
                     <FileText className="w-3.5 h-3.5" /> Legacy Career Profile
                   </label>
                   <textarea rows={6} className={`w-full border p-3 rounded-xl focus:outline-none font-mono text-[11px] leading-relaxed ${inputTheme}`} placeholder="Describe your experience, tools, achievements, and roles..." value={careerHistory} onChange={(e) => setCareerHistory(e.target.value)} />
                 </div>
 
-                <div className={`space-y-1.5 p-4 rounded-xl border ${darkMode ? 'bg-stone-950/35 border-stone-700/60' : 'bg-[#fffaf2] border-[#ead8c2]'}`}>
+                <div className={`space-y-1.5 rounded-[1.5rem] border p-4 ${softPanelTheme}`}>
                   <label className={`font-bold text-xxs uppercase tracking-wider flex items-center gap-1 ${sectionLabelTheme}`}>
                     <Target className="w-3.5 h-3.5" /> Job Description Target
                   </label>
@@ -360,14 +408,19 @@ export default function Home() {
                 </div>
               </div>
 
-              <button type="button" onClick={handleGenerate} disabled={loading} className="w-full bg-amber-900 hover:bg-amber-800 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 text-xxs uppercase tracking-widest disabled:opacity-60">
+              <button
+                type="button"
+                onClick={handleGenerate}
+                disabled={loading}
+                className={`flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-xxs font-bold uppercase tracking-[0.22em] text-white transition-transform hover:-translate-y-0.5 disabled:opacity-60 ${darkMode ? 'bg-cyan-400 text-slate-950 hover:bg-cyan-300' : 'bg-[var(--accent)] hover:bg-[var(--accent-strong)]'}`}
+              >
                 {loading ? (
                   <>
-                    <RefreshCw className="animate-spin w-4 h-4 text-amber-200" /> Computing Neural Vectors...
+                    <RefreshCw className="animate-spin w-4 h-4" /> Computing Neural Vectors...
                   </>
                 ) : (
                   <>
-                    <Sparkles className="w-4 h-4 text-amber-400" /> Execute Generation Cycle
+                    <Sparkles className="w-4 h-4" /> Execute Generation Cycle
                   </>
                 )}
               </button>
@@ -376,28 +429,28 @@ export default function Home() {
         )}
 
         {tab === 'validation' && results && (
-          <div className={`border p-8 rounded-2xl shadow-md space-y-6 ${panelTheme}`}>
-            <h3 className="text-sm font-bold uppercase tracking-wider flex items-center gap-2 border-b pb-4">
+          <div className={`space-y-6 rounded-[2rem] border p-8 shadow-md ${panelTheme}`}>
+            <h3 className={`flex items-center gap-2 border-b pb-4 text-sm font-bold uppercase tracking-wider ${darkMode ? 'border-white/8' : 'border-[var(--surface-border)]'}`}>
               <BarChart3 className="w-5 h-5" /> Resume Validation Metrics Panel
             </h3>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="p-8 rounded-2xl border text-center">
+              <div className={`rounded-[1.75rem] border p-8 text-center ${softPanelTheme}`}>
                 <div className="text-6xl font-black">{results.match_score}%</div>
               </div>
 
-              <div className="p-6 rounded-2xl border">
+              <div className={`rounded-[1.75rem] border p-6 ${softPanelTheme}`}>
                 <h4 className="font-bold mb-3 flex items-center gap-2">
                   <AlertTriangle className="w-4 h-4" /> Critical Keyword Gaps
                 </h4>
                 <div className="flex flex-wrap gap-2">
                   {results.missing_skills?.map((s: string, i: number) => (
-                    <span key={i} className="bg-amber-500/10 px-3 py-1 rounded-xl text-[11px] font-bold">{s}</span>
+                    <span key={i} className={`rounded-full px-3 py-1 text-[11px] font-bold ${darkMode ? 'bg-amber-400/10 text-amber-100' : 'bg-[color:rgba(194,108,58,0.12)] text-[color:#8f4d28]'}`}>{s}</span>
                   ))}
                 </div>
               </div>
 
-              <div className="p-6 rounded-2xl border">
+              <div className={`rounded-[1.75rem] border p-6 ${softPanelTheme}`}>
                 <h4 className="font-bold mb-3 flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4" /> Optimization Tips
                 </h4>
@@ -415,18 +468,18 @@ export default function Home() {
         )}
 
         {tab === 'updated_resume' && results && (
-          <div className={`border p-6 rounded-2xl shadow-sm space-y-5 ${panelTheme}`}>
-            <div className="bg-amber-800 p-4 rounded-xl text-white flex justify-between items-center">
-              <div className="flex items-center gap-1.5 font-bold text-xxs uppercase">
+          <div className={`space-y-5 rounded-[2rem] border p-6 shadow-sm ${panelTheme}`}>
+            <div className={`flex flex-col gap-3 rounded-[1.5rem] p-4 sm:flex-row sm:items-center sm:justify-between ${darkMode ? 'bg-cyan-400 text-slate-950' : 'bg-[var(--accent)] text-white'}`}>
+              <div className="flex items-center gap-1.5 font-bold text-xxs uppercase tracking-[0.18em]">
                 <FileText className="w-4 h-4" /> Tailored Optimization Resume Output Map
               </div>
-              <button onClick={handleCopyLink} className="bg-white text-amber-900 px-3 py-1.5 rounded-xl font-bold text-[10px] uppercase">
+              <button onClick={handleCopyLink} className={`rounded-full px-3 py-2 text-[10px] font-bold uppercase tracking-[0.18em] ${darkMode ? 'bg-slate-950 text-cyan-100' : 'bg-white text-[var(--accent-strong)]'}`}>
                 {copied ? 'Blueprint Linked!' : 'Copy Public PDF Link'}
               </button>
             </div>
 
-            <div className={`border p-6 rounded-xl space-y-6 max-h-[640px] overflow-y-auto ${darkMode ? 'border-stone-800 bg-stone-950' : 'border-stone-200 bg-white'}`}>
-              <div className="space-y-3 border-b border-dashed border-stone-200 dark:border-stone-800 pb-4">
+            <div className={`max-h-[640px] space-y-6 overflow-y-auto rounded-[1.5rem] border p-6 ${darkMode ? 'border-white/8 bg-slate-950/90' : 'border-[var(--surface-border)] bg-white/88'}`}>
+              <div className={`space-y-3 border-b border-dashed pb-4 ${darkMode ? 'border-white/8' : 'border-[var(--surface-border)]'}`}>
                 <h2 className="text-2xl font-extrabold tracking-tight">{results.resume?.full_name}</h2>
                 <div className={`text-[11px] uppercase tracking-[0.14em] font-bold ${darkMode ? 'text-stone-300' : 'text-stone-700'}`}>
                   {results.resume?.headline || `Tailored Resume Draft for ${targetRole || 'Target Role'}`}
@@ -449,8 +502,8 @@ export default function Home() {
                     results.resume.skills.map((s: string, i: number) => (
                       <span
                         key={i}
-                        className={`font-bold px-2.5 py-1 rounded-md border text-[10px] tracking-wide ${
-                          darkMode ? 'bg-slate-900 border-slate-800 text-stone-200' : 'bg-slate-50 border-slate-200 text-stone-700'
+                        className={`rounded-full border px-2.5 py-1 text-[10px] font-bold tracking-wide ${
+                          darkMode ? 'border-white/8 bg-slate-900 text-stone-200' : 'border-[var(--surface-border)] bg-[var(--accent-soft)]/60 text-stone-700'
                         }`}
                       >
                         {s}
@@ -468,8 +521,8 @@ export default function Home() {
                 </div>
                 {results.resume?.experience?.length ? (
                   results.resume.experience.map((exp: any, i: number) => (
-                    <div key={i} className="space-y-2.5 border-l-2 border-amber-600/50 pl-4 relative">
-                      <div className="absolute w-2 h-2 rounded-full bg-amber-600 -left-[5px] top-1 shadow-sm" />
+                    <div key={i} className="relative space-y-2.5 border-l-2 border-[color:rgba(15,118,110,0.45)] pl-4">
+                      <div className="absolute -left-[5px] top-1 h-2 w-2 rounded-full bg-[var(--accent)] shadow-sm" />
                       <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
                         <div className="space-y-0.5">
                           <div className="font-extrabold text-sm">{exp.role}</div>
@@ -501,7 +554,7 @@ export default function Home() {
                 {results.resume?.education?.length ? (
                   <div className="space-y-2">
                     {results.resume.education.map((edu: any, i: number) => (
-                      <div key={i} className={`rounded-xl border p-3 ${darkMode ? 'border-stone-800 bg-stone-900/40' : 'border-stone-200 bg-stone-50/60'}`}>
+                      <div key={i} className={`rounded-[1.25rem] border p-3 ${softPanelTheme}`}>
                         <div className="font-bold text-sm">{edu.qualification}</div>
                         <div className="text-xs opacity-80">{edu.institution}</div>
                         <div className="text-[10px] font-mono mt-1 text-stone-500 dark:text-stone-400">{edu.duration}</div>
@@ -538,7 +591,7 @@ export default function Home() {
                 {results.resume?.projects?.length ? (
                   <div className="space-y-3">
                     {results.resume.projects.map((project: any, i: number) => (
-                      <div key={i} className={`rounded-xl border p-4 space-y-1.5 ${darkMode ? 'border-stone-800 bg-stone-900/40' : 'border-stone-200 bg-stone-50/60'}`}>
+                      <div key={i} className={`space-y-1.5 rounded-[1.25rem] border p-4 ${softPanelTheme}`}>
                         <div className="font-bold text-sm">{project.name}</div>
                         <p className="text-xs leading-6">{project.description}</p>
                         {project.impact && <p className={`text-xs font-semibold ${darkMode ? 'text-stone-300' : 'text-stone-700'}`}>{project.impact}</p>}
@@ -568,7 +621,7 @@ export default function Home() {
                 )}
               </section>
 
-              <section className="space-y-3 border-t border-dashed border-stone-200 dark:border-stone-800 pt-4">
+              <section className={`space-y-3 border-t border-dashed pt-4 ${darkMode ? 'border-white/8' : 'border-[var(--surface-border)]'}`}>
                 <div className={`text-[11px] uppercase tracking-[0.14em] font-black ${darkMode ? 'text-stone-200' : 'text-stone-800'}`}>
                   Tailoring Notes
                 </div>
@@ -590,14 +643,14 @@ export default function Home() {
         )}
 
         {tab === 'prep' && results && (
-          <div className={`border p-6 rounded-2xl shadow-sm space-y-6 ${panelTheme}`}>
-            <div className="p-4 rounded-xl text-white bg-stone-800">
+          <div className={`space-y-6 rounded-[2rem] border p-6 shadow-sm ${panelTheme}`}>
+            <div className={`rounded-[1.5rem] p-4 text-sm font-semibold ${darkMode ? 'bg-cyan-400 text-slate-950' : 'bg-[var(--accent-soft)] text-[var(--accent-strong)]'}`}>
               Active Vector Focus: {interviewType === 'hr' ? 'HR Interview Tool' : 'Technical & Behavioral Split'}
             </div>
 
             {results.tell_me_about_yourself && (
-              <div className="p-5 rounded-xl border space-y-3">
-                <h4 className="text-xxs font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
+              <div className={`space-y-3 rounded-[1.5rem] border p-5 ${softPanelTheme}`}>
+                <h4 className={`flex items-center gap-1 text-xxs font-black uppercase tracking-widest ${darkMode ? 'text-cyan-200' : 'text-[var(--accent-strong)]'}`}>
                   <UserCheck className="w-4 h-4" /> Tell Me About Yourself
                 </h4>
                 <p className="text-xs leading-relaxed whitespace-pre-wrap">{results.tell_me_about_yourself}</p>
@@ -606,15 +659,15 @@ export default function Home() {
 
             {results.interview_questions?.length > 0 && (
               <div className="space-y-4">
-                <h4 className="text-xxs font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400 border-b pb-2 flex items-center gap-1.5">
+                <h4 className={`flex items-center gap-1.5 border-b pb-2 text-xxs font-bold uppercase tracking-widest ${darkMode ? 'border-white/8 text-cyan-200' : 'border-[var(--surface-border)] text-[var(--accent-strong)]'}`}>
                   <HelpCircle className="w-4 h-4" /> Interview Questions ({results.interview_questions.length})
                 </h4>
 
                 <div className="grid grid-cols-1 gap-4 max-h-[400px] overflow-y-auto pr-1">
                   {results.interview_questions.map((item: any, i: number) => (
-                    <div key={i} className={`p-4 rounded-xl border space-y-3 ${darkMode ? 'bg-slate-950 border-slate-800 text-slate-100' : 'bg-amber-50/40 border-amber-200 text-slate-900'}`}>
+                    <div key={i} className={`space-y-3 rounded-[1.5rem] border p-4 ${softPanelTheme} ${darkMode ? 'text-slate-100' : 'text-slate-900'}`}>
                       <div className="font-bold flex items-start gap-1.5 text-xs">
-                        <HelpCircle className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5" />
+                        <HelpCircle className={`mt-0.5 h-4 w-4 shrink-0 ${darkMode ? 'text-cyan-300' : 'text-[var(--accent)]'}`} />
                         <span>Q{i + 1}: {item.question}</span>
                       </div>
                       <div className="text-[11px] pl-5 whitespace-pre-wrap">{item.response}</div>
@@ -626,13 +679,13 @@ export default function Home() {
 
             {results.follow_up_questions?.length > 0 && (
               <div className="space-y-3 pt-2">
-                <h4 className="text-xxs font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400 border-b pb-2 flex items-center gap-1.5">
+                <h4 className={`flex items-center gap-1.5 border-b pb-2 text-xxs font-bold uppercase tracking-widest ${darkMode ? 'border-white/8 text-cyan-200' : 'border-[var(--surface-border)] text-[var(--accent-strong)]'}`}>
                   <MessageSquarePlus className="w-4 h-4" /> Follow-up Questions
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {results.follow_up_questions.map((q: string, idx: number) => (
-                    <div key={idx} className={`p-3 rounded-xl border text-xs font-semibold flex items-start gap-2 ${darkMode ? 'bg-stone-900 border-slate-800' : 'bg-stone-50 border-stone-200'}`}>
-                      <span className="text-indigo-500 font-mono">#{idx + 1}</span>
+                    <div key={idx} className={`flex items-start gap-2 rounded-[1.25rem] border p-3 text-xs font-semibold ${softPanelTheme}`}>
+                      <span className={`font-mono ${darkMode ? 'text-cyan-300' : 'text-[var(--accent)]'}`}>#{idx + 1}</span>
                       <span>{q}</span>
                     </div>
                   ))}
@@ -643,8 +696,8 @@ export default function Home() {
         )}
 
         {tab === 'job_search' && (
-          <div className={`border p-6 rounded-2xl shadow-sm space-y-6 ${panelTheme}`}>
-            <div className={`border-b pb-3 ${darkMode ? 'border-stone-800' : 'border-stone-200'}`}>
+          <div className={`space-y-6 rounded-[2rem] border p-6 shadow-sm ${panelTheme}`}>
+            <div className={`border-b pb-3 ${darkMode ? 'border-white/8' : 'border-[var(--surface-border)]'}`}>
               <h2 className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${sectionLabelTheme}`}>
                 <Search className="w-4 h-4" /> Web Job Discovery Tool
               </h2>
@@ -663,7 +716,7 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className={`border-2 border-dashed rounded-xl p-6 text-center transition-all ${searchFile ? 'border-green-500 bg-green-500/5' : darkMode ? 'border-stone-800 bg-stone-950/40' : 'border-[#d9c8b4] bg-[#fffaf5]'}`}>
+              <div className={`rounded-[1.5rem] border-2 border-dashed p-6 text-center transition-all ${searchFile ? 'border-green-500 bg-green-500/5' : darkMode ? 'border-white/10 bg-slate-950/40' : 'border-[var(--surface-border)] bg-[var(--surface-strong)]/70'}`}>
                 <input type="file" id="job-search-file-picker" accept=".pdf,.docx" className="hidden" onChange={(e) => setSearchFile(e.target.files?.[0] || null)} />
                 <label htmlFor="job-search-file-picker" className="cursor-pointer block space-y-2">
                   <FileText className={`w-8 h-8 mx-auto ${searchFile ? 'text-green-500' : 'text-slate-400'}`} />
@@ -679,25 +732,29 @@ export default function Home() {
                 )}
               </div>
 
-              <button type="submit" disabled={searchLoading} className="w-full bg-amber-900 hover:bg-amber-800 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 text-xxs uppercase tracking-widest disabled:opacity-60">
+              <button
+                type="submit"
+                disabled={searchLoading}
+                className={`flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-xxs font-bold uppercase tracking-[0.22em] text-white transition-transform hover:-translate-y-0.5 disabled:opacity-60 ${darkMode ? 'bg-cyan-400 text-slate-950 hover:bg-cyan-300' : 'bg-[var(--accent)] hover:bg-[var(--accent-strong)]'}`}
+              >
                 {searchLoading ? (
                   <>
-                    <RefreshCw className="animate-spin w-4 h-4 text-amber-200" /> Searching Active Jobs...
+                    <RefreshCw className="animate-spin w-4 h-4" /> Searching Active Jobs...
                   </>
                 ) : (
                   <>
-                    <Sparkles className="w-4 h-4 text-amber-400" /> Find 40 Active Matches
+                    <Sparkles className="w-4 h-4" /> Find 40 Active Matches
                   </>
                 )}
               </button>
             </form>
 
             {jobResults && (
-              <div className="space-y-6 pt-2 border-t border-dashed border-amber-900/10 dark:border-stone-800">
-                <div className="overflow-x-auto rounded-xl border border-stone-200 dark:border-stone-800 shadow-inner">
+              <div className={`space-y-6 border-t border-dashed pt-2 ${darkMode ? 'border-white/8' : 'border-[var(--surface-border)]'}`}>
+                <div className={`overflow-x-auto rounded-[1.5rem] border shadow-inner ${darkMode ? 'border-white/8' : 'border-[var(--surface-border)]'}`}>
                   <table className="w-full text-left border-collapse text-xxs leading-relaxed">
                     <thead>
-                      <tr className={`${darkMode ? 'bg-stone-950 text-amber-400' : 'bg-stone-100 text-amber-950'} font-black uppercase tracking-wider`}>
+                      <tr className={`${darkMode ? 'bg-slate-950 text-cyan-200' : 'bg-[var(--accent-soft)] text-[var(--accent-strong)]'} font-black uppercase tracking-wider`}>
                         <th className="p-3">Job Title</th>
                         <th className="p-3">Company Name</th>
                         <th className="p-3">Location</th>
@@ -706,7 +763,7 @@ export default function Home() {
                         <th className="p-3">Application Link</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-stone-100 dark:divide-stone-800 font-medium">
+                    <tbody className={`font-medium ${darkMode ? 'divide-y divide-white/8' : 'divide-y divide-[color:rgba(155,124,83,0.16)]'}`}>
                       {jobResults.jobs?.map((job: any, index: number) => (
                         <tr key={index}>
                           <td className="p-3 font-bold">{job.title}</td>
@@ -716,7 +773,7 @@ export default function Home() {
                           <td className="p-3">{Array.isArray(job.skills) ? job.skills.join(', ') : job.skills}</td>
                           <td className="p-3">
                             {job.link && job.link.startsWith('http') ? (
-                              <a href={job.link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-bold text-indigo-600 dark:text-indigo-400 hover:underline">
+                              <a href={job.link} target="_blank" rel="noopener noreferrer" className={`inline-flex items-center gap-1 font-bold hover:underline ${darkMode ? 'text-cyan-300' : 'text-[var(--accent-strong)]'}`}>
                                 Apply Here <ArrowRight className="w-3 h-3" />
                               </a>
                             ) : (
@@ -730,8 +787,8 @@ export default function Home() {
                 </div>
 
                 {jobResults.best_match_summary && (
-                  <div className={`p-4 rounded-xl border flex items-start gap-2 text-xs font-semibold leading-relaxed ${darkMode ? 'bg-indigo-950/20 border-indigo-900/40 text-slate-200' : 'bg-indigo-50 border-indigo-100 text-indigo-900'}`}>
-                    <Sparkles className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5" />
+                  <div className={`flex items-start gap-2 rounded-[1.5rem] border p-4 text-xs font-semibold leading-relaxed ${darkMode ? 'border-cyan-400/20 bg-cyan-400/10 text-slate-100' : 'border-[color:rgba(15,118,110,0.16)] bg-[var(--accent-soft)] text-[var(--accent-strong)]'}`}>
+                    <Sparkles className={`mt-0.5 h-4 w-4 shrink-0 ${darkMode ? 'text-cyan-300' : 'text-[var(--accent)]'}`} />
                     <div>{jobResults.best_match_summary}</div>
                   </div>
                 )}
@@ -741,9 +798,9 @@ export default function Home() {
         )}
       </div>
 
-      <footer className="w-full text-center py-6 mt-12 border-t border-dashed border-amber-900/10 dark:border-stone-800">
-        <p className="text-[11px] font-bold tracking-widest text-stone-400 dark:text-stone-500 uppercase flex items-center justify-center gap-1.5">
-          Crafted with <Heart className="w-3.5 h-3.5 text-rose-600 fill-rose-600" /> & Developed by <span className="text-amber-900 dark:text-indigo-400 font-extrabold font-mono">Kuldeep Sharma</span>
+      <footer className={`mt-12 w-full border-t border-dashed py-6 text-center ${darkMode ? 'border-white/8' : 'border-[var(--surface-border)]'}`}>
+        <p className="flex items-center justify-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.22em] text-stone-400 dark:text-stone-500">
+          Crafted with <Heart className="h-3.5 w-3.5 fill-rose-600 text-rose-600" /> & Developed by <span className={`font-mono font-extrabold ${darkMode ? 'text-cyan-300' : 'text-[var(--accent-strong)]'}`}>Kuldeep Sharma</span>
         </p>
       </footer>
     </main>
