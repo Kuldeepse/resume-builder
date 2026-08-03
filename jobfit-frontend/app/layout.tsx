@@ -2,9 +2,10 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
-const siteTitle = "RoleCraft AI - Kuldeep Sharma";
-const siteDescription = "Tailor resumes, generate interview prep, and discover relevant job opportunities with RoleCraft AI by Kuldeep Sharma.";
-const siteUrl = "https://jobfitcareer.vercel.app";
+const siteTitle = "CogniTwist AI - Career Intelligence and Trusted Connections";
+const siteDescription =
+  "Build stronger applications, prepare for interviews, and connect through a private career network with CogniTwist AI.";
+const siteUrl = "https://cognitwistai.duckdns.org";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
