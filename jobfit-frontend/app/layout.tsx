@@ -38,7 +38,9 @@ export const metadata: Metadata = {
     },
   },
   verification: {
-    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || undefined,
+    google:
+      process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION ||
+      "MqfH-9HghpvJxRjii6AV3XIle2_PshtjJeZpqpw7aA4",
   },
   icons: {
     icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
