@@ -17,7 +17,7 @@ const displayFont = Sora({
 
 const siteTitle = "CogniTwist AI - Career Intelligence and Trusted Access";
 const siteDescription = "Tailor CV evidence, prepare for interviews, discover jobs, and create referral-ready requests through CogniTwist AI Career Network.";
-const siteUrl = "https://rolecraftai.duckdns.org";
+const siteUrl = "https://cognitwistai.duckdns.org";
 
 export const viewport: Viewport = {
   width: "device-width",
