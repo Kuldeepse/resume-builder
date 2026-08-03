@@ -93,7 +93,7 @@ export default function RootLayout({
             <Link href="/" className="flex items-center gap-3 font-black text-slate-950">
               <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,var(--accent)_0%,var(--highlight)_100%)] text-xs text-white shadow-lg shadow-teal-900/20">CT</span>
               <span className="flex flex-col leading-none">
-                <span className="text-sm uppercase tracking-[0.24em] text-[var(--ink-soft)]">CogniTwist AI</span>
+                <span className="text-sm tracking-[0.04em] text-[var(--ink-soft)]">CogniTwist AI</span>
                 <span className="mt-1 font-[var(--font-cognitwist-display)] text-base tracking-[-0.02em] md:text-lg">Career Network</span>
               </span>
             </Link>
