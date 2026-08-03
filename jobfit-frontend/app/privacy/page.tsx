@@ -1,12 +1,12 @@
 const PRIVACY_CONTACT = process.env.NEXT_PUBLIC_PRIVACY_CONTACT_EMAIL || '';
-const CONTROLLER_NAME = process.env.NEXT_PUBLIC_DATA_CONTROLLER_NAME || 'RoleCraft AI';
-const WHATSAPP_GROUP_NAME = 'RoleCraft IT Jobs referrals UK';
+const CONTROLLER_NAME = process.env.NEXT_PUBLIC_DATA_CONTROLLER_NAME || 'CogniTwist AI';
+const WHATSAPP_GROUP_NAME = 'CogniTwist AI IT Jobs referrals UK';
 
 export default function PrivacyNoticePage() {
   return (
     <main className="min-h-screen px-4 py-10 text-slate-950 md:px-8">
       <article className="mx-auto max-w-4xl rounded-[2rem] border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-xl)] md:p-10">
-        <p className="text-xs font-black uppercase tracking-[0.24em] text-teal-800">RoleCraft Career Network</p>
+        <p className="text-xs font-black uppercase tracking-[0.24em] text-teal-800">CogniTwist AI Career Network</p>
         <h1 className="mt-3 text-3xl font-black tracking-tight md:text-5xl">Privacy Notice</h1>
         <p className="mt-4 text-sm leading-7 text-[var(--ink-soft)]">Version 2026-08-02 · Applies to Career Network registration and optional WhatsApp group invite requests for {WHATSAPP_GROUP_NAME}.</p>
 
@@ -44,9 +44,9 @@ export default function PrivacyNoticePage() {
         </Section>
 
         <Section title="Who can access it">
-          <p>Registration data is not published and is not available through a public directory or public read API. Access is limited to authorised RoleCraft administrators and contracted service providers who need the information to operate or secure the service.</p>
+          <p>Registration data is not published and is not available through a public directory or public read API. Access is limited to authorised CogniTwist AI administrators and contracted service providers who need the information to operate or secure the service.</p>
           <p>Your identity or professional details will not be disclosed to another network member merely because you registered. Any later matching workflow must use a separate, explicit disclosure step.</p>
-          <p>If you request a WhatsApp invite, your number must remain private until RoleCraft approves the request and performs the invite through an authorised administrator workflow.</p>
+          <p>If you request a WhatsApp invite, your number must remain private until CogniTwist AI approves the request and performs the invite through an authorised administrator workflow.</p>
           <p>Viewing the private admin dashboard requires separate administrator credentials and is not granted automatically because a person registers.</p>
         </Section>
 
@@ -69,7 +69,7 @@ export default function PrivacyNoticePage() {
         </Section>
 
         <Section title="International processing and suppliers">
-          <p>Before public launch, RoleCraft must document the final hosting, database, email, monitoring, WhatsApp administration workflow, and other processors, their processing locations, contracts, retention controls, and any required international-transfer safeguards. The registration service must remain disabled until this record is complete.</p>
+          <p>Before public launch, CogniTwist AI must document the final hosting, database, email, monitoring, WhatsApp administration workflow, and other processors, their processing locations, contracts, retention controls, and any required international-transfer safeguards. The registration service must remain disabled until this record is complete.</p>
         </Section>
 
         <Section title="Changes to this notice">

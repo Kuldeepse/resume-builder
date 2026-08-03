@@ -65,7 +65,7 @@ export default function OpenGraphImage() {
                 letterSpacing: 3,
               }}
             >
-              RoleCraft AI
+              CogniTwist AI
             </div>
             <div
               style={{
@@ -104,7 +104,7 @@ export default function OpenGraphImage() {
               color: "#44403c",
             }}
           >
-            RoleCraft AI helps professionals tailor applications, prepare faster, and request trusted introductions through a moderated career network.
+            CogniTwist AI helps professionals tailor applications, prepare faster, and request trusted introductions through a moderated career network.
           </div>
         </div>
 

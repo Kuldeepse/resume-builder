@@ -2,8 +2,8 @@ import type { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'RoleCraft Career Network',
-    short_name: 'RoleCraft',
+    name: 'CogniTwist AI Career Network',
+    short_name: 'CogniTwist AI',
     description: 'Career intelligence, interview preparation and private professional networking.',
     start_url: '/',
     scope: '/',

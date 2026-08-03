@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Moon, Sun } from 'lucide-react';
 
 const STORAGE_KEY = 'rolecraft-theme';
-const CHANGE_EVENT = 'rolecraft-theme-change';
+const CHANGE_EVENT = 'cognitwist-theme-change';
 
 function applyTheme(theme: 'light' | 'dark') {
   document.documentElement.dataset.theme = theme;

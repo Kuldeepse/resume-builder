@@ -27,7 +27,7 @@ export default function PwaRegister() {
     if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
       const register = () => {
         navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {
-          // RoleCraft remains fully usable when service-worker registration is unavailable.
+          // CogniTwist AI remains fully usable when service-worker registration is unavailable.
         });
       };
 
@@ -63,15 +63,15 @@ export default function PwaRegister() {
   return (
     <aside
       className="fixed inset-x-3 bottom-[calc(5.75rem+env(safe-area-inset-bottom))] z-[60] mx-auto max-w-md rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-4 shadow-[var(--shadow-xl)] backdrop-blur-2xl md:bottom-5 md:left-auto md:right-5 md:mx-0"
-      aria-label="Install RoleCraft"
+      aria-label="Install CogniTwist AI"
     >
       <div className="flex items-start gap-3">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,var(--accent)_0%,var(--highlight)_100%)] text-xs font-black text-white">RC</div>
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,var(--accent)_0%,var(--highlight)_100%)] text-xs font-black text-white">CT</div>
         <div className="min-w-0 flex-1">
-          <p className="font-black text-slate-950">Install RoleCraft</p>
+          <p className="font-black text-slate-950">Install CogniTwist AI</p>
           <p className="mt-1 text-xs leading-5 text-[var(--ink-soft)]">
             {installEvent
-              ? 'Add RoleCraft to your home screen for faster mobile access.'
+              ? 'Add CogniTwist AI to your home screen for faster mobile access.'
               : 'On iPhone, tap Share and choose “Add to Home Screen”.'}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">

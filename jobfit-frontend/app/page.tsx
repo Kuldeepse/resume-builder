@@ -53,8 +53,8 @@ export default function Home() {
 
     setMounted(true);
     syncTheme();
-    window.addEventListener('rolecraft-theme-change', syncTheme);
-    return () => window.removeEventListener('rolecraft-theme-change', syncTheme);
+    window.addEventListener('cognitwist-theme-change', syncTheme);
+    return () => window.removeEventListener('cognitwist-theme-change', syncTheme);
   }, []);
 
   const handleGenerate = async () => {
@@ -192,7 +192,7 @@ export default function Home() {
 
               <div className="space-y-3">
                 <h1 className="max-w-3xl text-4xl font-black tracking-tight md:text-5xl">
-                  Build sharper applications with the same RoleCraft portal language.
+                  Build sharper applications with the same CogniTwist AI portal language.
                 </h1>
                 <p className={`max-w-2xl text-sm leading-7 md:text-base ${mutedTextTheme}`}>
                   Optimize resume fit, pressure-test interview answers, and search active roles from one polished workflow.
