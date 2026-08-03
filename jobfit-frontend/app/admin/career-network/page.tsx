@@ -20,15 +20,29 @@ type RegistrationRecord = {
   status_lookup_code: string | null;
 };
 
+type LoadRegistrationsResult = {
+  registrations: RegistrationRecord[];
+  error: string;
+  schemaWarning: string;
+  debugInfo: string[];
+};
+
 async function loadRegistrations() {
   const supabaseUrl = process.env.SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const debugInfo: string[] = [];
 
   if (!supabaseUrl || !serviceRoleKey) {
-    return { registrations: [], error: 'Supabase admin storage is not configured.', schemaWarning: '' };
+    return {
+      registrations: [],
+      error: 'Supabase admin storage is not configured.',
+      schemaWarning: '',
+      debugInfo: ['Missing one or both server environment variables: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY.'],
+    } satisfies LoadRegistrationsResult;
   }
 
   const baseUrl = `${supabaseUrl.replace(/\/$/, '')}/rest/v1/career_network_registrations`;
+  debugInfo.push(`Primary query: select includes status_lookup_code.`);
   const response = await fetch(
     `${baseUrl}?select=id,created_at,full_name,email,role,linkedin_profile,whatsapp_number,whatsapp_group_consent,whatsapp_group_status,current_company,professional_area,marketing_opt_in,status,status_lookup_code&order=created_at.desc`,
     {
@@ -42,14 +56,24 @@ async function loadRegistrations() {
 
   if (!response.ok) {
     const detail = await response.text().catch(() => '');
+    debugInfo.push(`Primary query failed with HTTP ${response.status}.`);
+    if (detail) {
+      debugInfo.push(`Supabase response: ${detail}`);
+    }
     const missingStatusLookupColumn =
       response.status === 400 &&
       detail.includes('status_lookup_code');
 
     if (!missingStatusLookupColumn) {
-      return { registrations: [], error: 'Could not load registrations from private storage.', schemaWarning: '' };
+      return {
+        registrations: [],
+        error: 'Could not load registrations from private storage.',
+        schemaWarning: '',
+        debugInfo,
+      } satisfies LoadRegistrationsResult;
     }
 
+    debugInfo.push('Falling back to legacy query without status_lookup_code.');
     const fallbackResponse = await fetch(
       `${baseUrl}?select=id,created_at,full_name,email,role,linkedin_profile,whatsapp_number,whatsapp_group_consent,whatsapp_group_status,current_company,professional_area,marketing_opt_in,status&order=created_at.desc`,
       {
@@ -62,7 +86,17 @@ async function loadRegistrations() {
     );
 
     if (!fallbackResponse.ok) {
-      return { registrations: [], error: 'Could not load registrations from private storage.', schemaWarning: '' };
+      const fallbackDetail = await fallbackResponse.text().catch(() => '');
+      debugInfo.push(`Fallback query failed with HTTP ${fallbackResponse.status}.`);
+      if (fallbackDetail) {
+        debugInfo.push(`Fallback response: ${fallbackDetail}`);
+      }
+      return {
+        registrations: [],
+        error: 'Could not load registrations from private storage.',
+        schemaWarning: '',
+        debugInfo,
+      } satisfies LoadRegistrationsResult;
     }
 
     const fallbackRecords = (await fallbackResponse.json().catch(() => [])) as Array<Omit<RegistrationRecord, 'status_lookup_code'>>;
@@ -75,11 +109,13 @@ async function loadRegistrations() {
       registrations,
       error: '',
       schemaWarning: 'Tracking codes are not available in this Supabase table yet. Run the status lookup migration to add the private status_lookup_code column.',
-    };
+      debugInfo,
+    } satisfies LoadRegistrationsResult;
   }
 
   const registrations = (await response.json().catch(() => [])) as RegistrationRecord[];
-  return { registrations, error: '', schemaWarning: '' };
+  debugInfo.push(`Primary query succeeded. Loaded ${registrations.length} registrations.`);
+  return { registrations, error: '', schemaWarning: '', debugInfo } satisfies LoadRegistrationsResult;
 }
 
 function statCount(registrations: RegistrationRecord[], predicate: (record: RegistrationRecord) => boolean) {
@@ -92,7 +128,7 @@ export default async function CareerNetworkAdminDashboardPage({
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   await requireAdminAuth();
-  const { registrations, error, schemaWarning } = await loadRegistrations();
+  const { registrations, error, schemaWarning, debugInfo } = await loadRegistrations();
   const resolvedSearchParams = searchParams ? await searchParams : {};
   const errorCode = typeof resolvedSearchParams.error === 'string' ? resolvedSearchParams.error : '';
   const notices = {
@@ -165,6 +201,21 @@ export default async function CareerNetworkAdminDashboardPage({
         <div className="rounded-[1.5rem] border border-teal-200 bg-teal-50 p-4 text-xs leading-6 text-teal-950">
           Update each row to move a person from registration review into verified access, resend a private tracking email when needed, and separately manage the WhatsApp invite lifecycle.
         </div>
+
+        {(error || schemaWarning) && debugInfo.length > 0 && (
+          <details className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4 text-sm text-slate-800">
+            <summary className="cursor-pointer font-black tracking-[0.08em] text-slate-950">
+              Admin Debug Details
+            </summary>
+            <div className="mt-3 space-y-2 text-xs leading-6 text-slate-700">
+              {debugInfo.map((item) => (
+                <div key={item} className="rounded-xl border border-slate-200 bg-white/90 px-3 py-2 font-mono">
+                  {item}
+                </div>
+              ))}
+            </div>
+          </details>
+        )}
 
         <section className="overflow-hidden rounded-[2rem] border border-[var(--surface-border)] bg-[var(--surface)] shadow-[var(--shadow-xl)]">
           <div className="border-b border-[#e6d4bf] px-6 py-4">
