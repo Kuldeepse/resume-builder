@@ -27,27 +27,27 @@ export const metadata: Metadata = {
     shortcut: "/icon.svg",
     apple: "/icon.svg",
   },
-  openGraph: {
-    title: siteTitle,
-    description: siteDescription,
-    url: siteUrl,
-    siteName: "RoleCraft AI",
-    type: "website",
-    images: [
-      {
-        url: "/opengraph-image",
-        width: 1200,
-        height: 630,
-        alt: "RoleCraft AI social preview",
-      },
-    ],
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: siteTitle,
-    description: siteDescription,
-    images: ["/opengraph-image"],
-  },
+ openGraph: {
+  title: siteTitle,
+  description: siteDescription,
+  url: siteUrl,
+  siteName: "CogniTwist AI",
+  type: "website",
+  images: [
+    {
+      url: "/cognitwist-ai-share-v1.png",
+      width: 1200,
+      height: 630,
+      alt: "CogniTwist AI — Career Intelligence and Trusted Connections",
+    },
+  ],
+},
+twitter: {
+  card: "summary_large_image",
+  title: siteTitle,
+  description: siteDescription,
+  images: ["/cognitwist-ai-share-v1.png"],
+},
 };
 
 export default function RootLayout({
