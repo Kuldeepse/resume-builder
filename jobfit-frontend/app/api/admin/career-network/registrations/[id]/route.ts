@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isAdminAuthenticated } from '@/app/admin/career-network/auth';
 import { buildSupabaseRestHeaders } from '@/lib/supabase-rest.mjs';
+import { sendCareerNetworkStatusUpdateEmail } from '@/lib/career-network-email.mjs';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -49,6 +50,34 @@ export async function POST(
     return NextResponse.redirect(new URL('/admin/career-network?error=supabase-config', request.url), 303);
   }
 
+  const existingResponse = await fetch(
+    `${supabaseUrl.replace(/\/$/, '')}/rest/v1/career_network_registrations?select=id,full_name,email,role,status,whatsapp_group_status&id=eq.${encodeURIComponent(id)}&limit=1`,
+    {
+      method: 'GET',
+      headers: buildSupabaseRestHeaders(serviceRoleKey, {
+        accept: 'application/json',
+      }),
+      cache: 'no-store',
+    },
+  );
+
+  if (!existingResponse.ok) {
+    return NextResponse.redirect(new URL('/admin/career-network?error=update-failed', request.url), 303);
+  }
+
+  const existingRecords = (await existingResponse.json().catch(() => [])) as Array<{
+    id: string;
+    full_name: string;
+    email: string;
+    role: string;
+    status: string;
+    whatsapp_group_status: string;
+  }>;
+  const existingRecord = existingRecords[0];
+  if (!existingRecord) {
+    return NextResponse.redirect(new URL('/admin/career-network?error=update-failed', request.url), 303);
+  }
+
   const response = await fetch(
     `${supabaseUrl.replace(/\/$/, '')}/rest/v1/career_network_registrations?id=eq.${encodeURIComponent(id)}`,
     {
@@ -68,6 +97,34 @@ export async function POST(
 
   if (!response.ok) {
     return NextResponse.redirect(new URL('/admin/career-network?error=update-failed', request.url), 303);
+  }
+
+  const updatedRecords = (await response.json().catch(() => [])) as Array<{
+    id: string;
+    full_name: string;
+    email: string;
+    role: string;
+    status: string;
+    whatsapp_group_status: string;
+  }>;
+  const updatedRecord = updatedRecords[0];
+
+  const statusChanged =
+    updatedRecord &&
+    (updatedRecord.status !== existingRecord.status ||
+      updatedRecord.whatsapp_group_status !== existingRecord.whatsapp_group_status);
+
+  if (statusChanged) {
+    sendCareerNetworkStatusUpdateEmail({
+      registration: updatedRecord,
+      siteUrl: request.nextUrl.origin,
+      emailConfig: {
+        apiKey: process.env.RESEND_API_KEY,
+        from: process.env.CAREER_NETWORK_EMAIL_FROM,
+      },
+    }).catch((error) => {
+      console.error('Career Network status update email failed', error);
+    });
   }
 
   return NextResponse.redirect(new URL('/admin/career-network?updated=1', request.url), 303);

@@ -1,5 +1,3 @@
-'use client';
-
 import {
   BadgeDollarSign,
   Blocks,
@@ -19,7 +17,7 @@ import {
   Sparkles,
   Users,
 } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+import { buildSupabaseRestHeaders } from '@/lib/supabase-rest.mjs';
 
 const companies = [
   { name: 'Microsoft', icon: Blocks, accent: 'from-sky-500 to-cyan-400', tag: 'Platform' },
@@ -65,8 +63,41 @@ const processSteps = [
   },
 ];
 
-export default function CareerNetworkLandingPage() {
+async function loadRoleCount(role: 'candidate' | 'referrer' | 'mentor') {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    return 0;
+  }
+
+  const response = await fetch(
+    `${supabaseUrl.replace(/\/$/, '')}/rest/v1/career_network_registrations?select=id&role=eq.${role}&status=in.(pending_verification,verified)`,
+    {
+      method: 'HEAD',
+      headers: buildSupabaseRestHeaders(serviceRoleKey, {
+        prefer: 'count=exact',
+      }),
+      cache: 'no-store',
+    },
+  );
+
+  if (!response.ok) {
+    return 0;
+  }
+
+  const contentRange = response.headers.get('content-range') || '';
+  const total = Number(contentRange.split('/')[1] || '0');
+  return Number.isFinite(total) ? total : 0;
+}
+
+export default async function CareerNetworkLandingPage() {
   const marqueeItems = [...companies, ...companies];
+  const [candidateCount, referrerCount, mentorCount] = await Promise.all([
+    loadRoleCount('candidate'),
+    loadRoleCount('referrer'),
+    loadRoleCount('mentor'),
+  ]);
 
   return (
     <main className="min-h-screen px-4 py-8 text-slate-950 md:px-8">
@@ -108,7 +139,6 @@ export default function CareerNetworkLandingPage() {
             </div>
 
             <div className="mt-6 flex flex-wrap gap-3 text-xs font-bold uppercase tracking-[0.18em] text-slate-700">
-              <span className="rounded-full border border-teal-200 bg-white/80 px-3 py-2">Manual review</span>
               <span className="rounded-full border border-orange-200 bg-white/80 px-3 py-2">No public directory</span>
               <span className="rounded-full border border-slate-200 bg-white/80 px-3 py-2">Consent-led access</span>
             </div>
@@ -128,24 +158,6 @@ export default function CareerNetworkLandingPage() {
               Clicking <strong>Registration</strong> opens the current secure CogniTwist AI registration page, so the private intake process and GDPR-friendly flow remain unchanged.
             </div>
           </div>
-        </section>
-
-        <section className="grid gap-4 md:grid-cols-3">
-          <ValueCard
-            icon={<Users className="h-5 w-5" />}
-            title="Trusted access"
-            copy="Candidates, referrers, and mentors enter through the same reviewed workflow instead of a public member list."
-          />
-          <ValueCard
-            icon={<ShieldCheck className="h-5 w-5" />}
-            title="GDPR-aligned posture"
-            copy="The landing page stays public, while the identifiable registration flow stays private, consent-based, and reviewable."
-          />
-          <ValueCard
-            icon={<Sparkles className="h-5 w-5" />}
-            title="Clearer journey"
-            copy="The network becomes easier to understand: discover first, register second, approve third, then optionally invite to WhatsApp."
-          />
         </section>
 
         <section className="rounded-[2rem] border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-xl)] md:p-8">
@@ -215,6 +227,42 @@ export default function CareerNetworkLandingPage() {
           </div>
         </section>
 
+        <section className="rounded-[2rem] border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-xl)] md:p-8">
+          <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.24em] text-[var(--accent-strong)]">Network momentum</p>
+              <h2 className="mt-2 text-2xl font-black text-slate-950">See who is already building with the network</h2>
+            </div>
+            <p className="max-w-2xl text-sm leading-7 text-[var(--ink-soft)]">
+              These live totals show the current mix of people stepping in to refer, seeking help, and offering mentorship through the private community.
+            </p>
+          </div>
+
+          <div className="mt-6 grid gap-4 md:grid-cols-3">
+            <ValueCard
+              icon={<Users className="h-5 w-5" />}
+              title="Ready to help"
+              value={referrerCount}
+              copy="Unique referrers who have stepped forward to support candidates through the private network."
+              accent="from-teal-500 via-emerald-400 to-lime-300"
+            />
+            <ValueCard
+              icon={<ShieldCheck className="h-5 w-5" />}
+              title="Seeking career support"
+              value={candidateCount}
+              copy="People currently seeking support, guidance, introductions, or referral help through the reviewed flow."
+              accent="from-sky-500 via-cyan-400 to-blue-300"
+            />
+            <ValueCard
+              icon={<Sparkles className="h-5 w-5" />}
+              title="Ready for mentorship"
+              value={mentorCount}
+              copy="Mentors who have registered to share sector insight, coaching, and practical career guidance."
+              accent="from-fuchsia-500 via-violet-400 to-pink-300"
+            />
+          </div>
+        </section>
+
         <section className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
           <div className="rounded-[2rem] border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-xl)]">
             <div className="flex items-center gap-2 text-sm font-black uppercase tracking-[0.18em] text-slate-950">
@@ -238,14 +286,38 @@ export default function CareerNetworkLandingPage() {
   );
 }
 
-function ValueCard({ icon, title, copy }: { icon: React.ReactNode; title: string; copy: string }) {
+function ValueCard({
+  icon,
+  title,
+  value,
+  copy,
+  accent,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  value: number;
+  copy: string;
+  accent: string;
+}) {
   return (
-    <div className="rounded-[1.75rem] border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-xl)]">
-      <div className="flex items-center gap-2 text-sm font-black text-slate-950">
-        {icon}
-        {title}
+    <div className="relative overflow-hidden rounded-[1.75rem] border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-xl)]">
+      <div className={`absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r ${accent}`} />
+      <div className="absolute -right-6 top-12 h-24 w-24 rounded-full bg-[var(--accent-soft)] blur-2xl" />
+      <div className="relative">
+        <div className="flex items-center gap-2 text-sm font-black text-slate-950">
+          {icon}
+          {title}
+        </div>
+        <div className="mt-5 flex items-end gap-3">
+          <div className={`bg-gradient-to-r ${accent} bg-clip-text text-5xl font-black tracking-tight text-transparent md:text-6xl`}>
+            {value}
+          </div>
+          <div className="mb-2 rounded-full border border-[var(--surface-border)] bg-white/80 px-3 py-1 text-[10px] font-black uppercase tracking-[0.22em] text-[var(--accent-strong)]">
+            live
+          </div>
+        </div>
+        <p className="mt-3 text-xs leading-6 text-[var(--ink-soft)]">{copy}</p>
       </div>
-      <p className="mt-3 text-xs leading-6 text-[var(--ink-soft)]">{copy}</p>
     </div>
   );
 }

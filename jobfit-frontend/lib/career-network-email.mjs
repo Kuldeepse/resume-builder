@@ -138,6 +138,48 @@ export function renderAdminAlertEmail({
   return { subject, html, text };
 }
 
+export function renderRegistrantStatusUpdateEmail({
+  fullName,
+  role,
+  registrationStatus,
+  whatsappStatus,
+  statusUrl,
+}) {
+  const subject = 'Your CogniTwist AI Career Network status has changed';
+  const html = baseTemplate({
+    eyebrow: 'Status update',
+    title: 'Your registration has been updated',
+    intro: `Hi ${escapeHtml(fullName)}, your CogniTwist AI Career Network registration has a new update.`,
+    sections: [
+      {
+        label: 'Registration',
+        html: `Role: <strong>${escapeHtml(role)}</strong><br/>Registration status: <strong>${escapeHtml(registrationStatus.replaceAll('_', ' '))}</strong>`,
+      },
+      {
+        label: 'WhatsApp',
+        html: `WhatsApp invite status: <strong>${escapeHtml(whatsappStatus.replaceAll('_', ' '))}</strong>`,
+      },
+      {
+        label: 'Status page',
+        html: `You can review the latest details at <a href="${escapeHtml(statusUrl)}" style="color:#0f766e;font-weight:700;">${escapeHtml(statusUrl)}</a>.`,
+      },
+    ],
+    outro: 'This is an automated update from the private Career Network workflow. If you did not expect this message, contact the data controller listed in the Privacy Notice.',
+  });
+
+  const text = [
+    `Hi ${fullName},`,
+    '',
+    'Your CogniTwist AI Career Network registration has been updated.',
+    `Role: ${role}`,
+    `Registration status: ${registrationStatus}`,
+    `WhatsApp status: ${whatsappStatus}`,
+    `Status page: ${statusUrl}`,
+  ].join('\n');
+
+  return { subject, html, text };
+}
+
 export async function sendEmailNotification({
   apiKey,
   from,
@@ -220,4 +262,28 @@ export async function sendCareerNetworkRegistrationEmails({
   ];
 
   return Promise.allSettled(tasks);
+}
+
+export async function sendCareerNetworkStatusUpdateEmail({
+  registration,
+  siteUrl,
+  emailConfig,
+}) {
+  const statusUrl = buildStatusUrl(siteUrl);
+  const statusUpdate = renderRegistrantStatusUpdateEmail({
+    fullName: registration.full_name,
+    role: registration.role,
+    registrationStatus: registration.status,
+    whatsappStatus: registration.whatsapp_group_status,
+    statusUrl,
+  });
+
+  return sendEmailNotification({
+    apiKey: emailConfig.apiKey,
+    from: emailConfig.from,
+    to: registration.email,
+    subject: statusUpdate.subject,
+    html: statusUpdate.html,
+    text: statusUpdate.text,
+  });
 }
