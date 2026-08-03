@@ -1,6 +1,6 @@
 import type { MetadataRoute } from 'next';
 
-const siteUrl = 'https://rolecraftai.duckdns.org';
+const siteUrl = 'https://cognitwistai.duckdns.org';
 
 export default function robots(): MetadataRoute.Robots {
   return {
