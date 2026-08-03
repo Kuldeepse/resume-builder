@@ -175,6 +175,28 @@ export default async function CareerNetworkLandingPage() {
                 <span>{point}</span>
               </div>
             ))}
+            <div className="rounded-[1.25rem] border border-white/70 bg-white/75 p-4">
+              <div className="text-[10px] font-black uppercase tracking-[0.22em] text-teal-900">Community groups</div>
+              <div className="mt-3 grid gap-2">
+                {communityGroups.map((group) => (
+                  <a
+                    key={group.name}
+                    href={group.href}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="group flex items-center justify-between rounded-[1rem] border border-teal-100 bg-white/85 px-3 py-2.5 text-xs font-bold text-slate-900 transition hover:border-[var(--accent)] hover:bg-white"
+                  >
+                    <span className="flex items-center gap-2">
+                      <span className={`flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br ${group.accent} text-white shadow-sm`}>
+                        <group.icon className="h-4 w-4" />
+                      </span>
+                      <span>{group.name}</span>
+                    </span>
+                    <ArrowRight className="h-3.5 w-3.5 text-[var(--accent-strong)] transition group-hover:translate-x-0.5" />
+                  </a>
+                ))}
+              </div>
+            </div>
             <div className="rounded-[1.25rem] border border-white/70 bg-white/75 p-4 text-xs leading-6 text-[var(--ink-soft)]">
               Clicking <strong>Registration</strong> opens the current secure CogniTwist AI registration page, so the private intake process and GDPR-friendly flow remain unchanged.
             </div>
@@ -281,44 +303,6 @@ export default async function CareerNetworkLandingPage() {
               copy="Mentors who have registered to share sector insight, coaching, and practical career guidance."
               accent="from-fuchsia-500 via-violet-400 to-pink-300"
             />
-          </div>
-        </section>
-
-        <section className="rounded-[2rem] border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-xl)] md:p-8">
-          <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.24em] text-[var(--accent-strong)]">Community groups</p>
-              <h2 className="mt-2 text-2xl font-black text-slate-950">Stay connected beyond registration</h2>
-            </div>
-            <p className="max-w-2xl text-sm leading-7 text-[var(--ink-soft)]">
-              These public community spaces complement the private referral workflow. Registration, approval, and status tracking still happen through the secure Career Network flow.
-            </p>
-          </div>
-
-          <div className="mt-6 grid gap-4 md:grid-cols-2">
-            {communityGroups.map((group) => (
-              <a
-                key={group.name}
-                href={group.href}
-                target="_blank"
-                rel="noreferrer"
-                className="group rounded-[1.7rem] border border-[var(--surface-border)] bg-white/85 p-5 transition duration-200 hover:-translate-y-1 hover:border-[var(--accent)] hover:shadow-[var(--shadow-xl)]"
-              >
-                <div className="flex items-start gap-4">
-                  <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br ${group.accent} text-white shadow-sm`}>
-                    <group.icon className="h-5 w-5" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-lg font-black text-slate-950">{group.name}</div>
-                    <p className="mt-2 text-sm leading-7 text-[var(--ink-soft)]">{group.description}</p>
-                    <div className="mt-4 inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em] text-[var(--accent-strong)]">
-                      {group.cta}
-                      <ArrowRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5" />
-                    </div>
-                  </div>
-                </div>
-              </a>
-            ))}
           </div>
         </section>
 
