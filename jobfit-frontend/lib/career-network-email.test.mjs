@@ -7,6 +7,7 @@ import {
   renderRegistrantConfirmationEmail,
   renderRegistrantStatusUpdateEmail,
 } from './career-network-email.mjs';
+import { deriveEmailDeliveryState } from './career-network-email-status.mjs';
 
 test('renders registrant confirmation email with tracking code and status url', () => {
   const result = renderRegistrantConfirmationEmail({
@@ -69,4 +70,28 @@ test('builds a confirmation email from a registration record', () => {
 
   assert.match(result.html, /ZX98YU76TR54/);
   assert.match(result.text, /RoleCraft IT Jobs referrals UK/);
+});
+
+test('derives sent email status from a fulfilled email result', () => {
+  const result = deriveEmailDeliveryState({ status: 'fulfilled', value: { ok: true, skipped: false } });
+
+  assert.equal(result.status, 'sent');
+  assert.equal(result.error, null);
+});
+
+test('derives skipped email status from a skipped email result', () => {
+  const result = deriveEmailDeliveryState(
+    { status: 'fulfilled', value: { ok: false, skipped: true } },
+    'Config missing',
+  );
+
+  assert.equal(result.status, 'skipped');
+  assert.equal(result.error, 'Config missing');
+});
+
+test('derives failed email status from a rejected email result', () => {
+  const result = deriveEmailDeliveryState({ status: 'rejected', reason: new Error('Resend failed') });
+
+  assert.equal(result.status, 'failed');
+  assert.match(result.error || '', /Resend failed/);
 });

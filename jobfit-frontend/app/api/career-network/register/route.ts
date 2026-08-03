@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { isAllowedOrigin, validateRegistrationPayload } from './policy.mjs';
 import { buildSupabaseRestHeaders } from '@/lib/supabase-rest.mjs';
 import { sendCareerNetworkRegistrationEmails } from '@/lib/career-network-email.mjs';
+import { deriveEmailDeliveryState } from '@/lib/career-network-email-status.mjs';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -13,6 +14,38 @@ const NO_STORE_HEADERS = {
 };
 
 const WHATSAPP_GROUP_NAME = 'CogniTwist AI IT Jobs referrals UK';
+
+async function updateConfirmationEmailStatus({
+  supabaseUrl,
+  serviceRoleKey,
+  id,
+  status,
+  error,
+}: {
+  supabaseUrl: string;
+  serviceRoleKey: string;
+  id: string;
+  status: 'pending' | 'sent' | 'failed' | 'skipped';
+  error: string | null;
+}) {
+  await fetch(
+    `${supabaseUrl.replace(/\/$/, '')}/rest/v1/career_network_registrations?id=eq.${encodeURIComponent(id)}`,
+    {
+      method: 'PATCH',
+      headers: buildSupabaseRestHeaders(serviceRoleKey, {
+        contentType: 'application/json',
+        accept: 'application/json',
+      }),
+      body: JSON.stringify({
+        confirmation_email_status: status,
+        confirmation_email_sent_at: status === 'sent' ? new Date().toISOString() : null,
+        confirmation_email_error: error,
+        updated_at: new Date().toISOString(),
+      }),
+      cache: 'no-store',
+    },
+  );
+}
 
 export async function POST(request: NextRequest) {
   const origin = request.headers.get('origin');
@@ -78,20 +111,52 @@ export async function POST(request: NextRequest) {
   const emailFrom = process.env.CAREER_NETWORK_EMAIL_FROM;
   const adminAlertEmail = process.env.CAREER_NETWORK_ADMIN_ALERT_EMAIL || process.env.NEXT_PUBLIC_PRIVACY_CONTACT_EMAIL;
 
-  if (storedRecord.status_lookup_code) {
-    sendCareerNetworkRegistrationEmails({
-      registration: storedRecord,
-      siteUrl: request.nextUrl.origin,
-      adminUrl: `${request.nextUrl.origin}/admin/career-network`,
-      groupName: WHATSAPP_GROUP_NAME,
-      emailConfig: {
-        apiKey: emailApiKey,
-        from: emailFrom,
-        adminAlertEmail,
-      },
-    }).catch((error) => {
-      console.error('Career Network email notification failed', error);
-    });
+  if (storedRecord.id) {
+    if (!storedRecord.status_lookup_code) {
+      await updateConfirmationEmailStatus({
+        supabaseUrl,
+        serviceRoleKey,
+        id: storedRecord.id,
+        status: 'skipped',
+        error: 'Tracking code was not generated for this registration.',
+      }).catch(() => {});
+    } else {
+      try {
+        const results = await sendCareerNetworkRegistrationEmails({
+          registration: storedRecord,
+          siteUrl: request.nextUrl.origin,
+          adminUrl: `${request.nextUrl.origin}/admin/career-network`,
+          groupName: WHATSAPP_GROUP_NAME,
+          emailConfig: {
+            apiKey: emailApiKey,
+            from: emailFrom,
+            adminAlertEmail,
+          },
+        });
+
+        const confirmationDelivery = deriveEmailDeliveryState(
+          results[0],
+          'Email sending was skipped because RESEND_API_KEY, CAREER_NETWORK_EMAIL_FROM, or recipient email is missing.',
+        );
+
+        await updateConfirmationEmailStatus({
+          supabaseUrl,
+          serviceRoleKey,
+          id: storedRecord.id,
+          status: confirmationDelivery.status as 'pending' | 'sent' | 'failed' | 'skipped',
+          error: confirmationDelivery.error,
+        }).catch(() => {});
+      } catch (error) {
+        console.error('Career Network email notification failed', error);
+        await updateConfirmationEmailStatus({
+          supabaseUrl,
+          serviceRoleKey,
+          id: storedRecord.id,
+          status: 'failed',
+          error: error instanceof Error ? error.message : 'Career Network email notification failed.',
+        }).catch(() => {});
+      }
+    }
   }
 
   return NextResponse.json(

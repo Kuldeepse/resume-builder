@@ -18,6 +18,9 @@ type RegistrationRecord = {
   marketing_opt_in: boolean;
   status: string;
   status_lookup_code: string | null;
+  confirmation_email_status: 'pending' | 'sent' | 'failed' | 'skipped' | null;
+  confirmation_email_sent_at: string | null;
+  confirmation_email_error: string | null;
 };
 
 type LoadRegistrationsResult = {
@@ -42,9 +45,9 @@ async function loadRegistrations() {
   }
 
   const baseUrl = `${supabaseUrl.replace(/\/$/, '')}/rest/v1/career_network_registrations`;
-  debugInfo.push(`Primary query: select includes status_lookup_code.`);
+  debugInfo.push(`Primary query: select includes status_lookup_code and confirmation email fields.`);
   const response = await fetch(
-    `${baseUrl}?select=id,created_at,full_name,email,role,linkedin_profile,whatsapp_number,whatsapp_group_consent,whatsapp_group_status,current_company,professional_area,marketing_opt_in,status,status_lookup_code&order=created_at.desc`,
+    `${baseUrl}?select=id,created_at,full_name,email,role,linkedin_profile,whatsapp_number,whatsapp_group_consent,whatsapp_group_status,current_company,professional_area,marketing_opt_in,status,status_lookup_code,confirmation_email_status,confirmation_email_sent_at,confirmation_email_error&order=created_at.desc`,
     {
       method: 'GET',
       headers: buildSupabaseRestHeaders(serviceRoleKey, {
@@ -65,6 +68,55 @@ async function loadRegistrations() {
       detail.includes('status_lookup_code');
 
     if (!missingStatusLookupColumn) {
+      const missingEmailStatusColumns =
+        response.status === 400 &&
+        (detail.includes('confirmation_email_status') ||
+          detail.includes('confirmation_email_sent_at') ||
+          detail.includes('confirmation_email_error'));
+
+      if (missingEmailStatusColumns) {
+        debugInfo.push('Falling back to query without confirmation email fields.');
+        const fallbackEmailResponse = await fetch(
+          `${baseUrl}?select=id,created_at,full_name,email,role,linkedin_profile,whatsapp_number,whatsapp_group_consent,whatsapp_group_status,current_company,professional_area,marketing_opt_in,status,status_lookup_code&order=created_at.desc`,
+          {
+            method: 'GET',
+            headers: buildSupabaseRestHeaders(serviceRoleKey, {
+              accept: 'application/json',
+            }),
+            cache: 'no-store',
+          },
+        );
+
+        if (!fallbackEmailResponse.ok) {
+          const fallbackEmailDetail = await fallbackEmailResponse.text().catch(() => '');
+          debugInfo.push(`Fallback email-status query failed with HTTP ${fallbackEmailResponse.status}.`);
+          if (fallbackEmailDetail) {
+            debugInfo.push(`Fallback response: ${fallbackEmailDetail}`);
+          }
+          return {
+            registrations: [],
+            error: 'Could not load registrations from private storage.',
+            schemaWarning: '',
+            debugInfo,
+          } satisfies LoadRegistrationsResult;
+        }
+
+        const fallbackRecords = (await fallbackEmailResponse.json().catch(() => [])) as Array<Omit<RegistrationRecord, 'confirmation_email_status' | 'confirmation_email_sent_at' | 'confirmation_email_error'>>;
+        const registrations = fallbackRecords.map((record) => ({
+          ...record,
+          confirmation_email_status: null,
+          confirmation_email_sent_at: null,
+          confirmation_email_error: null,
+        }));
+
+        return {
+          registrations,
+          error: '',
+          schemaWarning: 'Confirmation email tracking is not available in this Supabase table yet. Run the email delivery migration to show sent, failed, or skipped status in admin.',
+          debugInfo,
+        } satisfies LoadRegistrationsResult;
+      }
+
       return {
         registrations: [],
         error: 'Could not load registrations from private storage.',
@@ -103,6 +155,9 @@ async function loadRegistrations() {
     const registrations = fallbackRecords.map((record) => ({
       ...record,
       status_lookup_code: null,
+      confirmation_email_status: null,
+      confirmation_email_sent_at: null,
+      confirmation_email_error: null,
     }));
 
     return {
@@ -236,6 +291,7 @@ export default async function CareerNetworkAdminDashboardPage({
                   <th className="px-4 py-3 font-black">Professional area</th>
                   <th className="px-4 py-3 font-black">Company</th>
                   <th className="px-4 py-3 font-black">Registration</th>
+                  <th className="px-4 py-3 font-black">Email</th>
                   <th className="px-4 py-3 font-black">WhatsApp</th>
                   <th className="px-4 py-3 font-black">Actions</th>
                 </tr>
@@ -243,7 +299,7 @@ export default async function CareerNetworkAdminDashboardPage({
               <tbody>
                 {registrations.length === 0 && (
                   <tr>
-                    <td colSpan={9} className="px-4 py-8 text-center text-sm text-stone-500">
+                    <td colSpan={10} className="px-4 py-8 text-center text-sm text-stone-500">
                       No registrations available yet.
                     </td>
                   </tr>
@@ -291,6 +347,29 @@ export default async function CareerNetworkAdminDashboardPage({
                     <td className="px-4 py-4 text-xs leading-6 text-slate-700">{record.current_company || 'Not provided'}</td>
                     <td className="px-4 py-4 text-xs leading-6 text-slate-700">
                       <div>Marketing: {record.marketing_opt_in ? 'Opted in' : 'Not requested'}</div>
+                    </td>
+                    <td className="px-4 py-4 text-xs leading-6 text-slate-700">
+                      {record.confirmation_email_status ? (
+                        <>
+                          <Badge tone={emailTone(record.confirmation_email_status)}>
+                            {record.confirmation_email_status}
+                          </Badge>
+                          {record.confirmation_email_sent_at && (
+                            <div className="mt-2 text-stone-500">
+                              Sent: {new Date(record.confirmation_email_sent_at).toLocaleString('en-GB')}
+                            </div>
+                          )}
+                          {record.confirmation_email_error && (
+                            <div className="mt-2 max-w-[18rem] text-stone-500">
+                              {record.confirmation_email_error}
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <div className="text-stone-500">
+                          Not available until the email delivery migration is applied.
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-4 text-xs leading-6 text-slate-700">
                       <div>{record.whatsapp_number || 'No number provided'}</div>
@@ -369,14 +448,28 @@ function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string
   );
 }
 
-function Badge({ children, tone }: { children: React.ReactNode; tone: 'amber' | 'green' | 'slate' }) {
+function Badge({ children, tone }: { children: React.ReactNode; tone: 'amber' | 'green' | 'slate' | 'rose' }) {
   const styles = {
     amber: 'border-orange-200 bg-orange-50 text-orange-900',
     green: 'border-teal-200 bg-teal-50 text-teal-900',
     slate: 'border-stone-200 bg-stone-100 text-stone-700',
+    rose: 'border-rose-200 bg-rose-50 text-rose-900',
   };
 
   return <span className={`rounded-full border px-2 py-1 text-[10px] font-black uppercase tracking-wider ${styles[tone]}`}>{children}</span>;
+}
+
+function emailTone(status: NonNullable<RegistrationRecord['confirmation_email_status']>) {
+  switch (status) {
+    case 'sent':
+      return 'green';
+    case 'failed':
+      return 'rose';
+    case 'skipped':
+      return 'amber';
+    default:
+      return 'slate';
+  }
 }
 
 function getAdminErrorMessage(errorCode: string) {

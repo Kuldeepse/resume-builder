@@ -5,12 +5,45 @@ import {
   sendCareerNetworkConfirmationEmail,
   sendCareerNetworkStatusUpdateEmail,
 } from '@/lib/career-network-email.mjs';
+import { deriveEmailDeliveryState } from '@/lib/career-network-email-status.mjs';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const REGISTRATION_STATUSES = new Set(['pending_verification', 'verified', 'declined', 'deleted']);
 const WHATSAPP_STATUSES = new Set(['not_requested', 'pending_approval', 'approved', 'invited', 'declined', 'withdrawn']);
+
+async function updateConfirmationEmailStatus({
+  supabaseUrl,
+  serviceRoleKey,
+  id,
+  status,
+  error,
+}: {
+  supabaseUrl: string;
+  serviceRoleKey: string;
+  id: string;
+  status: 'pending' | 'sent' | 'failed' | 'skipped';
+  error: string | null;
+}) {
+  await fetch(
+    `${supabaseUrl.replace(/\/$/, '')}/rest/v1/career_network_registrations?id=eq.${encodeURIComponent(id)}`,
+    {
+      method: 'PATCH',
+      headers: buildSupabaseRestHeaders(serviceRoleKey, {
+        contentType: 'application/json',
+        accept: 'application/json',
+      }),
+      body: JSON.stringify({
+        confirmation_email_status: status,
+        confirmation_email_sent_at: status === 'sent' ? new Date().toISOString() : null,
+        confirmation_email_error: error,
+        updated_at: new Date().toISOString(),
+      }),
+      cache: 'no-store',
+    },
+  );
+}
 
 export async function POST(
   request: NextRequest,
@@ -69,7 +102,7 @@ export async function POST(
     }
 
     try {
-      await sendCareerNetworkConfirmationEmail({
+      const result = await sendCareerNetworkConfirmationEmail({
         registration: existingRecord,
         siteUrl: request.nextUrl.origin,
         groupName: process.env.CAREER_NETWORK_WHATSAPP_GROUP_NAME || 'RoleCraft IT Jobs referrals UK',
@@ -78,8 +111,28 @@ export async function POST(
           from: process.env.CAREER_NETWORK_EMAIL_FROM,
         },
       });
+
+      const confirmationDelivery = deriveEmailDeliveryState(
+        { status: 'fulfilled', value: result },
+        'Email sending was skipped because RESEND_API_KEY, CAREER_NETWORK_EMAIL_FROM, or recipient email is missing.',
+      );
+
+      await updateConfirmationEmailStatus({
+        supabaseUrl,
+        serviceRoleKey,
+        id: existingRecord.id,
+        status: confirmationDelivery.status as 'pending' | 'sent' | 'failed' | 'skipped',
+        error: confirmationDelivery.error,
+      }).catch(() => {});
     } catch (error) {
       console.error('Career Network confirmation resend failed', error);
+      await updateConfirmationEmailStatus({
+        supabaseUrl,
+        serviceRoleKey,
+        id: existingRecord.id,
+        status: 'failed',
+        error: error instanceof Error ? error.message : 'Career Network confirmation resend failed.',
+      }).catch(() => {});
       return NextResponse.redirect(new URL('/admin/career-network?error=resend-failed', request.url), 303);
     }
 
