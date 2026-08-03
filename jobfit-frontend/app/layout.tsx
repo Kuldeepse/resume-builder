@@ -98,7 +98,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             <Link href="/" className="flex min-w-0 items-center gap-3 font-black text-slate-950">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,var(--accent)_0%,var(--highlight)_100%)] text-xs text-white shadow-lg shadow-teal-900/20 md:h-11 md:w-11">CT</span>
               <span className="flex min-w-0 flex-col leading-none">
-                <span className="truncate text-xs uppercase tracking-[0.18em] text-[var(--ink-soft)] md:text-sm md:tracking-[0.24em]">CogniTwist AI</span>
+                <span className="truncate text-xs tracking-[0.04em] text-[var(--ink-soft)] md:text-sm">CogniTwist AI</span>
                 <span className="mt-1 truncate font-[var(--font-cognitwist-display)] text-sm tracking-[-0.02em] md:text-lg">Career Network</span>
               </span>
             </Link>
