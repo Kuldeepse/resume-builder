@@ -15,8 +15,8 @@ test('cleanText trims, collapses whitespace, and truncates', () => {
 });
 
 test('allows default, configured, and matching vercel preview origins', () => {
-  assert.equal(isAllowedOrigin('https://rolecraftai.duckdns.org'), true);
-  assert.equal(isAllowedOrigin('https://custom.rolecraft.ai', 'https://custom.rolecraft.ai'), true);
+  assert.equal(isAllowedOrigin('https://cognitwistai.duckdns.org'), true);
+  assert.equal(isAllowedOrigin('https://custom.cognitwist.ai', 'https://custom.cognitwist.ai'), true);
   assert.equal(
     isAllowedOrigin('https://resume-builder-feature-resume-builder-s-projects.vercel.app'),
     true,
@@ -25,10 +25,10 @@ test('allows default, configured, and matching vercel preview origins', () => {
 });
 
 test('deduplicates configured origins', () => {
-  assert.deepEqual(getAllowedOrigins('https://rolecraftai.duckdns.org, https://custom.rolecraft.ai'), [
-    'https://rolecraftai.duckdns.org',
+  assert.deepEqual(getAllowedOrigins('https://cognitwistai.duckdns.org, https://custom.cognitwist.ai'), [
+    'https://cognitwistai.duckdns.org',
     'https://resume-builder-ha5ykxvh9-resume-builder-s-projects.vercel.app',
-    'https://custom.rolecraft.ai',
+    'https://custom.cognitwist.ai',
   ]);
 });
 

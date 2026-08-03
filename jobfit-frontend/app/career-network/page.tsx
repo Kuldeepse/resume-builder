@@ -56,7 +56,7 @@ const processSteps = [
   {
     step: '3',
     title: 'Manual review',
-    copy: 'RoleCraft reviews the request, verifies fit, and separately decides whether WhatsApp access can move forward.',
+    copy: 'CogniTwist AI reviews the request, verifies fit, and separately decides whether WhatsApp access can move forward.',
   },
   {
     step: '4',
@@ -74,13 +74,13 @@ export default function CareerNetworkLandingPage() {
         <section className="grid gap-6 overflow-hidden rounded-[2rem] border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-xl)] md:p-9 lg:grid-cols-[1.12fr_0.88fr]">
           <div className="relative">
             <div className="inline-flex items-center gap-2 rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-[10px] font-black uppercase tracking-[0.24em] text-teal-900">
-              <Network className="h-3.5 w-3.5" /> RoleCraft Career Network
+              <Network className="h-3.5 w-3.5" /> CogniTwist AI Career Network
             </div>
             <h1 className="mt-5 max-w-3xl text-3xl font-black tracking-tight text-slate-950 md:text-[2.85rem]">
               A trusted referral network with a public front door and a private approval process.
             </h1>
             <p className="mt-4 max-w-3xl text-sm leading-7 text-[var(--ink-soft)] md:text-base">
-              Start from a simple landing page, then move into the existing RoleCraft registration flow only when you are ready to apply for access.
+              Start from a simple landing page, then move into the existing CogniTwist AI registration flow only when you are ready to apply for access.
             </p>
 
             <div className="mt-6 flex flex-wrap gap-3">
@@ -125,7 +125,7 @@ export default function CareerNetworkLandingPage() {
               </div>
             ))}
             <div className="rounded-[1.25rem] border border-white/70 bg-white/75 p-4 text-xs leading-6 text-[var(--ink-soft)]">
-              Clicking <strong>Registration</strong> opens the current secure RoleCraft registration page, so the private intake process and GDPR-friendly flow remain unchanged.
+              Clicking <strong>Registration</strong> opens the current secure CogniTwist AI registration page, so the private intake process and GDPR-friendly flow remain unchanged.
             </div>
           </div>
         </section>

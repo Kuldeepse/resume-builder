@@ -2,7 +2,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { createHash, timingSafeEqual } from 'node:crypto';
 
-export const ADMIN_COOKIE_NAME = 'rolecraft_admin_session';
+export const ADMIN_COOKIE_NAME = 'cognitwist_admin_session';
 
 function sha256(value: string) {
   return createHash('sha256').update(value).digest('hex');
