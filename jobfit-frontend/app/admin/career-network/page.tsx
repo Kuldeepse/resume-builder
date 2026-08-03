@@ -30,6 +30,9 @@ type LoadRegistrationsResult = {
   debugInfo: string[];
 };
 
+const EMAIL_STATUS_FILTERS = ['all', 'pending', 'sent', 'failed', 'skipped', 'unavailable'] as const;
+type EmailStatusFilter = (typeof EMAIL_STATUS_FILTERS)[number];
+
 async function loadRegistrations() {
   const supabaseUrl = process.env.SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -183,9 +186,15 @@ export default async function CareerNetworkAdminDashboardPage({
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   await requireAdminAuth();
-  const { registrations, error, schemaWarning, debugInfo } = await loadRegistrations();
   const resolvedSearchParams = searchParams ? await searchParams : {};
+  const { registrations, error, schemaWarning, debugInfo } = await loadRegistrations();
   const errorCode = typeof resolvedSearchParams.error === 'string' ? resolvedSearchParams.error : '';
+  const emailStatusFilter = getEmailStatusFilter(
+    typeof resolvedSearchParams.email_status === 'string' ? resolvedSearchParams.email_status : '',
+  );
+  const filteredRegistrations = registrations.filter((record) =>
+    matchesEmailStatusFilter(record.confirmation_email_status, emailStatusFilter),
+  );
   const notices = {
     updated: resolvedSearchParams.updated === '1',
     resent: resolvedSearchParams.resent === '1',
@@ -218,9 +227,10 @@ export default async function CareerNetworkAdminDashboardPage({
 
         <section className="grid gap-4 md:grid-cols-4">
           <StatCard icon={<Users className="h-5 w-5" />} label="Total registrations" value={registrations.length} />
+          <StatCard icon={<Mail className="h-5 w-5" />} label="Filtered results" value={filteredRegistrations.length} />
           <StatCard icon={<Clock3 className="h-5 w-5" />} label="Pending review" value={statCount(registrations, (record) => record.status === 'pending_verification')} />
           <StatCard icon={<CheckCircle2 className="h-5 w-5" />} label="WhatsApp requested" value={statCount(registrations, (record) => record.whatsapp_group_consent)} />
-          <StatCard icon={<XCircle className="h-5 w-5" />} label="Marketing opt-ins" value={statCount(registrations, (record) => record.marketing_opt_in)} />
+          <StatCard icon={<XCircle className="h-5 w-5" />} label="Email failures" value={statCount(registrations, (record) => record.confirmation_email_status === 'failed')} />
         </section>
 
         {error && (
@@ -274,10 +284,48 @@ export default async function CareerNetworkAdminDashboardPage({
 
         <section className="overflow-hidden rounded-[2rem] border border-[var(--surface-border)] bg-[var(--surface)] shadow-[var(--shadow-xl)]">
           <div className="border-b border-[#e6d4bf] px-6 py-4">
-            <h2 className="text-lg font-black">Private registrations</h2>
-            <p className="mt-1 text-xs leading-6 text-[var(--ink-soft)]">
-              Use this list for manual review, approval, and moderated WhatsApp follow-up only.
-            </p>
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-black">Private registrations</h2>
+                <p className="mt-1 text-xs leading-6 text-[var(--ink-soft)]">
+                  Use this list for manual review, approval, and moderated WhatsApp follow-up only.
+                </p>
+              </div>
+
+              <form method="get" className="flex flex-wrap items-end gap-3">
+                <label className="block text-[11px] font-black uppercase tracking-wider text-stone-600">
+                  Email status
+                  <select
+                    name="email_status"
+                    defaultValue={emailStatusFilter}
+                    className="mt-1 min-w-[13rem] rounded-2xl border border-[var(--surface-border)] bg-white/90 p-2 text-xs font-medium text-slate-900 outline-none focus:border-[var(--accent)]"
+                  >
+                    <option value="all">All email states</option>
+                    <option value="pending">Pending</option>
+                    <option value="sent">Sent</option>
+                    <option value="failed">Failed</option>
+                    <option value="skipped">Skipped</option>
+                    <option value="unavailable">Unavailable</option>
+                  </select>
+                </label>
+
+                <button
+                  type="submit"
+                  className="inline-flex items-center gap-2 rounded-full bg-[linear-gradient(135deg,var(--accent)_0%,var(--highlight)_100%)] px-4 py-2 text-xs font-black text-white shadow-sm shadow-teal-900/20 hover:opacity-95"
+                >
+                  Filter
+                </button>
+
+                {emailStatusFilter !== 'all' && (
+                  <a
+                    href="/admin/career-network"
+                    className="inline-flex items-center gap-2 rounded-full border border-[var(--surface-border)] bg-white/90 px-4 py-2 text-xs font-black text-slate-700 hover:border-[var(--accent)] hover:bg-[var(--accent-soft)]"
+                  >
+                    Clear
+                  </a>
+                )}
+              </form>
+            </div>
           </div>
 
           <div className="overflow-x-auto">
@@ -297,15 +345,15 @@ export default async function CareerNetworkAdminDashboardPage({
                 </tr>
               </thead>
               <tbody>
-                {registrations.length === 0 && (
+                {filteredRegistrations.length === 0 && (
                   <tr>
                     <td colSpan={10} className="px-4 py-8 text-center text-sm text-stone-500">
-                      No registrations available yet.
+                      No registrations match the selected email-status filter.
                     </td>
                   </tr>
                 )}
 
-                {registrations.map((record) => (
+                {filteredRegistrations.map((record) => (
                   <tr key={record.id} className="border-t border-[#f0e4d6] align-top">
                     <td className="px-4 py-4">
                       <div className="font-bold text-stone-900">{record.full_name}</div>
@@ -470,6 +518,27 @@ function emailTone(status: NonNullable<RegistrationRecord['confirmation_email_st
     default:
       return 'slate';
   }
+}
+
+function getEmailStatusFilter(value: string): EmailStatusFilter {
+  return EMAIL_STATUS_FILTERS.includes(value as EmailStatusFilter)
+    ? (value as EmailStatusFilter)
+    : 'all';
+}
+
+function matchesEmailStatusFilter(
+  status: RegistrationRecord['confirmation_email_status'],
+  filter: EmailStatusFilter,
+) {
+  if (filter === 'all') {
+    return true;
+  }
+
+  if (filter === 'unavailable') {
+    return status === null;
+  }
+
+  return status === filter;
 }
 
 function getAdminErrorMessage(errorCode: string) {
