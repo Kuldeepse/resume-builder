@@ -11,8 +11,8 @@ test('renders registrant confirmation email with tracking code and status url', 
     fullName: 'Alice Smith',
     role: 'candidate',
     statusLookupCode: 'AB12CD34EF56',
-    statusUrl: 'https://rolecraftai.duckdns.org/career-network/status',
-    groupName: 'RoleCraft IT Jobs referrals UK',
+    statusUrl: 'https://cognitwistai.duckdns.org/career-network/status',
+    groupName: 'CogniTwist AI IT Jobs referrals UK',
   });
 
   assert.match(result.subject, /registration is in review/i);
@@ -29,7 +29,7 @@ test('renders admin alert email with registration details', () => {
     professionalArea: 'Cloud engineering',
     currentCompany: 'Contoso',
     whatsappGroupConsent: true,
-    adminUrl: 'https://rolecraftai.duckdns.org/admin/career-network',
+    adminUrl: 'https://cognitwistai.duckdns.org/admin/career-network',
   });
 
   assert.match(result.subject, /Alice Smith/);

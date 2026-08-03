@@ -31,7 +31,7 @@ html[data-theme='dark'] {
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-rolecraft-sans), "Segoe UI", sans-serif;
+  --font-sans: var(--font-cognitwist-sans), "Segoe UI", sans-serif;
   --font-mono: "SFMono-Regular", "SF Mono", "Menlo", monospace;
 }
 
@@ -53,7 +53,7 @@ h1,
 h2,
 h3,
 [data-display='true'] {
-  font-family: var(--font-rolecraft-display), var(--font-sans);
+  font-family: var(--font-cognitwist-display), var(--font-sans);
   letter-spacing: -0.04em;
 }
 

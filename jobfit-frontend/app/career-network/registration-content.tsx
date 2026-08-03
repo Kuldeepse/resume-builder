@@ -15,9 +15,9 @@ import {
 } from 'lucide-react';
 
 const PRIVACY_CONTACT = process.env.NEXT_PUBLIC_PRIVACY_CONTACT_EMAIL || '';
-const CONTROLLER_NAME = process.env.NEXT_PUBLIC_DATA_CONTROLLER_NAME || 'RoleCraft AI';
+const CONTROLLER_NAME = process.env.NEXT_PUBLIC_DATA_CONTROLLER_NAME || 'CogniTwist AI';
 const PRIVACY_NOTICE_VERSION = '2026-08-02';
-const WHATSAPP_GROUP_NAME = 'RoleCraft IT Jobs referrals UK';
+const WHATSAPP_GROUP_NAME = 'CogniTwist AI IT Jobs referrals UK';
 
 type NetworkRole = 'candidate' | 'referrer' | 'mentor';
 type SuccessState = {
@@ -130,7 +130,7 @@ export function CareerNetworkRegistrationContent() {
       <div className="mx-auto max-w-6xl space-y-6">
         <section className="grid gap-6 overflow-hidden rounded-[2rem] border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-xl)] md:p-9 lg:grid-cols-[1.15fr_0.85fr]">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-[10px] font-black uppercase tracking-[0.24em] text-teal-900"><Network className="h-3.5 w-3.5" /> RoleCraft Career Network</div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-[10px] font-black uppercase tracking-[0.24em] text-teal-900"><Network className="h-3.5 w-3.5" /> CogniTwist AI Career Network</div>
             <h1 className="mt-5 max-w-3xl text-3xl font-black tracking-tight text-slate-950 md:text-[2.85rem]">Register once. Get private access to referral support, mentoring, and trusted introductions.</h1>
             <p className="mt-4 max-w-3xl text-sm leading-7 text-[var(--ink-soft)] md:text-base">The page is open, but the network is not. Every registration is reviewed privately, never listed publicly, and approved deliberately before any access or WhatsApp invite is granted.</p>
             <div className="mt-6 flex flex-wrap gap-3 text-xs font-bold uppercase tracking-[0.18em] text-slate-700">
@@ -211,7 +211,7 @@ export function CareerNetworkRegistrationContent() {
           <aside className="space-y-4">
             <InfoCard icon={<LockKeyhole className="h-5 w-5" />} title="Not publicly searchable">Profiles are not indexed, listed, or exposed to unauthenticated visitors.</InfoCard>
             <InfoCard icon={<Users className="h-5 w-5" />} title="Controlled matching">Members are connected only after suitability checks and the insider accepts the request.</InfoCard>
-            <InfoCard icon={<HeartHandshake className="h-5 w-5" />} title="WhatsApp by consent">An invite to {WHATSAPP_GROUP_NAME} can be requested, but only after separate consent and manual approval by RoleCraft.</InfoCard>
+            <InfoCard icon={<HeartHandshake className="h-5 w-5" />} title="WhatsApp by consent">An invite to {WHATSAPP_GROUP_NAME} can be requested, but only after separate consent and manual approval by CogniTwist AI.</InfoCard>
             <InfoCard icon={<ShieldCheck className="h-5 w-5" />} title="No referral guarantee">Registration does not guarantee guidance, an introduction, an interview, a referral, or employment.</InfoCard>
             <InfoCard icon={<BadgeCheck className="h-5 w-5" />} title="Track your review">After submission, use your email address and tracking code on the private status page to see whether your review or WhatsApp request has moved forward.</InfoCard>
             <div className="rounded-2xl border border-[#d9c3a7] bg-white/90 p-5 text-xs leading-6 text-stone-600"><strong className="text-stone-900">Data controller:</strong> {CONTROLLER_NAME}<br /><strong className="text-stone-900">Privacy contact:</strong> {PRIVACY_CONTACT || 'Must be configured before launch'}</div>

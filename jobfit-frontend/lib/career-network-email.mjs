@@ -51,9 +51,9 @@ export function renderRegistrantConfirmationEmail({
   const safeStatusUrl = escapeHtml(statusUrl);
   const safeGroup = escapeHtml(groupName);
 
-  const subject = 'Your RoleCraft Career Network registration is in review';
+  const subject = 'Your CogniTwist AI Career Network registration is in review';
   const html = baseTemplate({
-    eyebrow: 'RoleCraft Career Network',
+    eyebrow: 'CogniTwist AI Career Network',
     title: 'Your registration has been received',
     intro: `Hi ${safeName}, your private registration is now in manual review. Nothing has been published publicly, and access decisions remain moderated.`,
     sections: [
@@ -76,7 +76,7 @@ export function renderRegistrantConfirmationEmail({
   const text = [
     `Hi ${fullName},`,
     '',
-    'Your RoleCraft Career Network registration has been received and is now in manual review.',
+    'Your CogniTwist AI Career Network registration has been received and is now in manual review.',
     `Tracking code: ${statusLookupCode}`,
     `Status page: ${statusUrl}`,
     `Role: ${role}`,
