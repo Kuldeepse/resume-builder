@@ -12,7 +12,7 @@ const NO_STORE_HEADERS = {
   'X-Content-Type-Options': 'nosniff',
 };
 
-const WHATSAPP_GROUP_NAME = 'RoleCraft IT Jobs referrals UK';
+const WHATSAPP_GROUP_NAME = 'CogniTwist AI IT Jobs referrals UK';
 
 export async function POST(request: NextRequest) {
   const origin = request.headers.get('origin');

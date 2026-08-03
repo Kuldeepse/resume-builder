@@ -18,7 +18,7 @@ The registration feature must remain disabled until every mandatory launch gate 
 - [ ] Complete the ICO data-protection-fee self-assessment and pay/register where required.
 - [ ] Put processor contracts and data-processing terms in place for Vercel, Supabase, email, monitoring, and any other supplier.
 - [ ] If WhatsApp invites are enabled, document the lawful basis, administrator workflow, supplier terms, retention controls, and international-transfer safeguards for WhatsApp group processing.
-- [ ] Confirm the exact approved group name and admins for `RoleCraft IT Jobs referrals UK`, and keep it invite-only.
+- [ ] Confirm the exact approved group name and admins for `CogniTwist AI IT Jobs referrals UK`, and keep it invite-only.
 - [ ] Define a 12-month maximum pending-registration retention schedule and implement deletion or anonymisation when the purpose ends.
 - [ ] Establish procedures for access, correction, erasure, restriction, objection, consent withdrawal, and complaints.
 - [ ] Establish incident detection, escalation, breach assessment, and notification procedures.
@@ -37,7 +37,7 @@ The registration feature must remain disabled until every mandatory launch gate 
 
 ## Verification tests
 
-1. Submit from an approved RoleCraft domain and confirm the row is stored privately.
+1. Submit from an approved CogniTwist AI domain and confirm the row is stored privately.
 2. Submit from an unapproved origin and confirm HTTP 403.
 3. Attempt an anonymous Supabase `select` and confirm access is denied.
 4. Inspect browser storage, page source, and network responses and confirm no service key or registration record is exposed.

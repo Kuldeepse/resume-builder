@@ -1,4 +1,4 @@
--- RoleCraft Career Network: private registration table
+-- CogniTwist AI Career Network: private registration table
 -- Run this migration in the Supabase project before enabling registration.
 
 create extension if not exists pgcrypto;
@@ -52,4 +52,4 @@ before update on public.career_network_registrations
 for each row execute function public.set_career_network_updated_at();
 
 comment on table public.career_network_registrations is
-  'Private RoleCraft Career Network registrations. Never expose via public directory or anon API.';
+  'Private CogniTwist AI Career Network registrations. Never expose via public directory or anon API.';

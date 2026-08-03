@@ -6,34 +6,34 @@ import SiteNav from "./site-nav";
 
 const bodyFont = Plus_Jakarta_Sans({
   subsets: ["latin"],
-  variable: "--font-rolecraft-sans",
+  variable: "--font-cognitwist-sans",
 });
 
 const displayFont = Sora({
   subsets: ["latin"],
-  variable: "--font-rolecraft-display",
+  variable: "--font-cognitwist-display",
 });
 
-const siteTitle = "CogniTwist - AI Career Intelligence and Trusted Connections";
-const siteDescription = "Tailor CV evidence, prepare for interviews, discover jobs, and build trusted professional connections through the CogniTwist Career Network.";
+const siteTitle = "CogniTwist AI - Career Intelligence and Trusted Connections";
+const siteDescription = "Tailor CV evidence, prepare for interviews, discover jobs, and build trusted professional connections through the CogniTwist AI Career Network.";
 const siteUrl = "https://rolecraftai.duckdns.org";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: siteTitle,
   description: siteDescription,
-  applicationName: "CogniTwist",
+  applicationName: "CogniTwist AI",
   keywords: [
     "AI resume builder",
     "career network",
     "job referrals UK",
     "interview preparation",
     "job search platform",
-    "CogniTwist",
+    "CogniTwist AI",
   ],
   authors: [{ name: "Kuldeep Sharma" }],
   creator: "Kuldeep Sharma",
-  publisher: "CogniTwist",
+  publisher: "CogniTwist AI",
   category: "career technology",
   alternates: {
     canonical: siteUrl,
@@ -58,14 +58,14 @@ export const metadata: Metadata = {
     title: siteTitle,
     description: siteDescription,
     url: siteUrl,
-    siteName: "CogniTwist",
+    siteName: "CogniTwist AI",
     type: "website",
     images: [
       {
         url: "/opengraph-image",
         width: 1200,
         height: 630,
-        alt: "CogniTwist social preview",
+        alt: "CogniTwist AI social preview",
       },
     ],
   },
@@ -93,8 +93,8 @@ export default function RootLayout({
             <Link href="/" className="flex items-center gap-3 font-black text-slate-950">
               <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,var(--accent)_0%,var(--highlight)_100%)] text-xs text-white shadow-lg shadow-teal-900/20">CT</span>
               <span className="flex flex-col leading-none">
-                <span className="text-sm uppercase tracking-[0.24em] text-[var(--ink-soft)]">CogniTwist</span>
-                <span className="mt-1 font-[var(--font-rolecraft-display)] text-base tracking-[-0.02em] md:text-lg">Career Network</span>
+                <span className="text-sm uppercase tracking-[0.24em] text-[var(--ink-soft)]">CogniTwist AI</span>
+                <span className="mt-1 font-[var(--font-cognitwist-display)] text-base tracking-[-0.02em] md:text-lg">Career Network</span>
               </span>
             </Link>
             <SiteNav />
