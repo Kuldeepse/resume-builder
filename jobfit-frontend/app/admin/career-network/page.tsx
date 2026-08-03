@@ -1,5 +1,6 @@
-import { CheckCircle2, Clock3, LogOut, Save, ShieldCheck, Users, XCircle } from 'lucide-react';
+import { CheckCircle2, Clock3, LogOut, Mail, Save, ShieldCheck, Users, XCircle } from 'lucide-react';
 import { requireAdminAuth } from './auth';
+import { CopyCodeButton } from './copy-code-button';
 import { buildSupabaseRestHeaders } from '@/lib/supabase-rest.mjs';
 
 type RegistrationRecord = {
@@ -16,6 +17,7 @@ type RegistrationRecord = {
   professional_area: string;
   marketing_opt_in: boolean;
   status: string;
+  status_lookup_code: string;
 };
 
 async function loadRegistrations() {
@@ -27,7 +29,7 @@ async function loadRegistrations() {
   }
 
   const response = await fetch(
-    `${supabaseUrl.replace(/\/$/, '')}/rest/v1/career_network_registrations?select=id,created_at,full_name,email,role,linkedin_profile,whatsapp_number,whatsapp_group_consent,whatsapp_group_status,current_company,professional_area,marketing_opt_in,status&order=created_at.desc`,
+    `${supabaseUrl.replace(/\/$/, '')}/rest/v1/career_network_registrations?select=id,created_at,full_name,email,role,linkedin_profile,whatsapp_number,whatsapp_group_consent,whatsapp_group_status,current_company,professional_area,marketing_opt_in,status,status_lookup_code&order=created_at.desc`,
     {
       method: 'GET',
       headers: buildSupabaseRestHeaders(serviceRoleKey, {
@@ -49,9 +51,20 @@ function statCount(registrations: RegistrationRecord[], predicate: (record: Regi
   return registrations.filter(predicate).length;
 }
 
-export default async function CareerNetworkAdminDashboardPage() {
+export default async function CareerNetworkAdminDashboardPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
   await requireAdminAuth();
   const { registrations, error } = await loadRegistrations();
+  const resolvedSearchParams = searchParams ? await searchParams : {};
+  const errorCode = typeof resolvedSearchParams.error === 'string' ? resolvedSearchParams.error : '';
+  const notices = {
+    updated: resolvedSearchParams.updated === '1',
+    resent: resolvedSearchParams.resent === '1',
+    error: getAdminErrorMessage(errorCode),
+  };
 
   return (
     <main className="min-h-screen px-4 py-8 text-slate-950 md:px-8">
@@ -90,8 +103,26 @@ export default async function CareerNetworkAdminDashboardPage() {
           </div>
         )}
 
+        {notices.updated && (
+          <div className="rounded-[1.5rem] border border-teal-200 bg-teal-50 p-4 text-sm text-teal-950">
+            Registration status saved.
+          </div>
+        )}
+
+        {notices.resent && (
+          <div className="rounded-[1.5rem] border border-sky-200 bg-sky-50 p-4 text-sm text-sky-950">
+            Tracking code email sent again to the registrant.
+          </div>
+        )}
+
+        {notices.error && (
+          <div className="rounded-[1.5rem] border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+            {notices.error}
+          </div>
+        )}
+
         <div className="rounded-[1.5rem] border border-teal-200 bg-teal-50 p-4 text-xs leading-6 text-teal-950">
-          Update each row to move a person from registration review into verified access, and separately manage the WhatsApp invite lifecycle.
+          Update each row to move a person from registration review into verified access, resend a private tracking email when needed, and separately manage the WhatsApp invite lifecycle.
         </div>
 
         <section className="overflow-hidden rounded-[2rem] border border-[var(--surface-border)] bg-[var(--surface)] shadow-[var(--shadow-xl)]">
@@ -109,6 +140,7 @@ export default async function CareerNetworkAdminDashboardPage() {
                   <th className="px-4 py-3 font-black">Name</th>
                   <th className="px-4 py-3 font-black">Role</th>
                   <th className="px-4 py-3 font-black">Contact</th>
+                  <th className="px-4 py-3 font-black">Tracking code</th>
                   <th className="px-4 py-3 font-black">Professional area</th>
                   <th className="px-4 py-3 font-black">Company</th>
                   <th className="px-4 py-3 font-black">Registration</th>
@@ -119,7 +151,7 @@ export default async function CareerNetworkAdminDashboardPage() {
               <tbody>
                 {registrations.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="px-4 py-8 text-center text-sm text-stone-500">
+                    <td colSpan={9} className="px-4 py-8 text-center text-sm text-stone-500">
                       No registrations available yet.
                     </td>
                   </tr>
@@ -144,6 +176,16 @@ export default async function CareerNetworkAdminDashboardPage() {
                           LinkedIn profile
                         </a>
                       )}
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="rounded-[1.25rem] border border-[var(--surface-border)] bg-white/85 p-3">
+                        <div className="font-mono text-[13px] font-black uppercase tracking-[0.22em] text-slate-900">
+                          {record.status_lookup_code}
+                        </div>
+                        <div className="mt-2">
+                          <CopyCodeButton value={record.status_lookup_code} />
+                        </div>
+                      </div>
                     </td>
                     <td className="px-4 py-4 text-xs leading-6 text-slate-700">{record.professional_area}</td>
                     <td className="px-4 py-4 text-xs leading-6 text-slate-700">{record.current_company || 'Not provided'}</td>
@@ -195,6 +237,15 @@ export default async function CareerNetworkAdminDashboardPage() {
                         >
                           <Save className="h-3.5 w-3.5" /> Save status
                         </button>
+
+                        <button
+                          type="submit"
+                          name="action"
+                          value="resend-confirmation"
+                          className="inline-flex items-center gap-2 rounded-full border border-[var(--surface-border)] bg-white/90 px-3 py-2 text-xs font-black text-slate-800 hover:border-[var(--accent)] hover:bg-[var(--accent-soft)]"
+                        >
+                          <Mail className="h-3.5 w-3.5" /> Resend code
+                        </button>
                       </form>
                     </td>
                   </tr>
@@ -225,4 +276,21 @@ function Badge({ children, tone }: { children: React.ReactNode; tone: 'amber' | 
   };
 
   return <span className={`rounded-full border px-2 py-1 text-[10px] font-black uppercase tracking-wider ${styles[tone]}`}>{children}</span>;
+}
+
+function getAdminErrorMessage(errorCode: string) {
+  switch (errorCode) {
+    case 'registration-status':
+      return 'Registration status could not be updated because the selected value is invalid.';
+    case 'whatsapp-status':
+      return 'WhatsApp status could not be updated because the selected value is invalid.';
+    case 'supabase-config':
+      return 'Supabase admin storage is not configured on the server.';
+    case 'update-failed':
+      return 'The registration update could not be saved. Please try again.';
+    case 'resend-failed':
+      return 'The tracking code email could not be resent. Check the email configuration and try again.';
+    default:
+      return '';
+  }
 }

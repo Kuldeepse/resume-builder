@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isAdminAuthenticated } from '@/app/admin/career-network/auth';
 import { buildSupabaseRestHeaders } from '@/lib/supabase-rest.mjs';
-import { sendCareerNetworkStatusUpdateEmail } from '@/lib/career-network-email.mjs';
+import {
+  sendCareerNetworkConfirmationEmail,
+  sendCareerNetworkStatusUpdateEmail,
+} from '@/lib/career-network-email.mjs';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -20,28 +23,9 @@ export async function POST(
 
   const { id } = await context.params;
   const formData = await request.formData();
+  const action = typeof formData.get('action') === 'string' ? String(formData.get('action')) : 'update-status';
   const registrationStatus = typeof formData.get('registration_status') === 'string' ? String(formData.get('registration_status')) : '';
   const whatsappStatus = typeof formData.get('whatsapp_status') === 'string' ? String(formData.get('whatsapp_status')) : '';
-
-  const patch: Record<string, string> = {};
-
-  if (registrationStatus) {
-    if (!REGISTRATION_STATUSES.has(registrationStatus)) {
-      return NextResponse.redirect(new URL('/admin/career-network?error=registration-status', request.url), 303);
-    }
-    patch.status = registrationStatus;
-  }
-
-  if (whatsappStatus) {
-    if (!WHATSAPP_STATUSES.has(whatsappStatus)) {
-      return NextResponse.redirect(new URL('/admin/career-network?error=whatsapp-status', request.url), 303);
-    }
-    patch.whatsapp_group_status = whatsappStatus;
-  }
-
-  if (Object.keys(patch).length === 0) {
-    return NextResponse.redirect(new URL('/admin/career-network', request.url), 303);
-  }
 
   const supabaseUrl = process.env.SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -51,7 +35,7 @@ export async function POST(
   }
 
   const existingResponse = await fetch(
-    `${supabaseUrl.replace(/\/$/, '')}/rest/v1/career_network_registrations?select=id,full_name,email,role,status,whatsapp_group_status&id=eq.${encodeURIComponent(id)}&limit=1`,
+    `${supabaseUrl.replace(/\/$/, '')}/rest/v1/career_network_registrations?select=id,full_name,email,role,status,whatsapp_group_status,status_lookup_code&id=eq.${encodeURIComponent(id)}&limit=1`,
     {
       method: 'GET',
       headers: buildSupabaseRestHeaders(serviceRoleKey, {
@@ -72,10 +56,50 @@ export async function POST(
     role: string;
     status: string;
     whatsapp_group_status: string;
+    status_lookup_code: string;
   }>;
   const existingRecord = existingRecords[0];
   if (!existingRecord) {
     return NextResponse.redirect(new URL('/admin/career-network?error=update-failed', request.url), 303);
+  }
+
+  if (action === 'resend-confirmation') {
+    try {
+      await sendCareerNetworkConfirmationEmail({
+        registration: existingRecord,
+        siteUrl: request.nextUrl.origin,
+        groupName: process.env.CAREER_NETWORK_WHATSAPP_GROUP_NAME || 'RoleCraft IT Jobs referrals UK',
+        emailConfig: {
+          apiKey: process.env.RESEND_API_KEY,
+          from: process.env.CAREER_NETWORK_EMAIL_FROM,
+        },
+      });
+    } catch (error) {
+      console.error('Career Network confirmation resend failed', error);
+      return NextResponse.redirect(new URL('/admin/career-network?error=resend-failed', request.url), 303);
+    }
+
+    return NextResponse.redirect(new URL('/admin/career-network?resent=1', request.url), 303);
+  }
+
+  const patch: Record<string, string> = {};
+
+  if (registrationStatus) {
+    if (!REGISTRATION_STATUSES.has(registrationStatus)) {
+      return NextResponse.redirect(new URL('/admin/career-network?error=registration-status', request.url), 303);
+    }
+    patch.status = registrationStatus;
+  }
+
+  if (whatsappStatus) {
+    if (!WHATSAPP_STATUSES.has(whatsappStatus)) {
+      return NextResponse.redirect(new URL('/admin/career-network?error=whatsapp-status', request.url), 303);
+    }
+    patch.whatsapp_group_status = whatsappStatus;
+  }
+
+  if (Object.keys(patch).length === 0) {
+    return NextResponse.redirect(new URL('/admin/career-network', request.url), 303);
   }
 
   const response = await fetch(

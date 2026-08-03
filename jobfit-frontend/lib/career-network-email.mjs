@@ -224,12 +224,9 @@ export async function sendCareerNetworkRegistrationEmails({
   groupName,
   emailConfig,
 }) {
-  const statusUrl = buildStatusUrl(siteUrl);
-  const confirmation = renderRegistrantConfirmationEmail({
-    fullName: registration.full_name,
-    role: registration.role,
-    statusLookupCode: registration.status_lookup_code,
-    statusUrl,
+  const confirmation = buildCareerNetworkConfirmationEmail({
+    registration,
+    siteUrl,
     groupName,
   });
   const adminAlert = renderAdminAlertEmail({
@@ -262,6 +259,44 @@ export async function sendCareerNetworkRegistrationEmails({
   ];
 
   return Promise.allSettled(tasks);
+}
+
+export function buildCareerNetworkConfirmationEmail({
+  registration,
+  siteUrl,
+  groupName,
+}) {
+  const statusUrl = buildStatusUrl(siteUrl);
+
+  return renderRegistrantConfirmationEmail({
+    fullName: registration.full_name,
+    role: registration.role,
+    statusLookupCode: registration.status_lookup_code,
+    statusUrl,
+    groupName,
+  });
+}
+
+export async function sendCareerNetworkConfirmationEmail({
+  registration,
+  siteUrl,
+  groupName,
+  emailConfig,
+}) {
+  const confirmation = buildCareerNetworkConfirmationEmail({
+    registration,
+    siteUrl,
+    groupName,
+  });
+
+  return sendEmailNotification({
+    apiKey: emailConfig.apiKey,
+    from: emailConfig.from,
+    to: registration.email,
+    subject: confirmation.subject,
+    html: confirmation.html,
+    text: confirmation.text,
+  });
 }
 
 export async function sendCareerNetworkStatusUpdateEmail({
