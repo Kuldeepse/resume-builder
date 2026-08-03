@@ -1,7 +1,7 @@
 import type { MetadataRoute } from 'next';
 
-const siteUrl = 'https://rolecraftai.duckdns.org';
-const lastModified = new Date('2026-08-02T12:00:00Z');
+const siteUrl = 'https://cognitwistai.duckdns.org';
+const lastModified = new Date('2026-08-03T08:45:00Z');
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
