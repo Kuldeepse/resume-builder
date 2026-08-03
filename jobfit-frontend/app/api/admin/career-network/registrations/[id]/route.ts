@@ -64,6 +64,10 @@ export async function POST(
   }
 
   if (action === 'resend-confirmation') {
+    if (!existingRecord.status_lookup_code) {
+      return NextResponse.redirect(new URL('/admin/career-network?error=missing-status-lookup-code', request.url), 303);
+    }
+
     try {
       await sendCareerNetworkConfirmationEmail({
         registration: existingRecord,

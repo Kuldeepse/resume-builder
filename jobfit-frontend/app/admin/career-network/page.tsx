@@ -17,7 +17,7 @@ type RegistrationRecord = {
   professional_area: string;
   marketing_opt_in: boolean;
   status: string;
-  status_lookup_code: string;
+  status_lookup_code: string | null;
 };
 
 async function loadRegistrations() {
@@ -25,11 +25,12 @@ async function loadRegistrations() {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!supabaseUrl || !serviceRoleKey) {
-    return { registrations: [], error: 'Supabase admin storage is not configured.' };
+    return { registrations: [], error: 'Supabase admin storage is not configured.', schemaWarning: '' };
   }
 
+  const baseUrl = `${supabaseUrl.replace(/\/$/, '')}/rest/v1/career_network_registrations`;
   const response = await fetch(
-    `${supabaseUrl.replace(/\/$/, '')}/rest/v1/career_network_registrations?select=id,created_at,full_name,email,role,linkedin_profile,whatsapp_number,whatsapp_group_consent,whatsapp_group_status,current_company,professional_area,marketing_opt_in,status,status_lookup_code&order=created_at.desc`,
+    `${baseUrl}?select=id,created_at,full_name,email,role,linkedin_profile,whatsapp_number,whatsapp_group_consent,whatsapp_group_status,current_company,professional_area,marketing_opt_in,status,status_lookup_code&order=created_at.desc`,
     {
       method: 'GET',
       headers: buildSupabaseRestHeaders(serviceRoleKey, {
@@ -40,11 +41,45 @@ async function loadRegistrations() {
   );
 
   if (!response.ok) {
-    return { registrations: [], error: 'Could not load registrations from private storage.' };
+    const detail = await response.text().catch(() => '');
+    const missingStatusLookupColumn =
+      response.status === 400 &&
+      detail.includes('status_lookup_code');
+
+    if (!missingStatusLookupColumn) {
+      return { registrations: [], error: 'Could not load registrations from private storage.', schemaWarning: '' };
+    }
+
+    const fallbackResponse = await fetch(
+      `${baseUrl}?select=id,created_at,full_name,email,role,linkedin_profile,whatsapp_number,whatsapp_group_consent,whatsapp_group_status,current_company,professional_area,marketing_opt_in,status&order=created_at.desc`,
+      {
+        method: 'GET',
+        headers: buildSupabaseRestHeaders(serviceRoleKey, {
+          accept: 'application/json',
+        }),
+        cache: 'no-store',
+      },
+    );
+
+    if (!fallbackResponse.ok) {
+      return { registrations: [], error: 'Could not load registrations from private storage.', schemaWarning: '' };
+    }
+
+    const fallbackRecords = (await fallbackResponse.json().catch(() => [])) as Array<Omit<RegistrationRecord, 'status_lookup_code'>>;
+    const registrations = fallbackRecords.map((record) => ({
+      ...record,
+      status_lookup_code: null,
+    }));
+
+    return {
+      registrations,
+      error: '',
+      schemaWarning: 'Tracking codes are not available in this Supabase table yet. Run the status lookup migration to add the private status_lookup_code column.',
+    };
   }
 
   const registrations = (await response.json().catch(() => [])) as RegistrationRecord[];
-  return { registrations, error: '' };
+  return { registrations, error: '', schemaWarning: '' };
 }
 
 function statCount(registrations: RegistrationRecord[], predicate: (record: RegistrationRecord) => boolean) {
@@ -57,7 +92,7 @@ export default async function CareerNetworkAdminDashboardPage({
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   await requireAdminAuth();
-  const { registrations, error } = await loadRegistrations();
+  const { registrations, error, schemaWarning } = await loadRegistrations();
   const resolvedSearchParams = searchParams ? await searchParams : {};
   const errorCode = typeof resolvedSearchParams.error === 'string' ? resolvedSearchParams.error : '';
   const notices = {
@@ -100,6 +135,12 @@ export default async function CareerNetworkAdminDashboardPage({
         {error && (
           <div className="rounded-[1.5rem] border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
             {error}
+          </div>
+        )}
+
+        {schemaWarning && (
+          <div className="rounded-[1.5rem] border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+            {schemaWarning}
           </div>
         )}
 
@@ -179,12 +220,20 @@ export default async function CareerNetworkAdminDashboardPage({
                     </td>
                     <td className="px-4 py-4">
                       <div className="rounded-[1.25rem] border border-[var(--surface-border)] bg-white/85 p-3">
-                        <div className="font-mono text-[13px] font-black uppercase tracking-[0.22em] text-slate-900">
-                          {record.status_lookup_code}
-                        </div>
-                        <div className="mt-2">
-                          <CopyCodeButton value={record.status_lookup_code} />
-                        </div>
+                        {record.status_lookup_code ? (
+                          <>
+                            <div className="font-mono text-[13px] font-black uppercase tracking-[0.22em] text-slate-900">
+                              {record.status_lookup_code}
+                            </div>
+                            <div className="mt-2">
+                              <CopyCodeButton value={record.status_lookup_code} />
+                            </div>
+                          </>
+                        ) : (
+                          <div className="text-xs leading-6 text-stone-500">
+                            Not available until the status lookup migration is applied.
+                          </div>
+                        )}
                       </div>
                     </td>
                     <td className="px-4 py-4 text-xs leading-6 text-slate-700">{record.professional_area}</td>
@@ -242,6 +291,7 @@ export default async function CareerNetworkAdminDashboardPage({
                           type="submit"
                           name="action"
                           value="resend-confirmation"
+                          disabled={!record.status_lookup_code}
                           className="inline-flex items-center gap-2 rounded-full border border-[var(--surface-border)] bg-white/90 px-3 py-2 text-xs font-black text-slate-800 hover:border-[var(--accent)] hover:bg-[var(--accent-soft)]"
                         >
                           <Mail className="h-3.5 w-3.5" /> Resend code
@@ -290,6 +340,8 @@ function getAdminErrorMessage(errorCode: string) {
       return 'The registration update could not be saved. Please try again.';
     case 'resend-failed':
       return 'The tracking code email could not be resent. Check the email configuration and try again.';
+    case 'missing-status-lookup-code':
+      return 'This registration does not have a tracking code yet. Run the status lookup migration in Supabase first.';
     default:
       return '';
   }
