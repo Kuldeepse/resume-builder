@@ -23,6 +23,7 @@ import {
   User,
   UserCheck,
 } from 'lucide-react';
+import { CHANGE_EVENT, getThemePreset, type ThemePreset } from './theme-config';
 
 export default function Home() {
   const [mounted, setMounted] = useState(false);
@@ -47,14 +48,19 @@ export default function Home() {
   const [jobResults, setJobResults] = useState<any>(null);
 
   useEffect(() => {
-    const syncTheme = () => {
-      setDarkMode(document.documentElement.dataset.theme === 'dark');
+    const syncTheme = (preset?: ThemePreset) => {
+      const activeTheme = preset || getThemePreset(document.documentElement.dataset.theme);
+      setDarkMode(activeTheme.mode === 'dark');
     };
 
     setMounted(true);
     syncTheme();
-    window.addEventListener('cognitwist-theme-change', syncTheme);
-    return () => window.removeEventListener('cognitwist-theme-change', syncTheme);
+    const handleThemeChange = (event: Event) => {
+      const customEvent = event as CustomEvent<ThemePreset>;
+      syncTheme(customEvent.detail);
+    };
+    window.addEventListener(CHANGE_EVENT, handleThemeChange);
+    return () => window.removeEventListener(CHANGE_EVENT, handleThemeChange);
   }, []);
 
   const handleGenerate = async () => {

@@ -1,57 +1,83 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Moon, Sun } from 'lucide-react';
-
-const STORAGE_KEY = 'rolecraft-theme';
-const CHANGE_EVENT = 'cognitwist-theme-change';
-
-function applyTheme(theme: 'light' | 'dark') {
-  document.documentElement.dataset.theme = theme;
-  window.dispatchEvent(new CustomEvent(CHANGE_EVENT, { detail: theme }));
-}
+import { Check, Palette } from 'lucide-react';
+import { CHANGE_EVENT, STORAGE_KEY, THEME_PRESETS, type ThemePreset } from './theme-config';
+import { applyTheme, loadInitialTheme } from './theme-sync';
 
 export default function ThemeToggle() {
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [theme, setTheme] = useState<ThemePreset>(THEME_PRESETS[0]);
   const [mounted, setMounted] = useState(false);
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    const preferred = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    const nextTheme = stored === 'dark' || stored === 'light' ? stored : preferred;
+    const nextTheme = loadInitialTheme();
     setTheme(nextTheme);
-    applyTheme(nextTheme);
+    window.localStorage.setItem(STORAGE_KEY, nextTheme.key);
+    applyTheme(nextTheme.key);
     setMounted(true);
+
+    const syncTheme = (event: Event) => {
+      const customEvent = event as CustomEvent<ThemePreset>;
+      if (customEvent.detail?.key) {
+        setTheme(customEvent.detail);
+      }
+    };
+
+    window.addEventListener(CHANGE_EVENT, syncTheme);
+    return () => window.removeEventListener(CHANGE_EVENT, syncTheme);
   }, []);
 
-  const toggleTheme = () => {
-    const nextTheme = theme === 'dark' ? 'light' : 'dark';
+  const selectTheme = (nextTheme: ThemePreset) => {
     setTheme(nextTheme);
-    window.localStorage.setItem(STORAGE_KEY, nextTheme);
-    applyTheme(nextTheme);
+    window.localStorage.setItem(STORAGE_KEY, nextTheme.key);
+    applyTheme(nextTheme.key);
+    setOpen(false);
   };
 
   return (
-    <button
-      type="button"
-      onClick={toggleTheme}
-      disabled={!mounted}
-      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] transition-all disabled:opacity-60 ${
-        theme === 'dark'
-          ? 'border-white/10 bg-slate-950/84 text-slate-100 hover:border-cyan-300 hover:bg-slate-900'
-          : 'border-[var(--surface-border)] bg-[var(--surface-strong)] text-slate-900 shadow-sm hover:border-[var(--accent)] hover:bg-[var(--accent-soft)] hover:text-[var(--accent-strong)]'
-      }`}
-      aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-    >
-      {theme === 'dark' ? (
-        <>
-          <Sun className="h-3.5 w-3.5" /> Light Mode
-        </>
-      ) : (
-        <>
-          <Moon className="h-3.5 w-3.5" /> Dark Mode
-        </>
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        disabled={!mounted}
+        className="inline-flex items-center gap-2 rounded-full border border-[var(--surface-border)] bg-[var(--surface-strong)] px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-900 shadow-sm transition-all hover:border-[var(--accent)] hover:bg-[var(--accent-soft)] hover:text-[var(--accent-strong)] disabled:opacity-60"
+        aria-label="Open theme picker"
+        aria-expanded={open}
+      >
+        <span className={`h-3.5 w-3.5 rounded-full bg-gradient-to-r ${theme.swatch}`} />
+        <Palette className="h-3.5 w-3.5" />
+        {theme.label}
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-[calc(100%+0.6rem)] z-[80] w-64 rounded-[1.25rem] border border-[var(--surface-border)] bg-[var(--surface-strong)] p-2 shadow-[var(--shadow-xl)] backdrop-blur-xl">
+          <div className="px-3 py-2 text-[10px] font-black uppercase tracking-[0.22em] text-[var(--ink-soft)]">Themes</div>
+          <div className="space-y-1">
+            {THEME_PRESETS.map((preset) => (
+              <button
+                key={preset.key}
+                type="button"
+                onClick={() => selectTheme(preset)}
+                className={`flex w-full items-center justify-between rounded-2xl px-3 py-2.5 text-left transition-all ${
+                  theme.key === preset.key ? 'bg-[var(--accent-soft)] text-[var(--accent-strong)]' : 'text-slate-800 hover:bg-[var(--accent-soft)]/70'
+                }`}
+              >
+                <span className="flex items-center gap-3">
+                  <span className={`h-5 w-5 rounded-full bg-gradient-to-r ${preset.swatch}`} />
+                  <span>
+                    <span className="block text-sm font-black">{preset.label}</span>
+                    <span className="block text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--ink-soft)]">
+                      {preset.mode} · {preset.fontStyle}
+                    </span>
+                  </span>
+                </span>
+                {theme.key === preset.key && <Check className="h-4 w-4" />}
+              </button>
+            ))}
+          </div>
+        </div>
       )}
-    </button>
+    </div>
   );
 }

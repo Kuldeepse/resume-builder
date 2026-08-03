@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
   renderAdminAlertEmail,
   renderRegistrantConfirmationEmail,
+  renderRegistrantStatusUpdateEmail,
 } from './career-network-email.mjs';
 
 test('renders registrant confirmation email with tracking code and status url', () => {
@@ -36,4 +37,19 @@ test('renders admin alert email with registration details', () => {
   assert.match(result.html, /Cloud engineering/);
   assert.match(result.html, /admin dashboard/i);
   assert.match(result.text, /WhatsApp consent: Yes/);
+});
+
+test('renders status update email with registration and whatsapp statuses', () => {
+  const result = renderRegistrantStatusUpdateEmail({
+    fullName: 'Alice Smith',
+    role: 'candidate',
+    registrationStatus: 'verified',
+    whatsappStatus: 'approved',
+    statusUrl: 'https://cognitwistai.duckdns.org/career-network/status',
+  });
+
+  assert.match(result.subject, /status has changed/i);
+  assert.match(result.html, /verified/);
+  assert.match(result.html, /approved/);
+  assert.match(result.text, /career-network\/status/);
 });

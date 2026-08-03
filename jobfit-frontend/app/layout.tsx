@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Plus_Jakarta_Sans, Sora } from "next/font/google";
+import { Cormorant_Garamond, IBM_Plex_Sans, Plus_Jakarta_Sans, Sora, Space_Grotesk } from "next/font/google";
 import Link from "next/link";
 import "./globals.css";
 import SiteNav from "./site-nav";
@@ -13,6 +13,23 @@ const bodyFont = Plus_Jakarta_Sans({
 const displayFont = Sora({
   subsets: ["latin"],
   variable: "--font-cognitwist-display",
+});
+
+const editorialBodyFont = Cormorant_Garamond({
+  subsets: ["latin"],
+  variable: "--font-cognitwist-editorial-body",
+  weight: ["400", "500", "600", "700"],
+});
+
+const techBodyFont = IBM_Plex_Sans({
+  subsets: ["latin"],
+  variable: "--font-cognitwist-tech-body",
+  weight: ["400", "500", "600", "700"],
+});
+
+const techDisplayFont = Space_Grotesk({
+  subsets: ["latin"],
+  variable: "--font-cognitwist-tech-display",
 });
 
 const siteTitle = "CogniTwist AI - Career Intelligence and Trusted Connections";
@@ -101,7 +118,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className="h-full antialiased" suppressHydrationWarning>
-      <body className={`${bodyFont.variable} ${displayFont.variable} min-h-full pb-[calc(5.25rem+env(safe-area-inset-bottom))] text-[var(--foreground)] md:pb-0`}>
+      <body className={`${bodyFont.variable} ${displayFont.variable} ${editorialBodyFont.variable} ${techBodyFont.variable} ${techDisplayFont.variable} min-h-full pb-[calc(5.25rem+env(safe-area-inset-bottom))] text-[var(--foreground)] md:pb-0`}>
         <PwaRegister />
         <header className="sticky top-0 z-50 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] md:px-8 md:pt-4">
           <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 rounded-[1.5rem] border border-[var(--surface-border)] bg-[var(--surface)] px-3 py-3 shadow-[var(--shadow-xl)] backdrop-blur-2xl md:rounded-[2rem] md:px-6">
