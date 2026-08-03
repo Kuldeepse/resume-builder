@@ -15,8 +15,9 @@ const displayFont = Sora({
 });
 
 const siteTitle = "CogniTwist AI - Career Intelligence and Trusted Connections";
-const siteDescription = "Tailor CV evidence, prepare for interviews, discover jobs, and build trusted professional connections through the CogniTwist AI Career Network.";
+const siteDescription = "Build stronger applications, prepare for interviews, discover jobs, and connect through the private CogniTwist AI Career Network.";
 const siteUrl = "https://cognitwistai.duckdns.org";
+const socialImageUrl = `${siteUrl}/cognitwist-ai-share-v2`;
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -62,10 +63,10 @@ export const metadata: Metadata = {
     type: "website",
     images: [
       {
-        url: "/opengraph-image",
+        url: socialImageUrl,
         width: 1200,
         height: 630,
-        alt: "CogniTwist AI social preview",
+        alt: "CogniTwist AI — Career Intelligence and Trusted Connections",
       },
     ],
   },
@@ -73,7 +74,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: siteTitle,
     description: siteDescription,
-    images: ["/opengraph-image"],
+    images: [socialImageUrl],
   },
   other: {
     "google-site-verification": process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || "",
