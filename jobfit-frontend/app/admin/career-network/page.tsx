@@ -189,15 +189,17 @@ export default async function CareerNetworkAdminDashboardPage({
   const resolvedSearchParams = searchParams ? await searchParams : {};
   const { registrations, error, schemaWarning, debugInfo } = await loadRegistrations();
   const errorCode = typeof resolvedSearchParams.error === 'string' ? resolvedSearchParams.error : '';
+  const queryFilter = typeof resolvedSearchParams.q === 'string' ? resolvedSearchParams.q.trim() : '';
   const companyFilter = typeof resolvedSearchParams.company === 'string' ? resolvedSearchParams.company.trim() : '';
   const emailStatusFilter = getEmailStatusFilter(
     typeof resolvedSearchParams.email_status === 'string' ? resolvedSearchParams.email_status : '',
   );
   const filteredRegistrations = registrations.filter((record) =>
     matchesEmailStatusFilter(record.confirmation_email_status, emailStatusFilter) &&
-    matchesCompanyFilter(record.current_company, companyFilter),
+    matchesCompanyFilter(record.current_company, companyFilter) &&
+    matchesQueryFilter(record, queryFilter),
   );
-  const activeFilterCount = Number(emailStatusFilter !== 'all') + Number(Boolean(companyFilter));
+  const activeFilterCount = Number(emailStatusFilter !== 'all') + Number(Boolean(companyFilter)) + Number(Boolean(queryFilter));
   const notices = {
     updated: resolvedSearchParams.updated === '1',
     resent: resolvedSearchParams.resent === '1',
@@ -295,7 +297,18 @@ export default async function CareerNetworkAdminDashboardPage({
                 </p>
               </div>
 
-              <form method="get" className="flex flex-wrap items-end gap-3">
+              <form method="get" className="flex w-full flex-wrap items-end gap-3 lg:w-auto" aria-label="Filter private registrations">
+                <label className="block min-w-[15rem] flex-1 text-[11px] font-black uppercase tracking-wider text-stone-600 lg:min-w-[18rem]">
+                  Search people
+                  <input
+                    type="text"
+                    name="q"
+                    defaultValue={queryFilter}
+                    placeholder="Name, email, tracking code, area"
+                    className="mt-1 w-full rounded-2xl border border-[var(--surface-border)] bg-white/90 p-2 text-xs font-medium text-slate-900 outline-none focus:border-[var(--accent)]"
+                  />
+                </label>
+
                 <label className="block text-[11px] font-black uppercase tracking-wider text-stone-600">
                   Company name
                   <input
@@ -340,22 +353,116 @@ export default async function CareerNetworkAdminDashboardPage({
                 )}
               </form>
             </div>
+
+            <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-slate-600" aria-live="polite">
+              <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 font-semibold text-slate-700">
+                Showing {filteredRegistrations.length} of {registrations.length}
+              </span>
+              {queryFilter && <FilterChip label={`Search: ${queryFilter}`} />}
+              {companyFilter && <FilterChip label={`Company: ${companyFilter}`} />}
+              {emailStatusFilter !== 'all' && <FilterChip label={`Email: ${emailStatusFilter.replaceAll('_', ' ')}`} />}
+            </div>
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="space-y-4 p-4 md:hidden">
+            {filteredRegistrations.length === 0 && (
+              <div className="rounded-[1.25rem] border border-dashed border-stone-300 bg-stone-50 p-6 text-center text-sm text-stone-500">
+                No registrations match the active filters.
+              </div>
+            )}
+
+            {filteredRegistrations.map((record) => (
+              <article key={record.id} className="rounded-[1.35rem] border border-[var(--surface-border)] bg-white/90 p-4 shadow-sm">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-black text-slate-950">{record.full_name}</h3>
+                    <p className="mt-1 text-xs leading-5 text-slate-600">{record.email}</p>
+                    <p className="mt-1 text-[11px] leading-5 text-stone-500">{new Date(record.created_at).toLocaleString('en-GB')}</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Badge tone="amber">{record.role}</Badge>
+                    <Badge tone={record.status === 'pending_verification' ? 'slate' : 'green'}>{record.status}</Badge>
+                  </div>
+                </div>
+
+                <dl className="mt-4 grid gap-3 text-xs leading-6 text-slate-700">
+                  <ReportPair label="Professional area" value={record.professional_area} />
+                  <ReportPair label="Company" value={record.current_company || 'Not provided'} />
+                  <ReportPair label="Tracking code" value={record.status_lookup_code || 'Not available yet'} mono={Boolean(record.status_lookup_code)} />
+                  <ReportPair label="Email status" value={formatEmailStatus(record)} />
+                  <ReportPair label="WhatsApp" value={formatWhatsAppStatus(record)} />
+                </dl>
+
+                <form action={`/api/admin/career-network/registrations/${record.id}`} method="post" className="mt-4 space-y-3 border-t border-stone-200 pt-4">
+                  <label className="block text-[11px] font-black uppercase tracking-wider text-stone-600">
+                    Registration status
+                    <select
+                      name="registration_status"
+                      defaultValue={record.status}
+                      className="mt-1 w-full rounded-2xl border border-[var(--surface-border)] bg-white/90 p-2 text-xs font-medium text-slate-900 outline-none focus:border-[var(--accent)]"
+                    >
+                      <option value="pending_verification">Pending verification</option>
+                      <option value="verified">Verified</option>
+                      <option value="declined">Declined</option>
+                      <option value="deleted">Deleted</option>
+                    </select>
+                  </label>
+
+                  <label className="block text-[11px] font-black uppercase tracking-wider text-stone-600">
+                    WhatsApp status
+                    <select
+                      name="whatsapp_status"
+                      defaultValue={record.whatsapp_group_status}
+                      className="mt-1 w-full rounded-2xl border border-[var(--surface-border)] bg-white/90 p-2 text-xs font-medium text-slate-900 outline-none focus:border-[var(--accent)]"
+                    >
+                      <option value="not_requested">Not requested</option>
+                      <option value="pending_approval">Pending approval</option>
+                      <option value="approved">Approved</option>
+                      <option value="invited">Invited</option>
+                      <option value="declined">Declined</option>
+                      <option value="withdrawn">Withdrawn</option>
+                    </select>
+                  </label>
+
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="submit"
+                      className="inline-flex items-center gap-2 rounded-full bg-[linear-gradient(135deg,var(--accent)_0%,var(--highlight)_100%)] px-3 py-2 text-xs font-black text-white shadow-sm shadow-teal-900/20 hover:opacity-95"
+                    >
+                      <Save className="h-3.5 w-3.5" /> Save status
+                    </button>
+                    <button
+                      type="submit"
+                      name="action"
+                      value="resend-confirmation"
+                      disabled={!record.status_lookup_code}
+                      className="inline-flex items-center gap-2 rounded-full border border-[var(--surface-border)] bg-white/90 px-3 py-2 text-xs font-black text-slate-800 hover:border-[var(--accent)] hover:bg-[var(--accent-soft)] disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <Mail className="h-3.5 w-3.5" /> Resend code
+                    </button>
+                  </div>
+                </form>
+              </article>
+            ))}
+          </div>
+
+          <div className="hidden overflow-x-auto md:block">
             <table className="min-w-full text-left text-[13px]">
+              <caption className="sr-only">
+                Private registrations report with filters for search, company name, and confirmation email status.
+              </caption>
               <thead className="bg-[#f6fbfa] text-[10px] uppercase tracking-[0.16em] text-slate-600">
                 <tr>
-                  <th className="px-4 py-3 font-black">Name</th>
-                  <th className="px-4 py-3 font-black">Role</th>
-                  <th className="px-4 py-3 font-black">Contact</th>
-                  <th className="px-4 py-3 font-black">Tracking code</th>
-                  <th className="px-4 py-3 font-black">Professional area</th>
-                  <th className="px-4 py-3 font-black">Company</th>
-                  <th className="px-4 py-3 font-black">Registration</th>
-                  <th className="px-4 py-3 font-black">Email</th>
-                  <th className="px-4 py-3 font-black">WhatsApp</th>
-                  <th className="px-4 py-3 font-black">Actions</th>
+                  <th scope="col" className="px-4 py-3 font-black">Name</th>
+                  <th scope="col" className="px-4 py-3 font-black">Role</th>
+                  <th scope="col" className="px-4 py-3 font-black">Contact</th>
+                  <th scope="col" className="px-4 py-3 font-black">Tracking code</th>
+                  <th scope="col" className="px-4 py-3 font-black">Professional area</th>
+                  <th scope="col" className="px-4 py-3 font-black">Company</th>
+                  <th scope="col" className="px-4 py-3 font-black">Registration</th>
+                  <th scope="col" className="px-4 py-3 font-black">Email</th>
+                  <th scope="col" className="px-4 py-3 font-black">WhatsApp</th>
+                  <th scope="col" className="px-4 py-3 font-black">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -369,10 +476,10 @@ export default async function CareerNetworkAdminDashboardPage({
 
                 {filteredRegistrations.map((record) => (
                   <tr key={record.id} className="border-t border-[#f0e4d6] align-top">
-                    <td className="px-4 py-4">
+                    <th scope="row" className="px-4 py-4 text-left">
                       <div className="font-semibold text-stone-900">{record.full_name}</div>
                       <div className="mt-1 text-xs text-stone-500">{new Date(record.created_at).toLocaleString('en-GB')}</div>
-                    </td>
+                    </th>
                     <td className="px-4 py-4">
                       <Badge tone="amber">{record.role}</Badge>
                       <div className="mt-2">
@@ -492,7 +599,7 @@ export default async function CareerNetworkAdminDashboardPage({
                           name="action"
                           value="resend-confirmation"
                           disabled={!record.status_lookup_code}
-                          className="inline-flex items-center gap-2 rounded-full border border-[var(--surface-border)] bg-white/90 px-3 py-2 text-xs font-black text-slate-800 hover:border-[var(--accent)] hover:bg-[var(--accent-soft)]"
+                          className="inline-flex items-center gap-2 rounded-full border border-[var(--surface-border)] bg-white/90 px-3 py-2 text-xs font-black text-slate-800 hover:border-[var(--accent)] hover:bg-[var(--accent-soft)] disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           <Mail className="h-3.5 w-3.5" /> Resend code
                         </button>
@@ -514,6 +621,23 @@ function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string
     <div className="rounded-[1.6rem] border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-xl)]">
       <div className="flex items-center gap-2 text-sm font-black text-slate-900">{icon}{label}</div>
       <div className="mt-3 text-3xl font-black tracking-tight">{value}</div>
+    </div>
+  );
+}
+
+function FilterChip({ label }: { label: string }) {
+  return (
+    <span className="rounded-full border border-teal-200 bg-teal-50 px-3 py-1.5 font-semibold text-teal-900">
+      {label}
+    </span>
+  );
+}
+
+function ReportPair({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div>
+      <dt className="text-[11px] font-black uppercase tracking-[0.14em] text-stone-500">{label}</dt>
+      <dd className={`mt-1 text-slate-800 ${mono ? 'font-mono text-[12px] font-black tracking-[0.18em]' : ''}`}>{value}</dd>
     </div>
   );
 }
@@ -569,6 +693,41 @@ function matchesCompanyFilter(companyName: string | null, filter: string) {
   }
 
   return (companyName || '').toLowerCase().includes(filter.toLowerCase());
+}
+
+function matchesQueryFilter(record: RegistrationRecord, filter: string) {
+  if (!filter) {
+    return true;
+  }
+
+  const haystack = [
+    record.full_name,
+    record.email,
+    record.status_lookup_code || '',
+    record.professional_area,
+    record.current_company || '',
+  ].join(' ').toLowerCase();
+
+  return haystack.includes(filter.toLowerCase());
+}
+
+function formatEmailStatus(record: RegistrationRecord) {
+  if (!record.confirmation_email_status) {
+    return 'Not available until the email delivery migration is applied.';
+  }
+
+  const sentAt = record.confirmation_email_sent_at
+    ? ` Sent ${new Date(record.confirmation_email_sent_at).toLocaleString('en-GB')}.`
+    : '';
+  const error = record.confirmation_email_error ? ` ${record.confirmation_email_error}` : '';
+
+  return `${record.confirmation_email_status.replaceAll('_', ' ')}.${sentAt}${error}`.trim();
+}
+
+function formatWhatsAppStatus(record: RegistrationRecord) {
+  const consent = record.whatsapp_group_consent ? 'Consent given.' : 'No consent.';
+  const number = record.whatsapp_number ? ` Number: ${record.whatsapp_number}.` : ' No number provided.';
+  return `${record.whatsapp_group_status.replaceAll('_', ' ')}. ${consent}${number}`;
 }
 
 function getAdminErrorMessage(errorCode: string) {
