@@ -37,7 +37,7 @@ export default function CareerNetworkAdminLoginPage() {
     <main className="min-h-screen px-4 py-10 text-slate-950 md:px-8">
       <div className="mx-auto max-w-lg rounded-[2rem] border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-xl)] md:p-8">
         <div className="inline-flex items-center gap-2 rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-[10px] font-black uppercase tracking-[0.24em] text-teal-900">
-          <ShieldCheck className="h-3.5 w-3.5" /> RoleCraft Admin
+          <ShieldCheck className="h-3.5 w-3.5" /> CogniTwist Admin
         </div>
         <h1 className="mt-5 text-3xl font-black tracking-tight">Private operations access</h1>
         <p className="mt-3 text-sm leading-7 text-[var(--ink-soft)]">
