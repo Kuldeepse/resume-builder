@@ -1,29 +1,56 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Plus_Jakarta_Sans, Sora } from "next/font/google";
+import Link from "next/link";
 import "./globals.css";
+import SiteNav from "./site-nav";
 
-const siteTitle = "RoleCraft AI - Kuldeep Sharma";
-const siteDescription = "Tailor resumes, generate interview prep, and discover relevant job opportunities with RoleCraft AI by Kuldeep Sharma.";
-const siteUrl = "https://jobfitcareer.vercel.app";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const bodyFont = Plus_Jakarta_Sans({
   subsets: ["latin"],
+  variable: "--font-rolecraft-sans",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const displayFont = Sora({
   subsets: ["latin"],
+  variable: "--font-rolecraft-display",
 });
+
+const siteTitle = "RoleCraft AI - Career Intelligence and Trusted Access";
+const siteDescription = "Tailor CV evidence, prepare for interviews, discover jobs, and create referral-ready requests through RoleCraft Career Network.";
+const siteUrl = "https://rolecraftai.duckdns.org";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: siteTitle,
   description: siteDescription,
+  applicationName: "RoleCraft AI",
+  keywords: [
+    "AI resume builder",
+    "career network",
+    "job referrals UK",
+    "interview preparation",
+    "job search platform",
+    "RoleCraft AI",
+  ],
+  authors: [{ name: "Kuldeep Sharma" }],
+  creator: "Kuldeep Sharma",
+  publisher: "RoleCraft AI",
+  category: "career technology",
+  alternates: {
+    canonical: siteUrl,
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
   icons: {
-    icon: [
-      { url: "/icon.svg", type: "image/svg+xml" },
-    ],
+    icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
     shortcut: "/icon.svg",
     apple: "/icon.svg",
   },
@@ -48,6 +75,9 @@ export const metadata: Metadata = {
     description: siteDescription,
     images: ["/opengraph-image"],
   },
+  other: {
+    "google-site-verification": process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || "",
+  },
 };
 
 export default function RootLayout({
@@ -56,11 +86,22 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col">{children}</body>
+    <html lang="en" className="h-full antialiased" suppressHydrationWarning>
+      <body className={`${bodyFont.variable} ${displayFont.variable} min-h-full text-[var(--foreground)]`}>
+        <header className="sticky top-0 z-50 px-4 pt-4 md:px-8">
+          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 rounded-[2rem] border border-[var(--surface-border)] bg-[var(--surface)] px-4 py-3 shadow-[var(--shadow-xl)] backdrop-blur-2xl md:px-6">
+            <Link href="/" className="flex items-center gap-3 font-black text-slate-950">
+              <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,var(--accent)_0%,var(--highlight)_100%)] text-xs text-white shadow-lg shadow-teal-900/20">RC</span>
+              <span className="flex flex-col leading-none">
+                <span className="text-sm uppercase tracking-[0.24em] text-[var(--ink-soft)]">RoleCraft</span>
+                <span className="mt-1 font-[var(--font-rolecraft-display)] text-base tracking-[-0.02em] md:text-lg">Career Network</span>
+              </span>
+            </Link>
+            <SiteNav />
+          </div>
+        </header>
+        {children}
+      </body>
     </html>
   );
 }
