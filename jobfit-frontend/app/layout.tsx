@@ -64,6 +64,11 @@ export const metadata: Metadata = {
       "max-video-preview": -1,
     },
   },
+  verification: {
+    google:
+      process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION ||
+      "MqfH-9HghpvJxRjii6AV3XIle2_PshtjJeZpqpw7aA4",
+  },
   icons: {
     icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
     shortcut: "/icon.svg",
@@ -82,9 +87,6 @@ export const metadata: Metadata = {
     title: siteTitle,
     description: siteDescription,
     images: ["/opengraph-image"],
-  },
-  other: {
-    "google-site-verification": process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || "",
   },
 };
 
