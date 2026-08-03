@@ -4,7 +4,7 @@ export const PHONE_PATTERN = /^[0-9+\s().-]{7,30}$/;
 export const ALLOWED_ROLES = new Set(['candidate', 'referrer', 'mentor']);
 
 const defaultOrigins = [
-  'https://rolecraftai.duckdns.org',
+  'https://cognitwistai.duckdns.org',
   'https://resume-builder-ha5ykxvh9-resume-builder-s-projects.vercel.app',
 ];
 
