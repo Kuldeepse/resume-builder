@@ -14,26 +14,26 @@ const displayFont = Sora({
   variable: "--font-rolecraft-display",
 });
 
-const siteTitle = "RoleCraft AI - Career Intelligence and Trusted Access";
-const siteDescription = "Tailor CV evidence, prepare for interviews, discover jobs, and create referral-ready requests through RoleCraft Career Network.";
+const siteTitle = "CogniTwist - AI Career Intelligence and Trusted Connections";
+const siteDescription = "Tailor CV evidence, prepare for interviews, discover jobs, and build trusted professional connections through the CogniTwist Career Network.";
 const siteUrl = "https://rolecraftai.duckdns.org";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: siteTitle,
   description: siteDescription,
-  applicationName: "RoleCraft AI",
+  applicationName: "CogniTwist",
   keywords: [
     "AI resume builder",
     "career network",
     "job referrals UK",
     "interview preparation",
     "job search platform",
-    "RoleCraft AI",
+    "CogniTwist",
   ],
   authors: [{ name: "Kuldeep Sharma" }],
   creator: "Kuldeep Sharma",
-  publisher: "RoleCraft AI",
+  publisher: "CogniTwist",
   category: "career technology",
   alternates: {
     canonical: siteUrl,
@@ -58,14 +58,14 @@ export const metadata: Metadata = {
     title: siteTitle,
     description: siteDescription,
     url: siteUrl,
-    siteName: "RoleCraft AI",
+    siteName: "CogniTwist",
     type: "website",
     images: [
       {
         url: "/opengraph-image",
         width: 1200,
         height: 630,
-        alt: "RoleCraft AI social preview",
+        alt: "CogniTwist social preview",
       },
     ],
   },
@@ -91,9 +91,9 @@ export default function RootLayout({
         <header className="sticky top-0 z-50 px-4 pt-4 md:px-8">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 rounded-[2rem] border border-[var(--surface-border)] bg-[var(--surface)] px-4 py-3 shadow-[var(--shadow-xl)] backdrop-blur-2xl md:px-6">
             <Link href="/" className="flex items-center gap-3 font-black text-slate-950">
-              <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,var(--accent)_0%,var(--highlight)_100%)] text-xs text-white shadow-lg shadow-teal-900/20">RC</span>
+              <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,var(--accent)_0%,var(--highlight)_100%)] text-xs text-white shadow-lg shadow-teal-900/20">CT</span>
               <span className="flex flex-col leading-none">
-                <span className="text-sm uppercase tracking-[0.24em] text-[var(--ink-soft)]">RoleCraft</span>
+                <span className="text-sm uppercase tracking-[0.24em] text-[var(--ink-soft)]">CogniTwist</span>
                 <span className="mt-1 font-[var(--font-rolecraft-display)] text-base tracking-[-0.02em] md:text-lg">Career Network</span>
               </span>
             </Link>
