@@ -2,7 +2,7 @@ import type { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'RoleCraft – Career Network',
+    name: 'RoleCraft Career Network',
     short_name: 'RoleCraft',
     description: 'Career intelligence, interview preparation and private professional networking.',
     start_url: '/',
@@ -17,7 +17,7 @@ export default function manifest(): MetadataRoute.Manifest {
         src: '/icon.svg',
         sizes: 'any',
         type: 'image/svg+xml',
-        purpose: 'any maskable',
+        purpose: 'any',
       },
     ],
   };
