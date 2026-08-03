@@ -39,15 +39,15 @@ export default function OpenGraphImage() {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              background: "linear-gradient(145deg, #7c2d12 0%, #b45309 60%, #f59e0b 100%)",
+              background: "linear-gradient(145deg, #0f766e 0%, #115e59 62%, #d97706 100%)",
               color: "#fffaf3",
               fontSize: 46,
               fontWeight: 800,
               letterSpacing: 1,
-              boxShadow: "0 18px 32px rgba(124, 45, 18, 0.18)",
+              boxShadow: "0 18px 32px rgba(15, 118, 110, 0.18)",
             }}
           >
-            RC
+            CT
           </div>
           <div
             style={{
@@ -58,11 +58,10 @@ export default function OpenGraphImage() {
           >
             <div
               style={{
-                fontSize: 22,
-                fontWeight: 700,
+                fontSize: 32,
+                fontWeight: 800,
                 color: "#0f766e",
-                textTransform: "uppercase",
-                letterSpacing: 3,
+                letterSpacing: 1,
               }}
             >
               CogniTwist AI
@@ -115,11 +114,11 @@ export default function OpenGraphImage() {
             alignItems: "center",
             fontSize: 22,
             color: "#57534e",
-            borderTop: "1px solid rgba(146, 64, 14, 0.16)",
+            borderTop: "1px solid rgba(15, 118, 110, 0.16)",
             paddingTop: 22,
           }}
         >
-          <div>rolecraftai.duckdns.org</div>
+          <div>cognitwistai.duckdns.org</div>
           <div style={{ color: "#0f766e", fontWeight: 700 }}>Career Network • Status Tracking • Privacy First</div>
         </div>
       </div>
