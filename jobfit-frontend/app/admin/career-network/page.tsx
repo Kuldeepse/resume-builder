@@ -189,12 +189,15 @@ export default async function CareerNetworkAdminDashboardPage({
   const resolvedSearchParams = searchParams ? await searchParams : {};
   const { registrations, error, schemaWarning, debugInfo } = await loadRegistrations();
   const errorCode = typeof resolvedSearchParams.error === 'string' ? resolvedSearchParams.error : '';
+  const companyFilter = typeof resolvedSearchParams.company === 'string' ? resolvedSearchParams.company.trim() : '';
   const emailStatusFilter = getEmailStatusFilter(
     typeof resolvedSearchParams.email_status === 'string' ? resolvedSearchParams.email_status : '',
   );
   const filteredRegistrations = registrations.filter((record) =>
-    matchesEmailStatusFilter(record.confirmation_email_status, emailStatusFilter),
+    matchesEmailStatusFilter(record.confirmation_email_status, emailStatusFilter) &&
+    matchesCompanyFilter(record.current_company, companyFilter),
   );
+  const activeFilterCount = Number(emailStatusFilter !== 'all') + Number(Boolean(companyFilter));
   const notices = {
     updated: resolvedSearchParams.updated === '1',
     resent: resolvedSearchParams.resent === '1',
@@ -204,13 +207,13 @@ export default async function CareerNetworkAdminDashboardPage({
   return (
     <main className="min-h-screen px-4 py-8 text-slate-950 md:px-8">
       <div className="mx-auto max-w-7xl space-y-6">
-        <section className="flex flex-wrap items-start justify-between gap-4 rounded-[2rem] border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-xl)] md:p-8">
+        <section className="flex flex-wrap items-start justify-between gap-4 rounded-[1.75rem] border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-xl)] md:p-6">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-[10px] font-black uppercase tracking-[0.24em] text-teal-900">
               <ShieldCheck className="h-3.5 w-3.5" /> Admin Dashboard
             </div>
-            <h1 className="mt-4 text-3xl font-black tracking-tight md:text-5xl">Command center for approvals</h1>
-            <p className="mt-3 max-w-3xl text-sm leading-7 text-[var(--ink-soft)] md:text-base">
+            <h1 className="mt-3 text-2xl font-black tracking-tight md:text-[2.4rem]">Command center for approvals</h1>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--ink-soft)]">
               Review applications, verify network access, and manage WhatsApp invite progression without exposing the underlying registration data publicly.
             </p>
           </div>
@@ -225,7 +228,7 @@ export default async function CareerNetworkAdminDashboardPage({
           </form>
         </section>
 
-        <section className="grid gap-4 md:grid-cols-4">
+        <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
           <StatCard icon={<Users className="h-5 w-5" />} label="Total registrations" value={registrations.length} />
           <StatCard icon={<Mail className="h-5 w-5" />} label="Filtered results" value={filteredRegistrations.length} />
           <StatCard icon={<Clock3 className="h-5 w-5" />} label="Pending review" value={statCount(registrations, (record) => record.status === 'pending_verification')} />
@@ -263,7 +266,7 @@ export default async function CareerNetworkAdminDashboardPage({
           </div>
         )}
 
-        <div className="rounded-[1.5rem] border border-teal-200 bg-teal-50 p-4 text-xs leading-6 text-teal-950">
+        <div className="rounded-[1.35rem] border border-teal-200 bg-teal-50 p-4 text-xs leading-6 text-teal-950">
           Update each row to move a person from registration review into verified access, resend a private tracking email when needed, and separately manage the WhatsApp invite lifecycle.
         </div>
 
@@ -282,17 +285,28 @@ export default async function CareerNetworkAdminDashboardPage({
           </details>
         )}
 
-        <section className="overflow-hidden rounded-[2rem] border border-[var(--surface-border)] bg-[var(--surface)] shadow-[var(--shadow-xl)]">
-          <div className="border-b border-[#e6d4bf] px-6 py-4">
+        <section className="overflow-hidden rounded-[1.75rem] border border-[var(--surface-border)] bg-[var(--surface)] shadow-[var(--shadow-xl)]">
+          <div className="border-b border-[#e6d4bf] px-5 py-4">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <h2 className="text-lg font-black">Private registrations</h2>
+                <h2 className="text-base font-black">Private registrations</h2>
                 <p className="mt-1 text-xs leading-6 text-[var(--ink-soft)]">
                   Use this list for manual review, approval, and moderated WhatsApp follow-up only.
                 </p>
               </div>
 
               <form method="get" className="flex flex-wrap items-end gap-3">
+                <label className="block text-[11px] font-black uppercase tracking-wider text-stone-600">
+                  Company name
+                  <input
+                    type="text"
+                    name="company"
+                    defaultValue={companyFilter}
+                    placeholder="Filter by company"
+                    className="mt-1 min-w-[13rem] rounded-2xl border border-[var(--surface-border)] bg-white/90 p-2 text-xs font-medium text-slate-900 outline-none focus:border-[var(--accent)]"
+                  />
+                </label>
+
                 <label className="block text-[11px] font-black uppercase tracking-wider text-stone-600">
                   Email status
                   <select
@@ -316,7 +330,7 @@ export default async function CareerNetworkAdminDashboardPage({
                   Filter
                 </button>
 
-                {emailStatusFilter !== 'all' && (
+                {activeFilterCount > 0 && (
                   <a
                     href="/admin/career-network"
                     className="inline-flex items-center gap-2 rounded-full border border-[var(--surface-border)] bg-white/90 px-4 py-2 text-xs font-black text-slate-700 hover:border-[var(--accent)] hover:bg-[var(--accent-soft)]"
@@ -329,8 +343,8 @@ export default async function CareerNetworkAdminDashboardPage({
           </div>
 
           <div className="overflow-x-auto">
-            <table className="min-w-full text-left text-sm">
-              <thead className="bg-[#f6fbfa] text-xs uppercase tracking-[0.18em] text-slate-600">
+            <table className="min-w-full text-left text-[13px]">
+              <thead className="bg-[#f6fbfa] text-[10px] uppercase tracking-[0.16em] text-slate-600">
                 <tr>
                   <th className="px-4 py-3 font-black">Name</th>
                   <th className="px-4 py-3 font-black">Role</th>
@@ -348,7 +362,7 @@ export default async function CareerNetworkAdminDashboardPage({
                 {filteredRegistrations.length === 0 && (
                   <tr>
                     <td colSpan={10} className="px-4 py-8 text-center text-sm text-stone-500">
-                      No registrations match the selected email-status filter.
+                      No registrations match the active filters.
                     </td>
                   </tr>
                 )}
@@ -356,7 +370,7 @@ export default async function CareerNetworkAdminDashboardPage({
                 {filteredRegistrations.map((record) => (
                   <tr key={record.id} className="border-t border-[#f0e4d6] align-top">
                     <td className="px-4 py-4">
-                      <div className="font-bold text-stone-900">{record.full_name}</div>
+                      <div className="font-semibold text-stone-900">{record.full_name}</div>
                       <div className="mt-1 text-xs text-stone-500">{new Date(record.created_at).toLocaleString('en-GB')}</div>
                     </td>
                     <td className="px-4 py-4">
@@ -392,7 +406,15 @@ export default async function CareerNetworkAdminDashboardPage({
                       </div>
                     </td>
                     <td className="px-4 py-4 text-xs leading-6 text-slate-700">{record.professional_area}</td>
-                    <td className="px-4 py-4 text-xs leading-6 text-slate-700">{record.current_company || 'Not provided'}</td>
+                    <td className="px-4 py-4 text-xs leading-6 text-slate-700">
+                      {record.current_company ? (
+                        <span className="rounded-full border border-stone-200 bg-stone-50 px-2.5 py-1 text-[11px] font-semibold text-stone-700">
+                          {record.current_company}
+                        </span>
+                      ) : (
+                        'Not provided'
+                      )}
+                    </td>
                     <td className="px-4 py-4 text-xs leading-6 text-slate-700">
                       <div>Marketing: {record.marketing_opt_in ? 'Opted in' : 'Not requested'}</div>
                     </td>
@@ -539,6 +561,14 @@ function matchesEmailStatusFilter(
   }
 
   return status === filter;
+}
+
+function matchesCompanyFilter(companyName: string | null, filter: string) {
+  if (!filter) {
+    return true;
+  }
+
+  return (companyName || '').toLowerCase().includes(filter.toLowerCase());
 }
 
 function getAdminErrorMessage(errorCode: string) {
