@@ -11,6 +11,8 @@ import {
   CheckCircle2,
   ChevronRight,
   Globe2,
+  Linkedin,
+  MessagesSquare,
   Network,
   Search,
   ShieldCheck,
@@ -62,6 +64,25 @@ const processSteps = [
     copy: 'Use the status page to see whether your registration is pending, verified, or whether a WhatsApp invite has been approved.',
   },
 ];
+
+const communityGroups = [
+  {
+    name: 'LinkedIn Group',
+    description: 'Join the professional discussion space for networking, industry updates, and referral-minded conversations.',
+    href: 'https://www.linkedin.com/groups/34870022/',
+    icon: Linkedin,
+    accent: 'from-sky-600 via-blue-500 to-cyan-400',
+    cta: 'Open LinkedIn group',
+  },
+  {
+    name: 'Facebook Group',
+    description: 'Stay close to the wider community, updates, and conversations happening across the broader support network.',
+    href: 'https://www.facebook.com/groups/2095083811409490',
+    icon: MessagesSquare,
+    accent: 'from-indigo-600 via-blue-500 to-sky-400',
+    cta: 'Open Facebook group',
+  },
+] as const;
 
 async function loadRoleCount(role: 'candidate' | 'referrer' | 'mentor') {
   const supabaseUrl = process.env.SUPABASE_URL;
@@ -260,6 +281,44 @@ export default async function CareerNetworkLandingPage() {
               copy="Mentors who have registered to share sector insight, coaching, and practical career guidance."
               accent="from-fuchsia-500 via-violet-400 to-pink-300"
             />
+          </div>
+        </section>
+
+        <section className="rounded-[2rem] border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-xl)] md:p-8">
+          <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.24em] text-[var(--accent-strong)]">Community groups</p>
+              <h2 className="mt-2 text-2xl font-black text-slate-950">Stay connected beyond registration</h2>
+            </div>
+            <p className="max-w-2xl text-sm leading-7 text-[var(--ink-soft)]">
+              These public community spaces complement the private referral workflow. Registration, approval, and status tracking still happen through the secure Career Network flow.
+            </p>
+          </div>
+
+          <div className="mt-6 grid gap-4 md:grid-cols-2">
+            {communityGroups.map((group) => (
+              <a
+                key={group.name}
+                href={group.href}
+                target="_blank"
+                rel="noreferrer"
+                className="group rounded-[1.7rem] border border-[var(--surface-border)] bg-white/85 p-5 transition duration-200 hover:-translate-y-1 hover:border-[var(--accent)] hover:shadow-[var(--shadow-xl)]"
+              >
+                <div className="flex items-start gap-4">
+                  <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br ${group.accent} text-white shadow-sm`}>
+                    <group.icon className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-lg font-black text-slate-950">{group.name}</div>
+                    <p className="mt-2 text-sm leading-7 text-[var(--ink-soft)]">{group.description}</p>
+                    <div className="mt-4 inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em] text-[var(--accent-strong)]">
+                      {group.cta}
+                      <ArrowRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5" />
+                    </div>
+                  </div>
+                </div>
+              </a>
+            ))}
           </div>
         </section>
 
