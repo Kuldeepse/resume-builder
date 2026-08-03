@@ -15,9 +15,10 @@ const displayFont = Sora({
   variable: "--font-cognitwist-display",
 });
 
-const siteTitle = "CogniTwist AI - Career Intelligence and Trusted Access";
-const siteDescription = "Tailor CV evidence, prepare for interviews, discover jobs, and create referral-ready requests through CogniTwist AI Career Network.";
+const siteTitle = "CogniTwist AI - Career Intelligence and Trusted Connections";
+const siteDescription = "Build stronger applications, prepare for interviews, discover jobs, and connect through the private CogniTwist AI Career Network.";
 const siteUrl = "https://cognitwistai.duckdns.org";
+const socialImageUrl = `${siteUrl}/cognitwist-ai-share-v2`;
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -80,13 +81,20 @@ export const metadata: Metadata = {
     url: siteUrl,
     siteName: "CogniTwist AI",
     type: "website",
-    images: [{ url: "/opengraph-image", width: 1200, height: 630, alt: "CogniTwist AI social preview" }],
+    images: [
+      {
+        url: socialImageUrl,
+        width: 1200,
+        height: 630,
+        alt: "CogniTwist AI — Career Intelligence and Trusted Connections",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: siteTitle,
     description: siteDescription,
-    images: ["/opengraph-image"],
+    images: [socialImageUrl],
   },
 };
 
