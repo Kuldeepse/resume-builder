@@ -24,16 +24,57 @@ export default function PwaRegister() {
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
-    if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
-      const register = () => {
-        navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {
-          // CogniTwist AI remains fully usable when service-worker registration is unavailable.
-        });
-      };
+    if (!('serviceWorker' in navigator) || process.env.NODE_ENV !== 'production') return;
 
-      window.addEventListener('load', register);
-      return () => window.removeEventListener('load', register);
+    let disposed = false;
+
+    const refreshOnControllerChange = () => {
+      const reloadKey = 'cognitwist-sw-refresh-v3';
+      if (window.sessionStorage.getItem(reloadKey)) return;
+      window.sessionStorage.setItem(reloadKey, '1');
+      window.location.reload();
+    };
+
+    const register = async () => {
+      try {
+        const registration = await navigator.serviceWorker.register('/sw.js?v=3', {
+          scope: '/',
+          updateViaCache: 'none',
+        });
+
+        if (disposed) return;
+
+        await registration.update();
+        registration.waiting?.postMessage({ type: 'SKIP_WAITING' });
+
+        registration.addEventListener('updatefound', () => {
+          const worker = registration.installing;
+          if (!worker) return;
+
+          worker.addEventListener('statechange', () => {
+            if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+              worker.postMessage({ type: 'SKIP_WAITING' });
+            }
+          });
+        });
+      } catch {
+        // CogniTwist AI remains fully usable when service-worker registration is unavailable.
+      }
+    };
+
+    navigator.serviceWorker.addEventListener('controllerchange', refreshOnControllerChange);
+
+    if (document.readyState === 'complete') {
+      void register();
+    } else {
+      window.addEventListener('load', register, { once: true });
     }
+
+    return () => {
+      disposed = true;
+      window.removeEventListener('load', register);
+      navigator.serviceWorker.removeEventListener('controllerchange', refreshOnControllerChange);
+    };
   }, []);
 
   useEffect(() => {
@@ -68,7 +109,7 @@ export default function PwaRegister() {
       <div className="flex items-start gap-3">
         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,var(--accent)_0%,var(--highlight)_100%)] text-xs font-black text-white">CT</div>
         <div className="min-w-0 flex-1">
-          <p className="font-black text-slate-950">Install CogniTwist AI</p>
+          <p className="font-black text-[var(--foreground)]">Install CogniTwist AI</p>
           <p className="mt-1 text-xs leading-5 text-[var(--ink-soft)]">
             {installEvent
               ? 'Add CogniTwist AI to your home screen for faster mobile access.'
@@ -87,7 +128,7 @@ export default function PwaRegister() {
             <button
               type="button"
               onClick={() => setDismissed(true)}
-              className="min-h-11 rounded-full border border-[var(--surface-border)] px-4 text-xs font-bold text-[var(--ink-soft)] hover:bg-white/70"
+              className="min-h-11 rounded-full border border-[var(--surface-border)] px-4 text-xs font-bold text-[var(--ink-soft)] hover:bg-[var(--accent-soft)]"
             >
               Not now
             </button>
