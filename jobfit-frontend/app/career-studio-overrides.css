@@ -1,0 +1,4 @@
+/* Career Studio already uses the shared SiteFooter from the root layout. */
+body > main > footer {
+  display: none;
+}
