@@ -1,4 +1,6 @@
-import { Heart, PenLine } from 'lucide-react';
+import { ExternalLink, Heart, Linkedin, PenLine } from 'lucide-react';
+
+const linkedInProfile = 'https://www.linkedin.com/in/kuldeep-sharma-4561b716/';
 
 export default function SiteFooter() {
   return (
@@ -18,17 +20,28 @@ export default function SiteFooter() {
             <span>Developed by</span>
           </div>
 
-          <div className="mx-auto flex items-center justify-center gap-3 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-strong)] px-5 py-3 shadow-sm">
-            <PenLine className="h-5 w-5 shrink-0 text-[var(--highlight)]" aria-hidden="true" />
-            <div className="text-center" aria-label="Developer signature: Kuldeep Sharma">
+          <a
+            href={linkedInProfile}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group mx-auto flex items-center justify-center gap-3 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-strong)] px-5 py-3 shadow-sm transition-all hover:-translate-y-0.5 hover:border-[var(--accent)] hover:bg-[var(--accent-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)]"
+            aria-label="Open Kuldeep Sharma's LinkedIn profile in a new tab"
+          >
+            <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--accent-soft)] text-[var(--accent-strong)] transition-colors group-hover:bg-[var(--accent)] group-hover:text-white">
+              <Linkedin className="h-5 w-5" aria-hidden="true" />
+              <PenLine className="absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full bg-[var(--surface-strong)] p-0.5 text-[var(--highlight)]" aria-hidden="true" />
+            </span>
+
+            <span className="text-center">
               <span className="block font-[var(--font-cognitwist-editorial-body)] text-2xl font-semibold italic leading-none tracking-[0.02em] text-[var(--accent-strong)] md:text-3xl">
                 Kuldeep Sharma
               </span>
-              <span className="mt-1.5 block text-[8px] font-black uppercase tracking-[0.22em] text-[var(--ink-soft)]">
+              <span className="mt-1.5 flex items-center justify-center gap-1.5 text-[8px] font-black uppercase tracking-[0.22em] text-[var(--ink-soft)]">
                 Product Creator &amp; Developer
+                <ExternalLink className="h-3 w-3" aria-hidden="true" />
               </span>
-            </div>
-          </div>
+            </span>
+          </a>
         </div>
       </footer>
     </>
