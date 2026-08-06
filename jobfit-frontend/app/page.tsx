@@ -1,74 +1,189 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   AlertTriangle,
-  ArrowLeftRight,
   ArrowRight,
   BarChart3,
+  BriefcaseBusiness,
   CheckCircle2,
   ClipboardCheck,
-  Clock,
+  Download,
   FileText,
   Heart,
   HelpCircle,
   Link,
   ListOrdered,
   MessageSquarePlus,
+  Play,
   RefreshCw,
   RotateCcw,
   Search,
+  ShieldCheck,
   Sparkles,
-  Target,
-  User,
+  Upload,
   UserCheck,
 } from 'lucide-react';
-import { CHANGE_EVENT, getThemePreset, type ThemePreset } from './theme-config';
+
+type InterviewType = 'hr' | 'behavioural' | 'technical';
+type StudioTab = 'builder' | 'validation' | 'resume' | 'prep' | 'jobs';
+
+type ResumeExperience = {
+  company: string;
+  role: string;
+  duration: string;
+  bullet_points: string[];
+};
+
+type TailoredResume = {
+  full_name: string;
+  headline: string;
+  contact?: {
+    email?: string;
+    phone?: string;
+    location?: string;
+    linkedin?: string;
+  };
+  professional_summary: string;
+  skills: string[];
+  experience: ResumeExperience[];
+  education?: Array<{ qualification: string; institution: string; duration: string }>;
+  certifications?: string[];
+  projects?: Array<{ name: string; description: string; impact?: string }>;
+  achievements?: string[];
+};
+
+type ChangeItem = {
+  section: string;
+  original: string;
+  revised: string;
+  reason: string;
+  evidence_status: 'verified' | 'needs_confirmation';
+};
+
+type CareerResults = {
+  match_score: number;
+  matched_requirements: string[];
+  missing_skills: string[];
+  evidence_warnings: string[];
+  tailoring_tips: string[];
+  change_log: ChangeItem[];
+  tell_me_about_yourself: string;
+  interview_questions: Array<{ question: string; response: string }>;
+  follow_up_questions: string[];
+  resume: TailoredResume;
+  pdf_base64?: string;
+  pdf_filename?: string;
+  docx_base64?: string;
+  docx_filename?: string;
+};
+
+type JobMatch = {
+  title: string;
+  company: string;
+  location: string;
+  salary: string;
+  posted?: string;
+  description?: string;
+  skills: string[];
+  link: string;
+  match_score: number;
+  matched_requirements: string[];
+  missing_requirements: string[];
+  recommendation: 'Apply' | 'Apply after tailoring' | 'Review carefully';
+};
+
+type JobResults = {
+  jobs: JobMatch[];
+  best_match_summary?: string;
+};
+
+const INTERVIEW_LABELS: Record<InterviewType, string> = {
+  hr: 'Initial HR screening',
+  behavioural: 'Behavioural interview',
+  technical: 'Technical interview',
+};
+
+function downloadBase64(base64Value: string | undefined, mimeType: string, filename: string | undefined) {
+  if (!base64Value || !filename) return;
+  const binary = window.atob(base64Value);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  const url = URL.createObjectURL(new Blob([bytes], { type: mimeType }));
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
+function Badge({ children }: { children: ReactNode }) {
+  return (
+    <span className="rounded-full border border-[var(--surface-border)] bg-[var(--accent-soft)] px-3 py-1.5 text-[10px] font-black text-[var(--accent-strong)]">
+      {children}
+    </span>
+  );
+}
+
+function EmptyState({ text }: { text: string }) {
+  return <p className="text-xs leading-6 text-[var(--ink-soft)]">{text}</p>;
+}
 
 export default function Home() {
   const [mounted, setMounted] = useState(false);
+  const [tab, setTab] = useState<StudioTab>('builder');
+
   const [fullName, setFullName] = useState('');
   const [targetRole, setTargetRole] = useState('');
   const [linkedin, setLinkedin] = useState('');
   const [duration, setDuration] = useState('30 minutes');
-  const [totalQuestions, setTotalQuestions] = useState(5);
-  const [interviewType, setInterviewType] = useState<'hr' | 'technical'>('technical');
+  const [totalQuestions, setTotalQuestions] = useState(8);
+  const [interviewType, setInterviewType] = useState<InterviewType>('behavioural');
   const [careerHistory, setCareerHistory] = useState('');
+  const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [jobDescription, setJobDescription] = useState('');
   const [loading, setLoading] = useState(false);
-  const [results, setResults] = useState<any>(null);
-  const [copied, setCopied] = useState(false);
-  const [tab, setTab] = useState<'builder' | 'validation' | 'updated_resume' | 'prep' | 'job_search'>('builder');
-  const [darkMode, setDarkMode] = useState(false);
+  const [results, setResults] = useState<CareerResults | null>(null);
+  const [error, setError] = useState('');
 
   const [searchCity, setSearchCity] = useState('');
   const [searchRoleSkills, setSearchRoleSkills] = useState('');
   const [searchFile, setSearchFile] = useState<File | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
-  const [jobResults, setJobResults] = useState<any>(null);
+  const [jobResults, setJobResults] = useState<JobResults | null>(null);
+  const [jobError, setJobError] = useState('');
 
-  useEffect(() => {
-    const syncTheme = (preset?: ThemePreset) => {
-      const activeTheme = preset || getThemePreset(document.documentElement.dataset.theme);
-      setDarkMode(activeTheme.mode === 'dark');
-    };
+  useEffect(() => setMounted(true), []);
 
-    setMounted(true);
-    syncTheme();
-    const handleThemeChange = (event: Event) => {
-      const customEvent = event as CustomEvent<ThemePreset>;
-      syncTheme(customEvent.detail);
-    };
-    window.addEventListener(CHANGE_EVENT, handleThemeChange);
-    return () => window.removeEventListener(CHANGE_EVENT, handleThemeChange);
-  }, []);
+  const inputClass =
+    'w-full rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-strong)] px-4 py-3 text-sm text-[var(--foreground)] outline-none placeholder:text-[var(--ink-soft)] focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent-soft)]';
+  const panelClass =
+    'rounded-[2rem] border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-xl)] md:p-7';
+
+  const canGenerate = Boolean(
+    fullName.trim() &&
+      targetRole.trim() &&
+      jobDescription.trim() &&
+      (resumeFile || careerHistory.trim()),
+  );
+
+  const interviewSummary = useMemo(() => {
+    if (!results) return '';
+    return `${results.interview_questions.length} ${INTERVIEW_LABELS[interviewType].toLowerCase()} questions generated from the entered JD and candidate profile.`;
+  }, [results, interviewType]);
 
   const handleGenerate = async () => {
-    if (!fullName.trim() || !targetRole.trim() || !careerHistory.trim() || !jobDescription.trim()) {
-      return alert('Please fill out all mandatory fields.');
+    if (!canGenerate) {
+      setError('Enter your name, target role and job description, then upload a CV or paste your career profile.');
+      return;
     }
 
     setLoading(true);
+    setError('');
     setResults(null);
 
     const formData = new FormData();
@@ -76,724 +191,480 @@ export default function Home() {
     formData.append('target_role', targetRole.trim());
     formData.append('linkedin_profile', linkedin.trim());
     formData.append('interview_duration', duration);
-    formData.append('total_questions_requested', totalQuestions.toString());
+    formData.append('total_questions_requested', String(totalQuestions));
     formData.append('interview_type', interviewType);
     formData.append('career_history', careerHistory.trim());
     formData.append('job_description', jobDescription.trim());
+    if (resumeFile) formData.append('resume_file', resumeFile);
 
     try {
-      const res = await fetch('https://resume-builder-backend-ph7b.onrender.com/build-resume', {
+      const response = await fetch('https://resume-builder-backend-ph7b.onrender.com/build-resume', {
         method: 'POST',
         body: formData,
       });
-
-      const data = await res.json().catch(() => null);
-
-      if (!res.ok) {
-        throw new Error(data?.detail || 'Resume generation failed.');
-      }
-
-      setResults(data);
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.detail || 'CV tailoring failed.');
+      setResults(data as CareerResults);
       setTab('validation');
-    } catch (error: any) {
-      alert(error?.message || 'AI optimization cycle broken. Refocusing backend container parameters.');
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'CV tailoring failed.');
     } finally {
       setLoading(false);
     }
   };
 
   const handleSearchJobs = async () => {
-    if (!searchCity.trim()) {
-      return alert('Please enter Search City before running job search.');
-    }
+    const roleQuery = searchRoleSkills.trim() || targetRole.trim();
+    const candidateFile = searchFile || resumeFile;
+    const candidateText = searchRoleSkills.trim() || careerHistory.trim();
 
-    if (!searchRoleSkills.trim() && !searchFile) {
-      return alert('Please enter Target Role / Skills Summary or upload a CV.');
+    if (!searchCity.trim() || !roleQuery) {
+      setJobError('Enter the target role and location.');
+      return;
+    }
+    if (!candidateFile && !candidateText) {
+      setJobError('Upload a CV or enter a role and skills summary for matching.');
+      return;
     }
 
     setSearchLoading(true);
+    setJobError('');
     setJobResults(null);
 
-    const inferredTargetRole = searchRoleSkills.trim() || targetRole.trim() || 'Software Engineer';
-
     const formData = new FormData();
-    formData.append('target_role', inferredTargetRole);
+    formData.append('target_role', roleQuery);
     formData.append('location_city', searchCity.trim());
-    formData.append('resume_skills', searchRoleSkills.trim());
-
-    if (searchFile) {
-      formData.append('resume_file', searchFile);
-    }
+    formData.append('resume_skills', candidateText);
+    if (candidateFile) formData.append('resume_file', candidateFile);
 
     try {
-      const res = await fetch('https://resume-builder-backend-ph7b.onrender.com/search-jobs', {
+      const response = await fetch('https://resume-builder-backend-ph7b.onrender.com/search-jobs', {
         method: 'POST',
         body: formData,
       });
-
-      const data = await res.json().catch(() => null);
-
-      if (!res.ok) {
-        throw new Error(data?.detail || 'Job search failed on backend.');
-      }
-
-      setJobResults(data);
-    } catch (error: any) {
-      alert(error?.message || 'Live open web query pipeline timing mismatch. Verify backend endpoint channels.');
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.detail || 'Job discovery failed.');
+      setJobResults(data as JobResults);
+    } catch (requestError) {
+      setJobError(requestError instanceof Error ? requestError.message : 'Job discovery failed.');
     } finally {
       setSearchLoading(false);
     }
   };
 
-  const handleCopyLink = () => {
-    if (!results?.shareable_url) return;
-    navigator.clipboard.writeText(results.shareable_url);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const tailorForJob = (job: JobMatch) => {
+    setTargetRole(job.title);
+    setJobDescription(
+      [
+        `${job.title} at ${job.company}`,
+        job.location ? `Location: ${job.location}` : '',
+        job.description || '',
+        job.skills?.length ? `Required skills: ${job.skills.join(', ')}` : '',
+        job.missing_requirements?.length
+          ? `Requirements to validate: ${job.missing_requirements.join(', ')}`
+          : '',
+      ]
+        .filter(Boolean)
+        .join('\n\n'),
+    );
+    setTab('builder');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  if (!mounted) {
-    return <div className="min-h-screen bg-[#f6efe6] dark:bg-stone-950 animate-pulse" />;
+  const openLiveInterview = (job?: JobMatch) => {
+    const role = job?.title || targetRole;
+    const description = job
+      ? [
+          job.description,
+          job.skills?.length ? `Required skills: ${job.skills.join(', ')}` : '',
+        ]
+          .filter(Boolean)
+          .join('\n\n')
+      : jobDescription;
+
+    window.sessionStorage.setItem(
+      'cognitwist-live-interview-context',
+      JSON.stringify({ role, jobDescription: description, interviewType }),
+    );
+    window.location.href = `/live-interview?role=${encodeURIComponent(role)}&type=${encodeURIComponent(interviewType)}`;
+  };
+
+  const resetStudio = () => {
+    setFullName('');
+    setTargetRole('');
+    setLinkedin('');
+    setDuration('30 minutes');
+    setTotalQuestions(8);
+    setInterviewType('behavioural');
+    setCareerHistory('');
+    setResumeFile(null);
+    setJobDescription('');
+    setResults(null);
+    setError('');
+    setTab('builder');
+  };
+
+  if (!mounted) return <main className="min-h-screen" />;
+
+  const navItems: Array<{ id: StudioTab; label: string; icon: typeof Sparkles }> = [
+    { id: 'builder', label: 'Tailor CV', icon: Sparkles },
+    { id: 'jobs', label: 'Discover Jobs', icon: Search },
+  ];
+  if (results) {
+    navItems.push(
+      { id: 'validation', label: 'Match Review', icon: BarChart3 },
+      { id: 'resume', label: 'Tailored CV', icon: FileText },
+      { id: 'prep', label: 'Interview Prep', icon: UserCheck },
+    );
   }
 
-  const pageTheme = darkMode
-    ? 'bg-[radial-gradient(circle_at_top,_rgba(15,23,42,0.95)_0%,_rgba(12,18,32,1)_48%,_rgba(3,7,18,1)_100%)] text-stone-100'
-    : 'bg-transparent text-stone-950';
-
-  const panelTheme = darkMode
-    ? 'bg-slate-950/76 border-white/10 shadow-[0_28px_90px_rgba(2,6,23,0.48)] backdrop-blur-xl'
-    : 'bg-[var(--surface)] border-[var(--surface-border)] shadow-[var(--shadow-xl)] backdrop-blur-xl';
-
-  const inputTheme = darkMode
-    ? 'bg-slate-950/90 border-white/10 text-stone-100 placeholder:text-stone-500 focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20'
-    : 'bg-[var(--surface-strong)] border-[var(--surface-border)] text-stone-900 placeholder:text-[var(--ink-soft)] focus:border-[var(--accent)] focus:ring-2 focus:ring-[color:rgba(15,118,110,0.16)]';
-
-  const fieldLabelTheme = darkMode ? 'text-stone-200' : 'text-stone-700';
-  const sectionLabelTheme = darkMode ? 'text-cyan-200' : 'text-[var(--accent-strong)]';
-  const mutedTextTheme = darkMode ? 'text-stone-400' : 'text-stone-600';
-  const softPanelTheme = darkMode ? 'bg-white/[0.04] border-white/8' : 'bg-[var(--surface-strong)]/80 border-[var(--surface-border)]';
-  const tabIdleTheme = darkMode ? 'text-stone-300 hover:bg-white/[0.06]' : 'text-stone-700 hover:bg-white/70';
-  const tabActiveTheme = darkMode
-    ? 'bg-cyan-400 text-slate-950 shadow-[0_18px_40px_rgba(34,211,238,0.25)]'
-    : 'bg-[var(--accent)] text-white shadow-[0_18px_40px_rgba(15,118,110,0.24)]';
-
   return (
-    <main className={`min-h-screen p-4 md:p-8 font-sans antialiased transition-colors duration-300 ${pageTheme}`}>
-      <div className="max-w-6xl mx-auto space-y-6">
-        <header className={`relative overflow-hidden rounded-[2rem] border px-6 py-8 md:px-10 md:py-10 ${panelTheme}`}>
-          <div className="absolute inset-0 pointer-events-none">
-            <div className={`absolute -left-12 top-0 h-36 w-36 rounded-full blur-3xl ${darkMode ? 'bg-cyan-400/12' : 'bg-[color:rgba(15,118,110,0.14)]'}`} />
-            <div className={`absolute right-0 top-10 h-40 w-40 rounded-full blur-3xl ${darkMode ? 'bg-orange-400/10' : 'bg-[color:rgba(194,108,58,0.18)]'}`} />
-          </div>
-
-          <div className="relative z-10 grid gap-8 lg:grid-cols-[1.3fr_0.7fr] lg:items-end">
-            <div className="space-y-5 text-left">
-              <div
-                className={`inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-[10px] font-semibold uppercase tracking-[0.24em] ${
-                  darkMode ? 'border-cyan-400/20 bg-cyan-400/10 text-cyan-100' : 'border-[color:rgba(15,118,110,0.16)] bg-[var(--accent-soft)] text-[var(--accent-strong)]'
-                }`}
-              >
-                <Sparkles className="w-3 h-3" /> Career Studio
+    <main className="min-h-screen px-3 pb-28 pt-6 text-[var(--foreground)] md:px-8 md:pb-12 md:pt-10">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <header className="relative overflow-hidden rounded-[2.2rem] border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-xl)] md:p-10">
+          <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-[var(--accent-soft)] blur-3xl" />
+          <div className="relative grid gap-7 lg:grid-cols-[1.25fr_0.75fr] lg:items-end">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-[var(--surface-border)] bg-[var(--accent-soft)] px-4 py-2 text-[10px] font-black uppercase tracking-[0.22em] text-[var(--accent-strong)]">
+                <Sparkles className="h-3.5 w-3.5" /> Career Studio
               </div>
-
-              <div className="space-y-3">
-                <h1 className="max-w-3xl text-4xl font-black tracking-tight md:text-5xl">
-                  Build sharper applications with the same CogniTwist AI portal language.
-                </h1>
-                <p className={`max-w-2xl text-sm leading-7 md:text-base ${mutedTextTheme}`}>
-                  Optimize resume fit, pressure-test interview answers, and search active roles from one polished workflow.
-                </p>
-              </div>
-
-              <div className="flex flex-wrap gap-3 text-[11px] font-semibold uppercase tracking-[0.18em]">
-                <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 ${darkMode ? 'border-white/10 bg-white/[0.04] text-stone-200' : 'border-[var(--surface-border)] bg-white/80 text-stone-700'}`}>
-                  <ClipboardCheck className="h-3.5 w-3.5" /> Resume Validation
-                </span>
-                <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 ${darkMode ? 'border-white/10 bg-white/[0.04] text-stone-200' : 'border-[var(--surface-border)] bg-white/80 text-stone-700'}`}>
-                  <User className="h-3.5 w-3.5" /> Interview Prep
-                </span>
-                <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 ${darkMode ? 'border-white/10 bg-white/[0.04] text-stone-200' : 'border-[var(--surface-border)] bg-white/80 text-stone-700'}`}>
-                  <Search className="h-3.5 w-3.5" /> Live Job Search
-                </span>
-              </div>
+              <h1 className="mt-5 max-w-4xl text-4xl font-black tracking-tight md:text-6xl">
+                Discover a role, tailor the CV, and prepare for the interview.
+              </h1>
+              <p className="mt-4 max-w-3xl text-sm leading-7 text-[var(--ink-soft)] md:text-base">
+                One connected workflow using the entered CV, job description and selected interview type. Unsupported claims are surfaced rather than added to the application.
+              </p>
             </div>
-
-            <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1">
-              <div className={`rounded-[1.5rem] border p-4 ${softPanelTheme}`}>
-                <div className={`text-[10px] font-bold uppercase tracking-[0.22em] ${sectionLabelTheme}`}>Studio Flow</div>
-                <div className="mt-3 text-xl font-black">3 Tracks</div>
-                <p className={`mt-1 text-xs leading-6 ${mutedTextTheme}`}>Build, validate, and prepare without leaving the portal.</p>
-              </div>
-              <div className={`rounded-[1.5rem] border p-4 ${softPanelTheme}`}>
-                <div className={`text-[10px] font-bold uppercase tracking-[0.22em] ${sectionLabelTheme}`}>Question Depth</div>
-                <div className="mt-3 text-xl font-black">{totalQuestions}</div>
-                <p className={`mt-1 text-xs leading-6 ${mutedTextTheme}`}>Interview prompts adapt to your selected role and track.</p>
-              </div>
-              <div className={`rounded-[1.5rem] border p-4 ${softPanelTheme}`}>
-                <div className={`text-[10px] font-bold uppercase tracking-[0.22em] ${sectionLabelTheme}`}>Current Mode</div>
-                <div className="mt-3 text-lg font-black">{interviewType === 'hr' ? 'HR Interview Tool' : 'Technical Track'}</div>
-                <p className={`mt-1 text-xs leading-6 ${mutedTextTheme}`}>Switch between people-first and technical preparation at any point.</p>
-              </div>
+            <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+              {[
+                ['Resume tailoring', 'Evidence-preserving CV rewrite'],
+                ['Interview preparation', 'HR, behavioural or technical'],
+                ['Job discovery', 'Ranked roles with fit evidence'],
+              ].map(([title, detail]) => (
+                <div key={title} className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-strong)] p-4">
+                  <p className="text-xs font-black">{title}</p>
+                  <p className="mt-1 text-[11px] leading-5 text-[var(--ink-soft)]">{detail}</p>
+                </div>
+              ))}
             </div>
           </div>
         </header>
 
-        <div className={`flex flex-wrap gap-1.5 overflow-x-auto rounded-[1.75rem] border p-2 ${panelTheme}`}>
-          <button
-            onClick={() => setTab('builder')}
-            className={`flex items-center gap-1.5 rounded-2xl px-4 py-2.5 text-xxs font-bold tracking-[0.18em] uppercase transition-all duration-200 ${
-              tab === 'builder' ? tabActiveTheme : tabIdleTheme
-            }`}
-          >
-            <Sparkles className="w-3.5 h-3.5" /> Pipeline Builder
-          </button>
-
-          {!results && (
-            <button
-              onClick={() => setTab('job_search')}
-              className={`flex items-center gap-1.5 rounded-2xl px-4 py-2.5 text-xxs font-bold tracking-[0.18em] uppercase transition-all duration-200 ${
-                tab === 'job_search' ? tabActiveTheme : tabIdleTheme
-              }`}
-            >
-              <Search className="w-3.5 h-3.5" /> Web Job Discovery Tool
-            </button>
-          )}
-
-          {results && (
-            <>
+        <nav className="flex gap-2 overflow-x-auto rounded-[1.6rem] border border-[var(--surface-border)] bg-[var(--surface)] p-2 shadow-[var(--shadow-lg)]" aria-label="Career Studio sections">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const active = tab === item.id;
+            return (
               <button
-                onClick={() => setTab('validation')}
-                className={`flex items-center gap-1.5 rounded-2xl px-4 py-2.5 text-xxs font-bold tracking-[0.18em] uppercase transition-all duration-200 ${
-                  tab === 'validation' ? tabActiveTheme : tabIdleTheme
+                key={item.id}
+                type="button"
+                onClick={() => setTab(item.id)}
+                className={`flex min-h-11 shrink-0 items-center gap-2 rounded-xl px-4 text-xs font-black transition ${
+                  active
+                    ? 'bg-[var(--accent)] text-white'
+                    : 'text-[var(--ink-soft)] hover:bg-[var(--accent-soft)] hover:text-[var(--accent-strong)]'
                 }`}
               >
-                <ClipboardCheck className="w-3.5 h-3.5" /> Resume Validation
+                <Icon className="h-4 w-4" /> {item.label}
               </button>
-              <button
-                onClick={() => setTab('updated_resume')}
-                className={`flex items-center gap-1.5 rounded-2xl px-4 py-2.5 text-xxs font-bold tracking-[0.18em] uppercase transition-all duration-200 ${
-                  tab === 'updated_resume' ? tabActiveTheme : tabIdleTheme
-                }`}
-              >
-                <FileText className="w-3.5 h-3.5" /> Tailored Output
-              </button>
-              <button
-                onClick={() => setTab('prep')}
-                className={`flex items-center gap-1.5 rounded-2xl px-4 py-2.5 text-xxs font-bold tracking-[0.18em] uppercase transition-all duration-200 ${
-                  tab === 'prep' ? tabActiveTheme : tabIdleTheme
-                }`}
-              >
-                <User className="w-3.5 h-3.5" /> Interview Vectors
-              </button>
-              <button
-                onClick={() => setTab('job_search')}
-                className={`flex items-center gap-1.5 rounded-2xl px-4 py-2.5 text-xxs font-bold tracking-[0.18em] uppercase transition-all duration-200 ${
-                  tab === 'job_search' ? tabActiveTheme : tabIdleTheme
-                }`}
-              >
-                <Search className="w-3.5 h-3.5" /> Web Job Discovery Tool
-              </button>
-            </>
-          )}
-        </div>
+            );
+          })}
+        </nav>
 
         {tab === 'builder' && (
-          <div className={`space-y-6 rounded-[2rem] border p-6 shadow-sm md:p-8 ${panelTheme}`}>
-            <div className={`flex flex-col gap-4 border-b pb-4 sm:flex-row sm:items-center sm:justify-between ${darkMode ? 'border-white/8' : 'border-[var(--surface-border)]'}`}>
-              <h2 className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${sectionLabelTheme}`}>
-                <ArrowLeftRight className="w-4 h-4" /> Core Variable Mapping
-              </h2>
-
-              {results && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFullName('');
-                    setTargetRole('');
-                    setLinkedin('');
-                    setDuration('30 minutes');
-                    setTotalQuestions(5);
-                    setInterviewType('technical');
-                    setCareerHistory('');
-                    setJobDescription('');
-                    setResults(null);
-                    setJobResults(null);
-                    setTab('builder');
-                  }}
-                  className={`flex items-center gap-1 rounded-full border px-3 py-2 text-xxs font-bold uppercase tracking-[0.18em] ${darkMode ? 'border-rose-400/20 bg-rose-950/40 text-rose-300' : 'border-rose-200 bg-rose-50 text-rose-700'}`}
-                >
-                  <RotateCcw className="w-3 h-3" /> Reset Form
+          <section className={panelClass}>
+            <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[var(--surface-border)] pb-5">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--accent-strong)]">Create CV from JD</p>
+                <h2 className="mt-2 text-2xl font-black">Candidate evidence and target role</h2>
+                <p className="mt-2 text-xs leading-6 text-[var(--ink-soft)]">Upload an existing CV or paste the profile. Both are accepted together.</p>
+              </div>
+              {(results || resumeFile || careerHistory || jobDescription) && (
+                <button type="button" onClick={resetStudio} className="flex items-center gap-2 rounded-xl border border-[var(--surface-border)] px-4 py-3 text-xs font-black">
+                  <RotateCcw className="h-4 w-4" /> Reset
                 </button>
               )}
             </div>
 
-            <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className={`font-bold text-xxs uppercase tracking-wider ${fieldLabelTheme}`}>Applicant Full Name</label>
-                  <input className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${inputTheme}`} placeholder="e.g. Alex Mercer" value={fullName} onChange={(e) => setFullName(e.target.value)} />
+            <div className="mt-6 grid gap-5 md:grid-cols-2">
+              <label className="text-xs font-black">
+                Applicant full name
+                <input className={`${inputClass} mt-2`} value={fullName} onChange={(event) => setFullName(event.target.value)} placeholder="e.g. Alex Mercer" />
+              </label>
+              <label className="text-xs font-black">
+                Target role
+                <input className={`${inputClass} mt-2`} value={targetRole} onChange={(event) => setTargetRole(event.target.value)} placeholder="e.g. Senior Technical Programme Manager" />
+              </label>
+              <label className="text-xs font-black md:col-span-2">
+                LinkedIn profile <span className="font-normal text-[var(--ink-soft)]">(optional)</span>
+                <div className="relative mt-2">
+                  <Link className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ink-soft)]" />
+                  <input className={`${inputClass} pl-11`} value={linkedin} onChange={(event) => setLinkedin(event.target.value)} placeholder="https://linkedin.com/in/..." />
                 </div>
+              </label>
+            </div>
 
-                <div className="space-y-1.5">
-                  <label className={`font-bold text-xxs uppercase tracking-wider ${fieldLabelTheme}`}>Target Role Objective</label>
-                  <input className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${inputTheme}`} placeholder="e.g. Senior Frontend Architect" value={targetRole} onChange={(e) => setTargetRole(e.target.value)} />
+            <div className="mt-6 grid gap-5 lg:grid-cols-2">
+              <div className="rounded-[1.5rem] border border-[var(--surface-border)] bg-[var(--surface-strong)] p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-black">Existing CV</p>
+                    <p className="mt-1 text-[11px] text-[var(--ink-soft)]">PDF or DOCX, maximum 5 MB</p>
+                  </div>
+                  <Upload className="h-5 w-5 text-[var(--accent-strong)]" />
                 </div>
-              </div>
-
-              <div className={`grid grid-cols-1 gap-4 border-y border-dashed py-4 sm:grid-cols-4 ${darkMode ? 'border-white/8' : 'border-[var(--surface-border)]'}`}>
-                <div className="space-y-1.5">
-                  <label className={`font-bold text-xxs uppercase tracking-wider flex items-center gap-1 ${fieldLabelTheme}`}>
-                    <Link className={`w-3 h-3 ${darkMode ? 'text-cyan-300' : 'text-[var(--accent)]'}`} /> LinkedIn Profile URL
-                  </label>
-                  <input className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${inputTheme}`} placeholder="e.g. https://linkedin.com/in/..." value={linkedin} onChange={(e) => setLinkedin(e.target.value)} />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className={`font-bold text-xxs uppercase tracking-wider flex items-center gap-1 ${fieldLabelTheme}`}>
-                    <Clock className={`w-3 h-3 ${darkMode ? 'text-cyan-300' : 'text-[var(--accent)]'}`} /> Interview Duration
-                  </label>
-                  <select className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${inputTheme}`} value={duration} onChange={(e) => setDuration(e.target.value)}>
-                    <option value="30 minutes">30 Minutes</option>
-                    <option value="45 minutes">45 Minutes</option>
-                    <option value="60 minutes">60 Minutes</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className={`font-bold text-xxs uppercase tracking-wider flex items-center gap-1 ${fieldLabelTheme}`}>
-                    <UserCheck className={`w-3 h-3 ${darkMode ? 'text-cyan-300' : 'text-[var(--accent)]'}`} /> Interview Category
-                  </label>
-                  <select className={`w-full border p-3 rounded-xl focus:outline-none transition-all ${inputTheme}`} value={interviewType} onChange={(e) => setInterviewType(e.target.value as 'hr' | 'technical')}>
-                    <option value="technical">Technical Interview Track</option>
-                    <option value="hr">HR Interview Tool</option>
-                  </select>
-                </div>
-
-                <div className="space-y-2">
-                  <label className={`font-bold text-xxs uppercase tracking-wider flex items-center gap-1 ${fieldLabelTheme}`}>
-                    <ListOrdered className="w-3 h-3 text-indigo-500" />
-                    Number of Questions: <span className={`font-extrabold ${darkMode ? 'text-cyan-300' : 'text-[var(--accent)]'}`}>{totalQuestions}</span>
-                  </label>
-                  <input
-                    type="range"
-                    min="5"
-                    max="25"
-                    className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-slate-200 accent-[var(--accent)] dark:bg-slate-800"
-                    value={totalQuestions}
-                    onChange={(e) => setTotalQuestions(parseInt(e.target.value))}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className={`space-y-1.5 rounded-[1.5rem] border p-4 ${softPanelTheme}`}>
-                  <label className={`font-bold text-xxs uppercase tracking-wider flex items-center gap-1 ${sectionLabelTheme}`}>
-                    <FileText className="w-3.5 h-3.5" /> Legacy Career Profile
-                  </label>
-                  <textarea rows={6} className={`w-full border p-3 rounded-xl focus:outline-none font-mono text-[11px] leading-relaxed ${inputTheme}`} placeholder="Describe your experience, tools, achievements, and roles..." value={careerHistory} onChange={(e) => setCareerHistory(e.target.value)} />
-                </div>
-
-                <div className={`space-y-1.5 rounded-[1.5rem] border p-4 ${softPanelTheme}`}>
-                  <label className={`font-bold text-xxs uppercase tracking-wider flex items-center gap-1 ${sectionLabelTheme}`}>
-                    <Target className="w-3.5 h-3.5" /> Job Description Target
-                  </label>
-                  <textarea rows={6} className={`w-full border p-3 rounded-xl focus:outline-none font-mono text-[11px] leading-relaxed ${inputTheme}`} placeholder="Paste the target job description here..." value={jobDescription} onChange={(e) => setJobDescription(e.target.value)} />
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={handleGenerate}
-                disabled={loading}
-                className={`flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-xxs font-bold uppercase tracking-[0.22em] text-white transition-transform hover:-translate-y-0.5 disabled:opacity-60 ${darkMode ? 'bg-cyan-400 text-slate-950 hover:bg-cyan-300' : 'bg-[var(--accent)] hover:bg-[var(--accent-strong)]'}`}
-              >
-                {loading ? (
-                  <>
-                    <RefreshCw className="animate-spin w-4 h-4" /> Computing Neural Vectors...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-4 h-4" /> Execute Generation Cycle
-                  </>
+                <input id="career-cv-upload" type="file" accept=".pdf,.docx" className="hidden" onChange={(event) => setResumeFile(event.target.files?.[0] || null)} />
+                <label htmlFor="career-cv-upload" className="mt-4 flex min-h-24 cursor-pointer items-center justify-center rounded-2xl border-2 border-dashed border-[var(--surface-border)] px-4 text-center text-xs font-bold hover:border-[var(--accent)] hover:bg-[var(--accent-soft)]">
+                  {resumeFile ? `Attached: ${resumeFile.name}` : 'Choose CV file'}
+                </label>
+                {resumeFile && (
+                  <button type="button" onClick={() => setResumeFile(null)} className="mt-3 text-[11px] font-black text-rose-700">Remove CV</button>
                 )}
-              </button>
-            </form>
-          </div>
+              </div>
+
+              <label className="rounded-[1.5rem] border border-[var(--surface-border)] bg-[var(--surface-strong)] p-4 text-xs font-black">
+                Career profile or CV text <span className="font-normal text-[var(--ink-soft)]">(optional when a file is uploaded)</span>
+                <textarea className={`${inputClass} mt-3 min-h-36 font-mono text-xs leading-6`} value={careerHistory} onChange={(event) => setCareerHistory(event.target.value)} placeholder="Paste experience, achievements, education and certifications…" />
+              </label>
+            </div>
+
+            <label className="mt-5 block text-xs font-black">
+              Target job description
+              <textarea className={`${inputClass} mt-2 min-h-48 font-mono text-xs leading-6`} value={jobDescription} onChange={(event) => setJobDescription(event.target.value)} placeholder="Paste the complete job description here…" />
+            </label>
+
+            <div className="mt-5 grid gap-4 md:grid-cols-3">
+              <label className="text-xs font-black">
+                Interview type
+                <select className={`${inputClass} mt-2`} value={interviewType} onChange={(event) => setInterviewType(event.target.value as InterviewType)}>
+                  <option value="hr">Initial HR screening</option>
+                  <option value="behavioural">Behavioural interview</option>
+                  <option value="technical">Technical interview</option>
+                </select>
+              </label>
+              <label className="text-xs font-black">
+                Interview duration
+                <select className={`${inputClass} mt-2`} value={duration} onChange={(event) => setDuration(event.target.value)}>
+                  <option>30 minutes</option>
+                  <option>45 minutes</option>
+                  <option>60 minutes</option>
+                </select>
+              </label>
+              <label className="text-xs font-black">
+                Questions: {totalQuestions}
+                <div className="mt-4">
+                  <input type="range" min="5" max="25" value={totalQuestions} onChange={(event) => setTotalQuestions(Number(event.target.value))} className="w-full accent-[var(--accent)]" />
+                </div>
+              </label>
+            </div>
+
+            <div className="mt-5 flex items-start gap-3 rounded-2xl border border-[var(--surface-border)] bg-[var(--accent-soft)] p-4 text-xs leading-6">
+              <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent-strong)]" />
+              Questions and proposed answers are generated from the entered JD, uploaded or pasted profile, and selected interview type. Unsupported experience is shown as a gap rather than inserted into the CV.
+            </div>
+
+            {error && <div role="alert" className="mt-4 rounded-2xl border border-rose-300 bg-rose-50 p-4 text-sm font-semibold text-rose-900">{error}</div>}
+
+            <button type="button" onClick={handleGenerate} disabled={loading || !canGenerate} className="mt-5 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(135deg,var(--accent),var(--highlight))] px-5 text-sm font-black text-white shadow-[var(--shadow-xl)] disabled:cursor-not-allowed disabled:opacity-45">
+              {loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              {loading ? 'Analysing CV against JD…' : 'Tailor CV and create interview preparation'}
+            </button>
+          </section>
         )}
 
         {tab === 'validation' && results && (
-          <div className={`space-y-6 rounded-[2rem] border p-8 shadow-md ${panelTheme}`}>
-            <h3 className={`flex items-center gap-2 border-b pb-4 text-sm font-bold uppercase tracking-wider ${darkMode ? 'border-white/8' : 'border-[var(--surface-border)]'}`}>
-              <BarChart3 className="w-5 h-5" /> Resume Validation Metrics Panel
-            </h3>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className={`rounded-[1.75rem] border p-8 text-center ${softPanelTheme}`}>
-                <div className="text-5xl font-black md:text-6xl">{results.match_score}%</div>
-              </div>
-
-              <div className={`rounded-[1.75rem] border p-6 ${softPanelTheme}`}>
-                <h4 className="font-bold mb-3 flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4" /> Critical Keyword Gaps
-                </h4>
-                <div className="flex flex-wrap gap-2">
-                  {results.missing_skills?.map((s: string, i: number) => (
-                    <span key={i} className={`rounded-full px-3 py-1 text-[11px] font-bold ${darkMode ? 'bg-amber-400/10 text-amber-100' : 'bg-[color:rgba(194,108,58,0.12)] text-[color:#8f4d28]'}`}>{s}</span>
-                  ))}
+          <section className="grid gap-6 xl:grid-cols-[0.72fr_1.28fr]">
+            <article className={panelClass}>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--accent-strong)]">CV–JD match</p>
+              <div className="mt-3 flex items-end gap-2"><strong className="text-6xl font-black">{results.match_score}</strong><span className="pb-2 text-sm text-[var(--ink-soft)]">/100</span></div>
+              <p className="mt-3 text-xs leading-6 text-[var(--ink-soft)]">The score reflects available evidence, not keyword stuffing.</p>
+              <div className="mt-6">
+                <p className="text-xs font-black">Verified matches</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {results.matched_requirements?.length
+                    ? results.matched_requirements.map((item) => <Badge key={item}>{item}</Badge>)
+                    : <EmptyState text="No verified matches returned." />}
                 </div>
               </div>
+            </article>
 
-              <div className={`rounded-[1.75rem] border p-6 ${softPanelTheme}`}>
-                <h4 className="font-bold mb-3 flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4" /> Optimization Tips
-                </h4>
-                <ul className="space-y-2">
-                  {results.tailoring_tips?.map((t: string, i: number) => (
-                    <li key={i} className="flex gap-2">
-                      <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
-                      <span>{t}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+            <div className="space-y-6">
+              <article className={panelClass}>
+                <div className="flex items-center gap-2"><AlertTriangle className="h-5 w-5 text-amber-600" /><h2 className="text-lg font-black">Gaps and evidence checks</h2></div>
+                <div className="mt-5 grid gap-4 md:grid-cols-2">
+                  <div className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-strong)] p-4">
+                    <p className="text-xs font-black">Missing or unsupported requirements</p>
+                    <ul className="mt-3 space-y-2 text-xs leading-5 text-[var(--ink-soft)]">
+                      {results.missing_skills?.length ? results.missing_skills.map((item) => <li key={item}>• {item}</li>) : <li>No critical gaps identified.</li>}
+                    </ul>
+                  </div>
+                  <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-950">
+                    <p className="text-xs font-black">Needs candidate confirmation</p>
+                    <ul className="mt-3 space-y-2 text-xs leading-5">
+                      {results.evidence_warnings?.length ? results.evidence_warnings.map((item) => <li key={item}>• {item}</li>) : <li>No evidence warnings returned.</li>}
+                    </ul>
+                  </div>
+                </div>
+              </article>
+
+              <article className={panelClass}>
+                <div className="flex items-center gap-2"><ClipboardCheck className="h-5 w-5 text-[var(--accent-strong)]" /><h2 className="text-lg font-black">Proposed CV changes</h2></div>
+                <div className="mt-5 space-y-4">
+                  {results.change_log?.length ? results.change_log.map((change, index) => (
+                    <div key={`${change.section}-${index}`} className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-strong)] p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-xs font-black">{change.section}</p>
+                        <span className={`rounded-full px-2.5 py-1 text-[10px] font-black ${change.evidence_status === 'verified' ? 'bg-emerald-100 text-emerald-900' : 'bg-amber-100 text-amber-900'}`}>
+                          {change.evidence_status === 'verified' ? 'Verified evidence' : 'Confirm evidence'}
+                        </span>
+                      </div>
+                      <div className="mt-3 grid gap-3 md:grid-cols-2">
+                        <div><p className="text-[10px] font-black uppercase tracking-wide text-[var(--ink-soft)]">Original</p><p className="mt-1 text-xs leading-6">{change.original || 'No direct source extract returned.'}</p></div>
+                        <div><p className="text-[10px] font-black uppercase tracking-wide text-[var(--ink-soft)]">Proposed</p><p className="mt-1 text-xs leading-6">{change.revised}</p></div>
+                      </div>
+                      <p className="mt-3 text-[11px] leading-5 text-[var(--ink-soft)]">{change.reason}</p>
+                    </div>
+                  )) : <EmptyState text="No detailed change log was returned." />}
+                </div>
+              </article>
             </div>
-          </div>
+          </section>
         )}
 
-        {tab === 'updated_resume' && results && (
-          <div className={`space-y-5 rounded-[2rem] border p-6 shadow-sm ${panelTheme}`}>
-            <div className={`flex flex-col gap-3 rounded-[1.5rem] p-4 sm:flex-row sm:items-center sm:justify-between ${darkMode ? 'bg-cyan-400 text-slate-950' : 'bg-[var(--accent)] text-white'}`}>
-              <div className="flex items-center gap-1.5 font-bold text-xxs uppercase tracking-[0.18em]">
-                <FileText className="w-4 h-4" /> Tailored Optimization Resume Output Map
+        {tab === 'resume' && results && (
+          <section className={panelClass}>
+            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--surface-border)] pb-5">
+              <div><p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--accent-strong)]">Tailored CV</p><h2 className="mt-2 text-2xl font-black">ATS-ready application version</h2></div>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={() => downloadBase64(results.pdf_base64, 'application/pdf', results.pdf_filename)} disabled={!results.pdf_base64} className="flex items-center gap-2 rounded-xl bg-[var(--accent)] px-4 py-3 text-xs font-black text-white disabled:opacity-40"><Download className="h-4 w-4" /> PDF</button>
+                <button type="button" onClick={() => downloadBase64(results.docx_base64, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', results.docx_filename)} disabled={!results.docx_base64} className="flex items-center gap-2 rounded-xl border border-[var(--surface-border)] px-4 py-3 text-xs font-black disabled:opacity-40"><Download className="h-4 w-4" /> DOCX</button>
               </div>
-              <button onClick={handleCopyLink} className={`rounded-full px-3 py-2 text-[10px] font-bold uppercase tracking-[0.18em] ${darkMode ? 'bg-slate-950 text-cyan-100' : 'bg-white text-[var(--accent-strong)]'}`}>
-                {copied ? 'Blueprint Linked!' : 'Copy Public PDF Link'}
-              </button>
             </div>
 
-            <div className={`max-h-[640px] space-y-6 overflow-y-auto rounded-[1.5rem] border p-6 ${darkMode ? 'border-white/8 bg-slate-950/90' : 'border-[var(--surface-border)] bg-white/88'}`}>
-              <div className={`space-y-3 border-b border-dashed pb-4 ${darkMode ? 'border-white/8' : 'border-[var(--surface-border)]'}`}>
-                <h2 className="text-2xl font-extrabold tracking-tight">{results.resume?.full_name}</h2>
-                <div className={`text-[11px] uppercase tracking-[0.14em] font-bold ${darkMode ? 'text-stone-300' : 'text-stone-700'}`}>
-                  {results.resume?.headline || `Tailored Resume Draft for ${targetRole || 'Target Role'}`}
-                </div>
-                {(results.resume?.contact?.linkedin || results.resume?.contact?.location) && (
-                  <div className={`text-xs flex flex-wrap gap-3 ${darkMode ? 'text-stone-400' : 'text-stone-600'}`}>
-                    {results.resume?.contact?.location && <span>{results.resume.contact.location}</span>}
-                    {results.resume?.contact?.linkedin && <span>{results.resume.contact.linkedin}</span>}
+            <div className="mt-6 rounded-[1.5rem] border border-[var(--surface-border)] bg-[var(--surface-strong)] p-5 md:p-8">
+              <h1 className="text-3xl font-black">{results.resume.full_name}</h1>
+              <p className="mt-1 text-sm font-bold text-[var(--accent-strong)]">{results.resume.headline || targetRole}</p>
+              {results.resume.contact && (
+                <p className="mt-2 text-xs leading-6 text-[var(--ink-soft)]">
+                  {[results.resume.contact.email, results.resume.contact.phone, results.resume.contact.location, results.resume.contact.linkedin].filter(Boolean).join(' • ')}
+                </p>
+              )}
+
+              <div className="mt-7 space-y-7">
+                <section><h2 className="text-xs font-black uppercase tracking-[0.18em] text-[var(--accent-strong)]">Professional summary</h2><p className="mt-3 text-sm leading-7">{results.resume.professional_summary}</p></section>
+                <section><h2 className="text-xs font-black uppercase tracking-[0.18em] text-[var(--accent-strong)]">Core skills</h2><div className="mt-3 flex flex-wrap gap-2">{results.resume.skills?.map((skill) => <Badge key={skill}>{skill}</Badge>)}</div></section>
+                <section>
+                  <h2 className="text-xs font-black uppercase tracking-[0.18em] text-[var(--accent-strong)]">Professional experience</h2>
+                  <div className="mt-4 space-y-6">
+                    {results.resume.experience?.map((experience, index) => (
+                      <article key={`${experience.company}-${index}`} className="border-l-2 border-[var(--accent)] pl-4">
+                        <div className="flex flex-wrap items-start justify-between gap-2"><div><h3 className="text-sm font-black">{experience.role}</h3><p className="text-xs font-bold text-[var(--ink-soft)]">{experience.company}</p></div><p className="text-[11px] text-[var(--ink-soft)]">{experience.duration}</p></div>
+                        <ul className="mt-3 space-y-2 text-xs leading-6">{experience.bullet_points?.map((bullet) => <li key={bullet}>• {bullet}</li>)}</ul>
+                      </article>
+                    ))}
                   </div>
-                )}
-                <p className="text-sm leading-7">{results.resume?.professional_summary}</p>
+                </section>
+
+                {results.resume.education?.length ? <section><h2 className="text-xs font-black uppercase tracking-[0.18em] text-[var(--accent-strong)]">Education</h2><div className="mt-3 space-y-2">{results.resume.education.map((item, index) => <p key={`${item.qualification}-${index}`} className="text-xs leading-6"><strong>{item.qualification}</strong> — {item.institution} {item.duration ? `(${item.duration})` : ''}</p>)}</div></section> : null}
+                {results.resume.certifications?.length ? <section><h2 className="text-xs font-black uppercase tracking-[0.18em] text-[var(--accent-strong)]">Certifications</h2><ul className="mt-3 space-y-2 text-xs leading-6">{results.resume.certifications.map((item) => <li key={item}>• {item}</li>)}</ul></section> : null}
+                {results.resume.projects?.length ? <section><h2 className="text-xs font-black uppercase tracking-[0.18em] text-[var(--accent-strong)]">Selected projects</h2><div className="mt-3 space-y-3">{results.resume.projects.map((project, index) => <article key={`${project.name}-${index}`} className="rounded-xl border border-[var(--surface-border)] p-4"><h3 className="text-xs font-black">{project.name}</h3><p className="mt-2 text-xs leading-6">{project.description}</p>{project.impact && <p className="mt-2 text-xs font-bold">Impact: {project.impact}</p>}</article>)}</div></section> : null}
+                {results.resume.achievements?.length ? <section><h2 className="text-xs font-black uppercase tracking-[0.18em] text-[var(--accent-strong)]">Achievements</h2><ul className="mt-3 space-y-2 text-xs leading-6">{results.resume.achievements.map((item) => <li key={item}>• {item}</li>)}</ul></section> : null}
               </div>
-
-              <section className="space-y-3">
-                <div className={`text-[11px] uppercase tracking-[0.14em] font-black ${darkMode ? 'text-stone-200' : 'text-stone-800'}`}>
-                  Core Skills
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {results.resume?.skills?.length ? (
-                    results.resume.skills.map((s: string, i: number) => (
-                      <span
-                        key={i}
-                        className={`rounded-full border px-2.5 py-1 text-[10px] font-bold tracking-wide ${
-                          darkMode ? 'border-white/8 bg-slate-900 text-stone-200' : 'border-[var(--surface-border)] bg-[var(--accent-soft)]/60 text-stone-700'
-                        }`}
-                      >
-                        {s}
-                      </span>
-                    ))
-                  ) : (
-                    <p className={`text-xs ${darkMode ? 'text-stone-400' : 'text-stone-500'}`}>Skills will appear here once returned by the model.</p>
-                  )}
-                </div>
-              </section>
-
-              <section className="space-y-4">
-                <div className={`text-[11px] uppercase tracking-[0.14em] font-black ${darkMode ? 'text-stone-200' : 'text-stone-800'}`}>
-                  Professional Experience
-                </div>
-                {results.resume?.experience?.length ? (
-                  results.resume.experience.map((exp: any, i: number) => (
-                    <div key={i} className="relative space-y-2.5 border-l-2 border-[color:rgba(15,118,110,0.45)] pl-4">
-                      <div className="absolute -left-[5px] top-1 h-2 w-2 rounded-full bg-[var(--accent)] shadow-sm" />
-                      <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
-                        <div className="space-y-0.5">
-                          <div className="font-extrabold text-sm">{exp.role}</div>
-                          <div className={`text-xs font-semibold ${darkMode ? 'text-stone-300' : 'text-stone-700'}`}>{exp.company}</div>
-                        </div>
-                        <div className="text-stone-500 dark:text-stone-400 text-[10px] tracking-wider font-mono whitespace-nowrap">
-                          {exp.duration}
-                        </div>
-                      </div>
-                      <ul className="list-none space-y-1.5 text-[12px] pl-0 leading-6">
-                        {exp.bullet_points?.map((b: string, idx: number) => (
-                          <li key={idx} className="flex items-start gap-2">
-                            <span className="mt-[2px]">▪</span>
-                            <span>{b}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ))
-                ) : (
-                  <p className={`text-xs ${darkMode ? 'text-stone-400' : 'text-stone-500'}`}>Experience details will appear here once returned by the model.</p>
-                )}
-              </section>
-
-              <section className="space-y-4">
-                <div className={`text-[11px] uppercase tracking-[0.14em] font-black ${darkMode ? 'text-stone-200' : 'text-stone-800'}`}>
-                  Education
-                </div>
-                {results.resume?.education?.length ? (
-                  <div className="space-y-2">
-                    {results.resume.education.map((edu: any, i: number) => (
-                      <div key={i} className={`rounded-[1.25rem] border p-3 ${softPanelTheme}`}>
-                        <div className="font-bold text-sm">{edu.qualification}</div>
-                        <div className="text-xs opacity-80">{edu.institution}</div>
-                        <div className="text-[10px] font-mono mt-1 text-stone-500 dark:text-stone-400">{edu.duration}</div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className={`text-xs ${darkMode ? 'text-stone-400' : 'text-stone-500'}`}>Education details will appear here once returned by the model.</p>
-                )}
-              </section>
-
-              <section className="space-y-3">
-                <div className={`text-[11px] uppercase tracking-[0.14em] font-black ${darkMode ? 'text-stone-200' : 'text-stone-800'}`}>
-                  Certifications
-                </div>
-                {results.resume?.certifications?.length ? (
-                  <ul className="space-y-2">
-                    {results.resume.certifications.map((cert: string, i: number) => (
-                      <li key={i} className="flex items-start gap-2 text-xs leading-6">
-                        <CheckCircle2 className="w-4 h-4 shrink-0 mt-1 text-stone-500 dark:text-stone-400" />
-                        <span>{cert}</span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className={`text-xs ${darkMode ? 'text-stone-400' : 'text-stone-500'}`}>Certifications will appear here once returned by the model.</p>
-                )}
-              </section>
-
-              <section className="space-y-4">
-                <div className={`text-[11px] uppercase tracking-[0.14em] font-black ${darkMode ? 'text-stone-200' : 'text-stone-800'}`}>
-                  Selected Projects
-                </div>
-                {results.resume?.projects?.length ? (
-                  <div className="space-y-3">
-                    {results.resume.projects.map((project: any, i: number) => (
-                      <div key={i} className={`space-y-1.5 rounded-[1.25rem] border p-4 ${softPanelTheme}`}>
-                        <div className="font-bold text-sm">{project.name}</div>
-                        <p className="text-xs leading-6">{project.description}</p>
-                        {project.impact && <p className={`text-xs font-semibold ${darkMode ? 'text-stone-300' : 'text-stone-700'}`}>{project.impact}</p>}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className={`text-xs ${darkMode ? 'text-stone-400' : 'text-stone-500'}`}>Projects will appear here once returned by the model.</p>
-                )}
-              </section>
-
-              <section className="space-y-3">
-                <div className={`text-[11px] uppercase tracking-[0.14em] font-black ${darkMode ? 'text-stone-200' : 'text-stone-800'}`}>
-                  Achievements
-                </div>
-                {results.resume?.achievements?.length ? (
-                  <ul className="space-y-2">
-                    {results.resume.achievements.map((achievement: string, i: number) => (
-                      <li key={i} className="flex items-start gap-2 text-xs leading-6">
-                        <CheckCircle2 className="w-4 h-4 shrink-0 mt-1 text-stone-500 dark:text-stone-400" />
-                        <span>{achievement}</span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className={`text-xs ${darkMode ? 'text-stone-400' : 'text-stone-500'}`}>Achievements will appear here once returned by the model.</p>
-                )}
-              </section>
-
-              <section className={`space-y-3 border-t border-dashed pt-4 ${darkMode ? 'border-white/8' : 'border-[var(--surface-border)]'}`}>
-                <div className={`text-[11px] uppercase tracking-[0.14em] font-black ${darkMode ? 'text-stone-200' : 'text-stone-800'}`}>
-                  Tailoring Notes
-                </div>
-                <ul className="space-y-2">
-                  {results.tailoring_tips?.length ? (
-                    results.tailoring_tips.map((tip: string, idx: number) => (
-                      <li key={idx} className="flex items-start gap-2 text-xs leading-6">
-                        <CheckCircle2 className="w-4 h-4 shrink-0 mt-1 text-stone-500 dark:text-stone-400" />
-                        <span>{tip}</span>
-                      </li>
-                    ))
-                  ) : (
-                    <li className={`text-xs ${darkMode ? 'text-stone-400' : 'text-stone-500'}`}>No additional tailoring notes were returned.</li>
-                  )}
-                </ul>
-              </section>
             </div>
-          </div>
+          </section>
         )}
 
         {tab === 'prep' && results && (
-          <div className={`space-y-6 rounded-[2rem] border p-6 shadow-sm ${panelTheme}`}>
-            <div className={`rounded-[1.5rem] p-4 text-sm font-semibold ${darkMode ? 'bg-cyan-400 text-slate-950' : 'bg-[var(--accent-soft)] text-[var(--accent-strong)]'}`}>
-              Active Vector Focus: {interviewType === 'hr' ? 'HR Interview Tool' : 'Technical & Behavioral Split'}
+          <section className={panelClass}>
+            <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[var(--surface-border)] pb-5">
+              <div><p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--accent-strong)]">{INTERVIEW_LABELS[interviewType]}</p><h2 className="mt-2 text-2xl font-black">JD- and profile-specific preparation</h2><p className="mt-2 text-xs leading-6 text-[var(--ink-soft)]">{interviewSummary}</p></div>
+              <button type="button" onClick={() => openLiveInterview()} className="flex items-center gap-2 rounded-xl bg-[var(--accent)] px-4 py-3 text-xs font-black text-white"><Play className="h-4 w-4" /> Practise live</button>
             </div>
 
             {results.tell_me_about_yourself && (
-              <div className={`space-y-3 rounded-[1.5rem] border p-5 ${softPanelTheme}`}>
-                <h4 className={`flex items-center gap-1 text-xxs font-black uppercase tracking-widest ${darkMode ? 'text-cyan-200' : 'text-[var(--accent-strong)]'}`}>
-                  <UserCheck className="w-4 h-4" /> Tell Me About Yourself
-                </h4>
-                <p className="text-xs leading-relaxed whitespace-pre-wrap">{results.tell_me_about_yourself}</p>
-              </div>
+              <article className="mt-6 rounded-2xl border border-[var(--surface-border)] bg-[var(--accent-soft)] p-5">
+                <div className="flex items-center gap-2"><UserCheck className="h-5 w-5 text-[var(--accent-strong)]" /><h3 className="text-sm font-black">Tell me about yourself</h3></div>
+                <p className="mt-3 whitespace-pre-wrap text-xs leading-7">{results.tell_me_about_yourself}</p>
+              </article>
             )}
 
-            {results.interview_questions?.length > 0 && (
-              <div className="space-y-4">
-                <h4 className={`flex items-center gap-1.5 border-b pb-2 text-xxs font-bold uppercase tracking-widest ${darkMode ? 'border-white/8 text-cyan-200' : 'border-[var(--surface-border)] text-[var(--accent-strong)]'}`}>
-                  <HelpCircle className="w-4 h-4" /> Interview Questions ({results.interview_questions.length})
-                </h4>
-
-                <div className="grid grid-cols-1 gap-4 max-h-[400px] overflow-y-auto pr-1">
-                  {results.interview_questions.map((item: any, i: number) => (
-                    <div key={i} className={`space-y-3 rounded-[1.5rem] border p-4 ${softPanelTheme} ${darkMode ? 'text-slate-100' : 'text-slate-900'}`}>
-                      <div className="font-bold flex items-start gap-1.5 text-xs">
-                        <HelpCircle className={`mt-0.5 h-4 w-4 shrink-0 ${darkMode ? 'text-cyan-300' : 'text-[var(--accent)]'}`} />
-                        <span>Q{i + 1}: {item.question}</span>
-                      </div>
-                      <div className="text-[11px] pl-5 whitespace-pre-wrap">{item.response}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {results.follow_up_questions?.length > 0 && (
-              <div className="space-y-3 pt-2">
-                <h4 className={`flex items-center gap-1.5 border-b pb-2 text-xxs font-bold uppercase tracking-widest ${darkMode ? 'border-white/8 text-cyan-200' : 'border-[var(--surface-border)] text-[var(--accent-strong)]'}`}>
-                  <MessageSquarePlus className="w-4 h-4" /> Follow-up Questions
-                </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {results.follow_up_questions.map((q: string, idx: number) => (
-                    <div key={idx} className={`flex items-start gap-2 rounded-[1.25rem] border p-3 text-xs font-semibold ${softPanelTheme}`}>
-                      <span className={`font-mono ${darkMode ? 'text-cyan-300' : 'text-[var(--accent)]'}`}>#{idx + 1}</span>
-                      <span>{q}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {tab === 'job_search' && (
-          <div className={`space-y-6 rounded-[2rem] border p-6 shadow-sm ${panelTheme}`}>
-            <div className={`border-b pb-3 ${darkMode ? 'border-white/8' : 'border-[var(--surface-border)]'}`}>
-              <h2 className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${sectionLabelTheme}`}>
-                <Search className="w-4 h-4" /> Web Job Discovery Tool
-              </h2>
+            <div className="mt-6 space-y-4">
+              {results.interview_questions?.map((item, index) => (
+                <article key={`${item.question}-${index}`} className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-strong)] p-5">
+                  <div className="flex items-start gap-3"><HelpCircle className="mt-0.5 h-5 w-5 shrink-0 text-[var(--accent-strong)]" /><div><h3 className="text-sm font-black">Q{index + 1}. {item.question}</h3><p className="mt-3 whitespace-pre-wrap text-xs leading-7 text-[var(--ink-soft)]">{item.response}</p></div></div>
+                </article>
+              ))}
             </div>
 
-            <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); handleSearchJobs(); }}>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className={`font-bold text-xxs uppercase tracking-wider ${fieldLabelTheme}`}>Target Location City</label>
-                  <input className={`w-full border p-3 rounded-xl focus:outline-none transition-all text-xs ${inputTheme}`} placeholder="e.g. London or Remote" value={searchCity} onChange={(e) => setSearchCity(e.target.value)} />
-                </div>
+            {results.follow_up_questions?.length ? (
+              <div className="mt-7"><div className="flex items-center gap-2"><MessageSquarePlus className="h-5 w-5 text-[var(--accent-strong)]" /><h3 className="text-sm font-black">Questions to ask the interviewer</h3></div><div className="mt-4 grid gap-3 md:grid-cols-2">{results.follow_up_questions.map((question, index) => <div key={question} className="rounded-xl border border-[var(--surface-border)] bg-[var(--surface-strong)] p-4 text-xs leading-6"><strong>#{index + 1}</strong> {question}</div>)}</div></div>
+            ) : null}
+          </section>
+        )}
 
-                <div className="space-y-1.5">
-                  <label className={`font-bold text-xxs uppercase tracking-wider ${fieldLabelTheme}`}>Target Role / Skills Summary</label>
-                  <input className={`w-full border p-3 rounded-xl focus:outline-none transition-all text-xs ${inputTheme}`} placeholder="e.g. Lead Technical Program Manager, Agile, AI, SaaS, Strategy" value={searchRoleSkills} onChange={(e) => setSearchRoleSkills(e.target.value)} />
-                </div>
-              </div>
+        {tab === 'jobs' && (
+          <section className={panelClass}>
+            <div className="border-b border-[var(--surface-border)] pb-5"><p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--accent-strong)]">Job discovery</p><h2 className="mt-2 text-2xl font-black">Search and rank current opportunities</h2><p className="mt-2 text-xs leading-6 text-[var(--ink-soft)]">The uploaded Career Studio CV is reused automatically unless a different search CV is attached.</p></div>
 
-              <div className={`rounded-[1.5rem] border-2 border-dashed p-6 text-center transition-all ${searchFile ? 'border-green-500 bg-green-500/5' : darkMode ? 'border-white/10 bg-slate-950/40' : 'border-[var(--surface-border)] bg-[var(--surface-strong)]/70'}`}>
-                <input type="file" id="job-search-file-picker" accept=".pdf,.docx" className="hidden" onChange={(e) => setSearchFile(e.target.files?.[0] || null)} />
-                <label htmlFor="job-search-file-picker" className="cursor-pointer block space-y-2">
-                  <FileText className={`w-8 h-8 mx-auto ${searchFile ? 'text-green-500' : 'text-slate-400'}`} />
-                  <div className="text-xxs font-bold uppercase tracking-wide">
-                    {searchFile ? `CV Attached: ${searchFile.name}` : 'Attach CV in PDF or DOCX format'}
-                  </div>
-                </label>
+            <div className="mt-6 grid gap-5 md:grid-cols-2">
+              <label className="text-xs font-black">Target location<input className={`${inputClass} mt-2`} value={searchCity} onChange={(event) => setSearchCity(event.target.value)} placeholder="e.g. London, Southampton or Remote" /></label>
+              <label className="text-xs font-black">Target role and skills<input className={`${inputClass} mt-2`} value={searchRoleSkills} onChange={(event) => setSearchRoleSkills(event.target.value)} placeholder={targetRole || 'e.g. Technical Programme Manager, AI, cloud, IAM'} /></label>
+            </div>
 
-                {searchFile && (
-                  <button type="button" onClick={() => setSearchFile(null)} className="mt-2 text-[10px] font-bold text-rose-600 hover:underline">
-                    Remove Attached CV
-                  </button>
-                )}
-              </div>
+            <div className="mt-5 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-strong)] p-4">
+              <input id="job-cv-upload" type="file" accept=".pdf,.docx" className="hidden" onChange={(event) => setSearchFile(event.target.files?.[0] || null)} />
+              <label htmlFor="job-cv-upload" className="flex cursor-pointer items-center justify-between gap-4">
+                <div><p className="text-xs font-black">Job-matching CV</p><p className="mt-1 text-[11px] text-[var(--ink-soft)]">{searchFile ? searchFile.name : resumeFile ? `Using Career Studio CV: ${resumeFile.name}` : 'Attach PDF or DOCX, or use the pasted profile'}</p></div>
+                <Upload className="h-5 w-5 text-[var(--accent-strong)]" />
+              </label>
+              {searchFile && <button type="button" onClick={() => setSearchFile(null)} className="mt-3 text-[11px] font-black text-rose-700">Use main Career Studio CV instead</button>}
+            </div>
 
-              <button
-                type="submit"
-                disabled={searchLoading}
-                className={`flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-xxs font-bold uppercase tracking-[0.22em] text-white transition-transform hover:-translate-y-0.5 disabled:opacity-60 ${darkMode ? 'bg-cyan-400 text-slate-950 hover:bg-cyan-300' : 'bg-[var(--accent)] hover:bg-[var(--accent-strong)]'}`}
-              >
-                {searchLoading ? (
-                  <>
-                    <RefreshCw className="animate-spin w-4 h-4" /> Searching Active Jobs...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-4 h-4" /> Find 40 Active Matches
-                  </>
-                )}
-              </button>
-            </form>
+            {jobError && <div role="alert" className="mt-4 rounded-2xl border border-rose-300 bg-rose-50 p-4 text-sm font-semibold text-rose-900">{jobError}</div>}
+
+            <button type="button" onClick={handleSearchJobs} disabled={searchLoading} className="mt-5 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[var(--accent)] px-5 text-sm font-black text-white disabled:opacity-45">
+              {searchLoading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+              {searchLoading ? 'Searching and ranking jobs…' : 'Find current matching jobs'}
+            </button>
 
             {jobResults && (
-              <div className={`space-y-6 border-t border-dashed pt-2 ${darkMode ? 'border-white/8' : 'border-[var(--surface-border)]'}`}>
-                <div className={`overflow-x-auto rounded-[1.5rem] border shadow-inner ${darkMode ? 'border-white/8' : 'border-[var(--surface-border)]'}`}>
-                  <table className="w-full text-left border-collapse text-xxs leading-relaxed">
-                    <thead>
-                      <tr className={`${darkMode ? 'bg-slate-950 text-cyan-200' : 'bg-[var(--accent-soft)] text-[var(--accent-strong)]'} font-black uppercase tracking-wider`}>
-                        <th className="p-3">Job Title</th>
-                        <th className="p-3">Company Name</th>
-                        <th className="p-3">Location</th>
-                        <th className="p-3">Salary Range</th>
-                        <th className="p-3">Required Skills</th>
-                        <th className="p-3">Application Link</th>
-                      </tr>
-                    </thead>
-                    <tbody className={`font-medium ${darkMode ? 'divide-y divide-white/8' : 'divide-y divide-[color:rgba(155,124,83,0.16)]'}`}>
-                      {jobResults.jobs?.map((job: any, index: number) => (
-                        <tr key={index}>
-                          <td className="p-3 font-bold">{job.title}</td>
-                          <td className="p-3">{job.company}</td>
-                          <td className="p-3">{job.location}</td>
-                          <td className="p-3">{job.salary}</td>
-                          <td className="p-3">{Array.isArray(job.skills) ? job.skills.join(', ') : job.skills}</td>
-                          <td className="p-3">
-                            {job.link && job.link.startsWith('http') ? (
-                              <a href={job.link} target="_blank" rel="noopener noreferrer" className={`inline-flex items-center gap-1 font-bold hover:underline ${darkMode ? 'text-cyan-300' : 'text-[var(--accent-strong)]'}`}>
-                                Apply Here <ArrowRight className="w-3 h-3" />
-                              </a>
-                            ) : (
-                              <span className="italic text-stone-400">search on company website</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+              <div className="mt-7 space-y-5 border-t border-[var(--surface-border)] pt-6">
+                {jobResults.best_match_summary && <div className="flex items-start gap-3 rounded-2xl border border-[var(--surface-border)] bg-[var(--accent-soft)] p-4 text-xs leading-6"><Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent-strong)]" />{jobResults.best_match_summary}</div>}
 
-                {jobResults.best_match_summary && (
-                  <div className={`flex items-start gap-2 rounded-[1.5rem] border p-4 text-xs font-semibold leading-relaxed ${darkMode ? 'border-cyan-400/20 bg-cyan-400/10 text-slate-100' : 'border-[color:rgba(15,118,110,0.16)] bg-[var(--accent-soft)] text-[var(--accent-strong)]'}`}>
-                    <Sparkles className={`mt-0.5 h-4 w-4 shrink-0 ${darkMode ? 'text-cyan-300' : 'text-[var(--accent)]'}`} />
-                    <div>{jobResults.best_match_summary}</div>
-                  </div>
-                )}
+                <div className="grid gap-4 lg:grid-cols-2">
+                  {jobResults.jobs?.map((job, index) => (
+                    <article key={`${job.company}-${job.title}-${index}`} className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-strong)] p-5">
+                      <div className="flex items-start justify-between gap-4">
+                        <div><p className="text-[10px] font-black uppercase tracking-wide text-[var(--accent-strong)]">{job.company}</p><h3 className="mt-1 text-lg font-black">{job.title}</h3><p className="mt-1 text-xs text-[var(--ink-soft)]">{job.location} {job.posted ? `• ${job.posted}` : ''}</p></div>
+                        <div className="rounded-2xl bg-[var(--accent-soft)] px-3 py-2 text-center"><div className="text-xl font-black text-[var(--accent-strong)]">{job.match_score}%</div><div className="text-[9px] font-black uppercase">Fit</div></div>
+                      </div>
+
+                      <div className="mt-4 flex flex-wrap gap-2"><Badge>{job.recommendation}</Badge>{job.salary && <Badge>{job.salary}</Badge>}</div>
+                      {job.description && <p className="mt-4 text-xs leading-6 text-[var(--ink-soft)]">{job.description}</p>}
+                      {job.skills?.length ? <div className="mt-4 flex flex-wrap gap-2">{job.skills.slice(0, 10).map((skill) => <Badge key={skill}>{skill}</Badge>)}</div> : null}
+
+                      <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-emerald-950"><p className="text-[10px] font-black uppercase">Matched</p><ul className="mt-2 space-y-1 text-[11px] leading-5">{job.matched_requirements?.slice(0, 5).map((item) => <li key={item}>• {item}</li>)}</ul></div>
+                        <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-950"><p className="text-[10px] font-black uppercase">Validate</p><ul className="mt-2 space-y-1 text-[11px] leading-5">{job.missing_requirements?.slice(0, 5).map((item) => <li key={item}>• {item}</li>)}</ul></div>
+                      </div>
+
+                      <div className="mt-5 flex flex-wrap gap-2">
+                        <button type="button" onClick={() => tailorForJob(job)} className="flex items-center gap-2 rounded-xl bg-[var(--accent)] px-3 py-2.5 text-[11px] font-black text-white"><FileText className="h-3.5 w-3.5" /> Tailor CV</button>
+                        <button type="button" onClick={() => openLiveInterview(job)} className="flex items-center gap-2 rounded-xl border border-[var(--surface-border)] px-3 py-2.5 text-[11px] font-black"><Play className="h-3.5 w-3.5" /> Interview prep</button>
+                        {job.link?.startsWith('http') ? <a href={job.link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 rounded-xl border border-[var(--surface-border)] px-3 py-2.5 text-[11px] font-black"><ArrowRight className="h-3.5 w-3.5" /> Open job</a> : null}
+                      </div>
+                    </article>
+                  ))}
+                </div>
               </div>
             )}
-          </div>
+          </section>
         )}
       </div>
 
-      <footer className={`mt-12 w-full border-t border-dashed py-6 text-center ${darkMode ? 'border-white/8' : 'border-[var(--surface-border)]'}`}>
-        <p className="flex items-center justify-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.22em] text-stone-400 dark:text-stone-500">
-          Crafted with <Heart className="h-3.5 w-3.5 fill-rose-600 text-rose-600" /> & Developed by <span className={`font-mono font-extrabold ${darkMode ? 'text-cyan-300' : 'text-[var(--accent-strong)]'}`}>Kuldeep Sharma</span>
+      <footer className="mt-12 border-t border-dashed border-[var(--surface-border)] py-6 text-center">
+        <p className="flex items-center justify-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.22em] text-[var(--ink-soft)]">
+          Crafted with <Heart className="h-3.5 w-3.5 fill-rose-600 text-rose-600" /> & Developed by <span className="font-mono font-extrabold text-[var(--accent-strong)]">Kuldeep Sharma</span>
         </p>
       </footer>
     </main>
