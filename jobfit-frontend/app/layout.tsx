@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Cormorant_Garamond, IBM_Plex_Sans, Plus_Jakarta_Sans, Sora, Space_Grotesk } from "next/font/google";
 import Link from "next/link";
 import "./globals.css";
+import SiteFooter from "./site-footer";
 import SiteNav from "./site-nav";
 import PwaRegister from "./pwa-register";
 
@@ -133,6 +134,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           </div>
         </header>
         {children}
+        <SiteFooter />
       </body>
     </html>
   );
