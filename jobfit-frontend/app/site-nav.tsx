@@ -2,13 +2,20 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Network, ShieldCheck } from 'lucide-react';
+import { BriefcaseBusiness, Home, Network, ShieldCheck } from 'lucide-react';
 import ThemeToggle from './theme-toggle';
 
 const items = [
   { href: '/', label: 'Studio', desktopLabel: 'Career Studio', icon: Home, match: (pathname: string) => pathname === '/' },
   { href: '/career-network', label: 'Network', desktopLabel: 'Career Network', icon: Network, match: (pathname: string) => pathname.startsWith('/career-network') },
   { href: '/privacy', label: 'Privacy', desktopLabel: 'Privacy', icon: ShieldCheck, match: (pathname: string) => pathname.startsWith('/privacy') },
+  {
+    href: '/admin/career-network',
+    label: 'Admin',
+    desktopLabel: 'Admin Report',
+    icon: BriefcaseBusiness,
+    match: (pathname: string) => pathname.startsWith('/admin/career-network'),
+  },
 ];
 
 export default function SiteNav() {
@@ -29,6 +36,7 @@ export default function SiteNav() {
                   : 'rounded-full border border-transparent px-4 py-2 text-[var(--ink-soft)] hover:border-[var(--surface-border)] hover:bg-[var(--surface-strong)] hover:text-[var(--foreground)]'
               }
               aria-current={active ? 'page' : undefined}
+              aria-label={item.href.startsWith('/admin/') ? 'Open the protected CogniTwist admin report' : undefined}
             >
               {item.desktopLabel}
             </Link>
@@ -38,7 +46,7 @@ export default function SiteNav() {
       </nav>
 
       <nav
-        className="fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-[60] grid grid-cols-4 rounded-[1.5rem] border border-[var(--surface-border)] bg-[var(--surface)] p-2 shadow-[var(--shadow-xl)] backdrop-blur-2xl md:hidden"
+        className="fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-[60] grid grid-cols-5 rounded-[1.5rem] border border-[var(--surface-border)] bg-[var(--surface)] p-2 shadow-[var(--shadow-xl)] backdrop-blur-2xl md:hidden"
         aria-label="Mobile navigation and appearance"
       >
         {items.map((item) => {
@@ -52,6 +60,7 @@ export default function SiteNav() {
                 active ? 'bg-[var(--accent)] text-white' : 'text-[var(--ink-soft)] hover:bg-[var(--accent-soft)] hover:text-[var(--accent-strong)]'
               }`}
               aria-current={active ? 'page' : undefined}
+              aria-label={item.href.startsWith('/admin/') ? 'Open the protected CogniTwist admin report' : undefined}
             >
               <Icon className="h-5 w-5" aria-hidden="true" />
               <span>{item.label}</span>
