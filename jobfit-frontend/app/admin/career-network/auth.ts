@@ -58,7 +58,7 @@ export function buildAdminSessionCookie() {
     httpOnly: true,
     sameSite: 'strict' as const,
     secure: true,
-    path: '/admin/career-network',
+    path: '/',
     maxAge: 60 * 60 * 4,
   };
 }
