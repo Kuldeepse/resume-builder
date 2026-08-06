@@ -13,7 +13,7 @@ const contentSecurityPolicy = [
   "connect-src 'self' https://resume-builder-backend-ph7b.onrender.com",
   "worker-src 'self' blob:",
   "manifest-src 'self'",
-  "media-src 'self'",
+  "media-src 'self' blob:",
   "upgrade-insecure-requests",
 ].join("; ");
 
@@ -27,7 +27,7 @@ const securityHeaders = [
   { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
   {
     key: "Permissions-Policy",
-    value: "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+    value: "camera=(), microphone=(self), geolocation=(), payment=(), usb=()",
   },
 ];
 
