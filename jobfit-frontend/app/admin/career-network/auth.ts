@@ -8,13 +8,13 @@ function sha256(value: string) {
   return createHash('sha256').update(value).digest('hex');
 }
 
-function getExpectedPassword() {
-  return process.env.CAREER_NETWORK_ADMIN_PASSWORD || '';
+function getExpectedAccessCode() {
+  return process.env.CAREER_NETWORK_ADMIN_ACCESS_CODE || process.env.CAREER_NETWORK_ADMIN_PASSWORD || '';
 }
 
 function getSessionToken() {
-  const password = getExpectedPassword();
-  return password ? sha256(password) : '';
+  const accessCode = getExpectedAccessCode();
+  return accessCode ? sha256(accessCode) : '';
 }
 
 export function isAdminSessionValue(value: string | undefined) {
@@ -40,11 +40,11 @@ export async function requireAdminAuth() {
   }
 }
 
-export function validateAdminPassword(password: string) {
-  const expected = getExpectedPassword();
-  if (!password || !expected) return false;
+export function validateAdminAccessCode(accessCode: string) {
+  const expected = getExpectedAccessCode();
+  if (!accessCode || !expected) return false;
 
-  const actualBuffer = Buffer.from(password);
+  const actualBuffer = Buffer.from(accessCode);
   const expectedBuffer = Buffer.from(expected);
 
   if (actualBuffer.length !== expectedBuffer.length) return false;
@@ -56,9 +56,9 @@ export function buildAdminSessionCookie() {
     name: ADMIN_COOKIE_NAME,
     value: getSessionToken(),
     httpOnly: true,
-    sameSite: 'lax' as const,
+    sameSite: 'strict' as const,
     secure: true,
-    path: '/',
-    maxAge: 60 * 60 * 12,
+    path: '/admin/career-network',
+    maxAge: 60 * 60 * 4,
   };
 }
