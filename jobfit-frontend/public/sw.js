@@ -1,4 +1,4 @@
-const CACHE_NAME = 'rolecraft-public-v1';
+const CACHE_NAME = 'cognitwist-public-v3';
 const SAFE_ASSETS = ['/', '/privacy', '/icon.svg', '/manifest.webmanifest'];
 
 self.addEventListener('install', (event) => {
@@ -11,6 +11,10 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((keys) => Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)))),
   );
   self.clients.claim();
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
 self.addEventListener('fetch', (event) => {
