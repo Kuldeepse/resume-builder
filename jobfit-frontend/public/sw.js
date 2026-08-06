@@ -1,5 +1,5 @@
-const CACHE_NAME = 'cognitwist-public-v3';
-const SAFE_ASSETS = ['/', '/privacy', '/icon.svg', '/manifest.webmanifest'];
+const CACHE_NAME = 'cognitwist-public-v4';
+const SAFE_ASSETS = ['/', '/live-interview', '/privacy', '/icon.svg', '/manifest.webmanifest'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(SAFE_ASSETS)));
