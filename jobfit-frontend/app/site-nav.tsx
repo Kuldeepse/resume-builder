@@ -2,14 +2,13 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BriefcaseBusiness, Home, Network, ShieldCheck } from 'lucide-react';
+import { Home, Network, ShieldCheck } from 'lucide-react';
 import ThemeToggle from './theme-toggle';
 
 const items = [
   { href: '/', label: 'Studio', desktopLabel: 'Career Studio', icon: Home, match: (pathname: string) => pathname === '/' },
   { href: '/career-network', label: 'Network', desktopLabel: 'Career Network', icon: Network, match: (pathname: string) => pathname.startsWith('/career-network') },
   { href: '/privacy', label: 'Privacy', desktopLabel: 'Privacy', icon: ShieldCheck, match: (pathname: string) => pathname.startsWith('/privacy') },
-  { href: '/admin/career-network', label: 'Admin', desktopLabel: 'Admin', icon: BriefcaseBusiness, match: (pathname: string) => pathname.startsWith('/admin/career-network') },
 ];
 
 export default function SiteNav() {
@@ -39,7 +38,7 @@ export default function SiteNav() {
       </nav>
 
       <nav
-        className="fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-[60] grid grid-cols-5 rounded-[1.5rem] border border-[var(--surface-border)] bg-[var(--surface)] p-2 shadow-[var(--shadow-xl)] backdrop-blur-2xl md:hidden"
+        className="fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-[60] grid grid-cols-4 rounded-[1.5rem] border border-[var(--surface-border)] bg-[var(--surface)] p-2 shadow-[var(--shadow-xl)] backdrop-blur-2xl md:hidden"
         aria-label="Mobile navigation and appearance"
       >
         {items.map((item) => {
