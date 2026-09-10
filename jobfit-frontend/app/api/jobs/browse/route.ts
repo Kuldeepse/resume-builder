@@ -14,6 +14,7 @@ const GREENHOUSE_BOARDS = [
   ['Blacklane', 'blacklane'],
   ['Speechmatics', 'speechmatics'],
   ['Capco', 'capco'],
+  ['Yondr', 'yondrgroup'],
 ] as const;
 
 const ASHBY_BOARDS = [
@@ -30,6 +31,7 @@ const ASHBY_BOARDS = [
 const LEVER_SITES = [
   ['Lyra Health', 'lyrahealth'],
   ['OpenPayd', 'OpenPayd'],
+  ['Serverfarm', 'serverfarm'],
 ] as const;
 
 type UnifiedJob = {
@@ -181,7 +183,7 @@ function leverSalary(range?: LeverJob['salaryRange']) {
 }
 
 const UK_LOCATION_SIGNALS = [
-  'united kingdom',' uk','uk ','england','scotland','wales','northern ireland','london','manchester','birmingham','bristol','leeds','liverpool','cardiff','edinburgh','glasgow','belfast','southampton','reading','cambridge','oxford','newcastle','nottingham','sheffield','milton keynes','slough','farnborough','portsmouth','guildford','croydon','watford','maidenhead','woking','york','derby','coventry','exeter','bath','brighton','chester','aberdeen','dundee','swansea','newport'
+  'united kingdom',' uk','uk ','england','scotland','wales','northern ireland','london','manchester','birmingham','bristol','leeds','liverpool','cardiff','edinburgh','glasgow','belfast','southampton','reading','cambridge','oxford','newcastle','nottingham','sheffield','milton keynes','slough','farnborough','portsmouth','guildford','croydon','watford','maidenhead','woking','york','derby','coventry','exeter','bath','brighton','chester','aberdeen','dundee','swansea','newport','feltham'
 ];
 
 const REMOTE_UK_COMPATIBLE = ['remote','worldwide','global','europe','emea','united kingdom',' uk','uk ','england','scotland','wales','northern ireland'];
@@ -314,7 +316,8 @@ async function fetchDirectJobs(): Promise<UnifiedJob[]> {
 }
 
 async function fetchArbeitnow(): Promise<UnifiedJob[]> {
-  const pages = await Promise.allSettled([1, 2].map(async (page) => {
+  const pagesToScan = [1, 2, 3, 4, 5, 6, 7, 8];
+  const pages = await Promise.allSettled(pagesToScan.map(async (page) => {
     const response = await fetch(`${ARBEITNOW_API}?page=${page}`, { headers: { Accept: 'application/json' }, next: { revalidate: 1800 } });
     if (!response.ok) throw new Error(`Arbeitnow ${response.status}`);
     const payload = await response.json() as ArbeitnowResponse;
@@ -382,7 +385,6 @@ export async function GET(request: Request) {
       if (remoteOnly && !job.remote) return false;
       if (sourceFilter === 'direct' && !job.direct) return false;
       if (sourceFilter === 'fallback' && job.direct) return false;
-      if (sourceFilter && !['direct','fallback'].includes(sourceFilter) && !job.source.toLowerCase().includes(sourceFilter)) return false;
       if (postedDays && job.created_at && (now - job.created_at) / 86400 > postedDays) return false;
       return true;
     })
@@ -406,6 +408,6 @@ export async function GET(request: Request) {
     fallback_count: merged.filter((job) => !job.direct).length,
     partial: sourceErrors.length > 0,
     source_errors: sourceErrors,
-    search_strategy: 'title-and-skill relevance first; direct ATS preferred; strict requested-location eligibility',
+    search_strategy: 'expanded direct ATS coverage; title-and-skill relevance first; strict requested-location eligibility',
   });
 }
