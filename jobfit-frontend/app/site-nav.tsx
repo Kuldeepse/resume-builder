@@ -2,11 +2,18 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BriefcaseBusiness, Home, Mic2, Network, ShieldCheck } from 'lucide-react';
+import { BriefcaseBusiness, Home, Mic2, Network, Search, ShieldCheck } from 'lucide-react';
 import ThemeToggle from './theme-toggle';
 
 const items = [
   { href: '/', label: 'Studio', desktopLabel: 'Career Studio', icon: Home, match: (pathname: string) => pathname === '/' },
+  {
+    href: '/jobs',
+    label: 'Jobs',
+    desktopLabel: 'Job Intelligence',
+    icon: Search,
+    match: (pathname: string) => pathname.startsWith('/jobs'),
+  },
   {
     href: '/live-interview',
     label: 'Interview',
@@ -53,7 +60,7 @@ export default function SiteNav() {
       </nav>
 
       <nav
-        className="fixed inset-x-2 bottom-[max(0.65rem,env(safe-area-inset-bottom))] z-[60] grid grid-cols-6 rounded-[1.5rem] border border-[var(--surface-border)] bg-[var(--surface)] p-1.5 shadow-[var(--shadow-xl)] backdrop-blur-2xl md:hidden"
+        className="fixed inset-x-2 bottom-[max(0.65rem,env(safe-area-inset-bottom))] z-[60] grid grid-cols-7 rounded-[1.5rem] border border-[var(--surface-border)] bg-[var(--surface)] p-1.5 shadow-[var(--shadow-xl)] backdrop-blur-2xl md:hidden"
         aria-label="Mobile navigation and appearance"
       >
         {items.map((item) => {
