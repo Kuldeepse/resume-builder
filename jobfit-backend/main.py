@@ -547,23 +547,121 @@ async def search_jobs(
         "OR site:myworkdayjobs.com OR site:smartrecruiters.com OR site:jobs.ashbyhq.com"
     )
 
-    try:
-        search_response = gemini_client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=(
-                "Find current, real job openings. Return useful result text with title, company, location, "
-                f"description, date and exact application URL. Query: {search_query}"
-            ),
-            config=types.GenerateContentConfig(
-                tools=[types.Tool(google_search=types.GoogleSearch())],
-                temperature=0.1,
-            ),
-        )
-        raw_web_data = getattr(search_response, "text", "") or str(search_response)
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Live job search failed: {exc}") from exc
+    job_schema = {
+        "type": "object",
+        "properties": {
+            "jobs": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "title": {"type": "string"},
+                        "company": {"type": "string"},
+                        "location": {"type": "string"},
+                        "salary": {"type": "string"},
+                        "posted": {"type": "string"},
+                        "description": {"type": "string"},
+                        "skills": {"type": "array", "items": {"type": "string"}},
+                        "link": {"type": "string"},
+                        "match_score": {"type": "integer"},
+                        "matched_requirements": {"type": "array", "items": {"type": "string"}},
+                        "missing_requirements": {"type": "array", "items": {"type": "string"}},
+                        "recommendation": {"type": "string"},
+                    },
+                    "required": [
+                        "title",
+                        "company",
+                        "location",
+                        "salary",
+                        "posted",
+                        "description",
+                        "skills",
+                        "link",
+                        "match_score",
+                        "matched_requirements",
+                        "missing_requirements",
+                        "recommendation",
+                    ],
+                },
+            },
+            "best_match_summary": {"type": "string"},
+        },
+        "required": ["jobs", "best_match_summary"],
+    }
 
-    system_prompt = """You are a job-matching extraction engine.
+    single_pass_prompt = f"""You are CogniTwist's job discovery and candidate-fit engine.
+Use Google Search to find current, real job openings relevant to the search query below.
+Prefer direct employer or ATS application pages. Only return jobs you can support from search results; never invent a job, employer, salary, date, requirement or link.
+
+SEARCH QUERY:
+{search_query}
+
+CANDIDATE PROFILE:
+{candidate_profile[:MAX_PROFILE_CHARS]}
+
+ROLE OBJECTIVE:
+{safe_text(target_role, 300)}
+
+LOCATION:
+{safe_text(location_city, 200)}
+
+For every returned job:
+- score fit from 0-100 against the candidate evidence, role objective and location;
+- list concise verified matched requirements;
+- list important missing or unsupported requirements;
+- use recommendation exactly as Apply, Apply after tailoring, or Review carefully;
+- do not count unsupported candidate experience as a match;
+- keep the description concise and evidence-based;
+- return the exact HTTPS job/application URL when available.
+Return the strongest relevant jobs first."""
+
+    jobs_result: dict[str, Any] = {}
+    primary_error: Optional[Exception] = None
+    job_search_model = os.getenv("JOB_SEARCH_MODEL", "gemini-3.8-flash")
+
+    try:
+        response = gemini_client.models.generate_content(
+            model=job_search_model,
+            contents=single_pass_prompt,
+            config={
+                "tools": [{"google_search": {}}],
+                "response_format": {
+                    "text": {
+                        "mime_type": "application/json",
+                        "schema": job_schema,
+                    }
+                },
+                "temperature": 0.1,
+            },
+        )
+        clean_text = (response.text or "").strip()
+        if "```json" in clean_text:
+            clean_text = clean_text.split("```json")[-1].split("```")[0].strip()
+        elif "```" in clean_text:
+            clean_text = clean_text.split("```")[-1].split("```")[0].strip()
+        parsed = json.loads(clean_text)
+        if not isinstance(parsed, dict):
+            raise ValueError("Single-pass job search did not return an object.")
+        jobs_result = parsed
+    except Exception as exc:
+        primary_error = exc
+
+    if not jobs_result:
+        try:
+            search_response = gemini_client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=(
+                    "Find current, real job openings. Return useful result text with title, company, location, "
+                    f"description, date and exact application URL. Query: {search_query}"
+                ),
+                config=types.GenerateContentConfig(
+                    tools=[types.Tool(google_search=types.GoogleSearch())],
+                    temperature=0.1,
+                ),
+            )
+            raw_web_data = getattr(search_response, "text", "") or str(search_response)
+
+            fallback_prompt = """You are a job-matching extraction engine.
 Return valid JSON only. Use only jobs present in the supplied grounded search material. Never fabricate a job or link.
 
 SCHEMA:
@@ -589,29 +687,32 @@ SCHEMA:
 
 Score each job against the candidate profile, role objective and location. Do not treat unsupported experience as a match."""
 
-    try:
-        formatting_response = gemini_client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=(
-                f"Grounded Job Search Material:\n{raw_web_data}\n\n"
-                f"Candidate Profile:\n{candidate_profile[:MAX_PROFILE_CHARS]}\n\n"
-                f"Role Objective: {safe_text(target_role, 300)}\n"
-                f"Location: {safe_text(location_city, 200)}"
-            ),
-            config=types.GenerateContentConfig(
-                system_instruction=system_prompt,
-                response_mime_type="application/json",
-                temperature=0.1,
-            ),
-        )
-        clean_text = (formatting_response.text or "").strip()
-        if "```json" in clean_text:
-            clean_text = clean_text.split("```json")[-1].split("```")[0].strip()
-        elif "```" in clean_text:
-            clean_text = clean_text.split("```")[-1].split("```")[0].strip()
-        jobs_result = json.loads(clean_text)
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Job result extraction failed: {exc}") from exc
+            formatting_response = gemini_client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=(
+                    f"Grounded Job Search Material:\n{raw_web_data}\n\n"
+                    f"Candidate Profile:\n{candidate_profile[:MAX_PROFILE_CHARS]}\n\n"
+                    f"Role Objective: {safe_text(target_role, 300)}\n"
+                    f"Location: {safe_text(location_city, 200)}"
+                ),
+                config=types.GenerateContentConfig(
+                    system_instruction=fallback_prompt,
+                    response_mime_type="application/json",
+                    temperature=0.1,
+                ),
+            )
+            clean_text = (formatting_response.text or "").strip()
+            if "```json" in clean_text:
+                clean_text = clean_text.split("```json")[-1].split("```")[0].strip()
+            elif "```" in clean_text:
+                clean_text = clean_text.split("```")[-1].split("```")[0].strip()
+            jobs_result = json.loads(clean_text)
+        except Exception as fallback_exc:
+            primary_detail = safe_text(primary_error, 1000) if primary_error else "single-pass search unavailable"
+            raise HTTPException(
+                status_code=500,
+                detail=f"Job search failed. Primary: {primary_detail}. Fallback: {safe_text(fallback_exc, 1000)}",
+            ) from fallback_exc
 
     sanitized_jobs = []
     raw_jobs = jobs_result.get("jobs", []) if isinstance(jobs_result, dict) else []
@@ -651,4 +752,5 @@ Score each job against the candidate profile, role objective and location. Do no
             2000,
         ),
         "profile_preview": candidate_profile[:1800],
+        "search_mode": "single_pass_grounded" if primary_error is None else "compatibility_fallback",
     }
