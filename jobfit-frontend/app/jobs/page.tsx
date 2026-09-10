@@ -61,16 +61,16 @@ function CompanyMark({ company, size = 'md' }: { company: string; size?: 'sm' | 
   const [failed, setFailed] = useState(false);
   const domain = COMPANY_DOMAINS[company.trim().toLowerCase()];
   const dimensions = size === 'lg' ? 'h-14 w-14 text-base' : size === 'sm' ? 'h-9 w-9 text-[10px]' : 'h-11 w-11 text-xs';
+  const logoSrc = domain ? `/api/company-logo?domain=${encodeURIComponent(domain)}` : '';
 
   return (
     <div className={`${dimensions} flex shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[var(--surface-border)] bg-white font-black text-[var(--accent-strong)] shadow-sm`} aria-label={`${company} logo`}>
-      {domain && !failed ? (
+      {logoSrc && !failed ? (
         <img
-          src={`https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=128`}
+          src={logoSrc}
           alt={`${company} logo`}
-          className="h-[72%] w-[72%] object-contain"
+          className="h-[76%] w-[76%] object-contain"
           loading="lazy"
-          referrerPolicy="no-referrer"
           onError={() => setFailed(true)}
         />
       ) : companyInitials(company)}
@@ -206,7 +206,7 @@ export default function JobsPage() {
 
             <div className="xl:sticky xl:top-28 xl:self-start">{selected ? <article className={`${panelClass} overflow-hidden`}>
               <div className="border-b border-[var(--surface-border)] p-5 md:p-6"><div className="flex flex-wrap items-start justify-between gap-4"><div className="flex min-w-0 items-start gap-4"><CompanyMark company={selected.company} size="lg" /><div className="min-w-0"><p className="text-[10px] font-black uppercase tracking-wide text-[var(--accent-strong)]">{selected.company}</p><h2 className="mt-1 text-2xl font-black">{selected.title}</h2><p className="mt-2 text-xs text-[var(--ink-soft)]">{selected.location} {selected.posted ? `• ${selected.posted}` : ''}</p><p className="mt-1 text-xs font-bold">{selected.salary || 'Not disclosed'}</p></div></div><div className="flex gap-2"><button type="button" onClick={() => toggleSaved(selected)} className="flex items-center gap-2 rounded-xl border border-[var(--surface-border)] px-3 py-2.5 text-xs font-black">{saved.includes(keyOf(selected)) ? <BookmarkCheck className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />} Save</button><a href={selected.link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 rounded-xl bg-[var(--accent)] px-4 py-2.5 text-xs font-black text-white">View job <ExternalLink className="h-4 w-4" /></a></div></div></div>
-              <div className="space-y-5 p-5 md:p-6"><div className="flex flex-wrap gap-2 text-[10px] font-black"><span className="rounded-full border border-[var(--surface-border)] bg-[var(--surface-strong)] px-3 py-1.5">Source: {selected.source}</span>{selected.remote ? <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-emerald-900">Remote</span> : null}</div><div><h3 className="text-sm font-black">Role overview</h3><p className="mt-2 text-xs leading-7 text-[var(--ink-soft)]">{selected.description || 'Open the original job page for full details.'}</p></div>{selected.skills.length ? <div><h3 className="text-sm font-black">Role signals</h3><div className="mt-3 flex flex-wrap gap-2">{selected.skills.map((skill) => <span key={skill} className="rounded-full border border-[var(--surface-border)] bg-[var(--accent-soft)] px-3 py-1.5 text-[10px] font-black text-[var(--accent-strong)]">{skill}</span>)}</div></div> : null}<div className="grid gap-3 sm:grid-cols-2"><button type="button" onClick={() => analyseFit(selected)} className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[var(--accent)] px-4 text-xs font-black text-white"><Sparkles className="h-4 w-4" /> Analyse my fit</button><a href={selected.link} target="_blank" rel="noopener noreferrer" className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-[var(--surface-border)] px-4 text-xs font-black">Apply on source <ExternalLink className="h-4 w-4" /></a></div></div>
+              <div className="space-y-5 p-5 md:p-6"><div className="flex flex-wrap gap-2 text-[10px] font-black"><span className="rounded-full border border-[var(--surface-border)] bg-[var(--surface-strong)] px-3 py-1.5">Source: {selected.source}</span>{selected.remote ? <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[10px] font-black text-emerald-900">Remote</span> : null}</div><div><h3 className="text-sm font-black">Role overview</h3><p className="mt-2 text-xs leading-7 text-[var(--ink-soft)]">{selected.description || 'Open the original job page for full details.'}</p></div>{selected.skills.length ? <div><h3 className="text-sm font-black">Role signals</h3><div className="mt-3 flex flex-wrap gap-2">{selected.skills.map((skill) => <span key={skill} className="rounded-full border border-[var(--surface-border)] bg-[var(--accent-soft)] px-3 py-1.5 text-[10px] font-black text-[var(--accent-strong)]">{skill}</span>)}</div></div> : null}<div className="grid gap-3 sm:grid-cols-2"><button type="button" onClick={() => analyseFit(selected)} className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[var(--accent)] px-4 text-xs font-black text-white"><Sparkles className="h-4 w-4" /> Analyse my fit</button><a href={selected.link} target="_blank" rel="noopener noreferrer" className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-[var(--surface-border)] px-4 text-xs font-black">Apply on source <ExternalLink className="h-4 w-4" /></a></div></div>
             </article> : null}</div>
           </section>
         </>}
