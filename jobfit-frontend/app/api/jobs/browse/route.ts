@@ -4,7 +4,33 @@ export const dynamic = 'force-dynamic';
 
 const ARBEITNOW_API = 'https://www.arbeitnow.com/api/job-board-api';
 const REMOTE_OK_API = 'https://remoteok.com/api';
-const MAX_RESULTS = 40;
+const MAX_RESULTS = 60;
+
+const GREENHOUSE_BOARDS = [
+  ['Rightmove', 'rightmovecareers'],
+  ['Bondsmith', 'bondsmith'],
+  ['Capital on Tap', 'capitalontap'],
+  ['Modulr', 'modulrfinance'],
+  ['Blacklane', 'blacklane'],
+  ['Speechmatics', 'speechmatics'],
+  ['Capco', 'capco'],
+] as const;
+
+const ASHBY_BOARDS = [
+  ['Partly', 'partly.com'],
+  ['Orbital', 'orbital'],
+  ['Heron Data', 'herondata'],
+  ['Freetrade', 'freetrade'],
+  ['Elliptic', 'Elliptic'],
+  ['Ema', 'ema'],
+  ['Swap', 'swap'],
+  ['Antithesis', 'antithesis'],
+] as const;
+
+const LEVER_SITES = [
+  ['Lyra Health', 'lyrahealth'],
+  ['OpenPayd', 'OpenPayd'],
+] as const;
 
 type UnifiedJob = {
   title: string;
@@ -17,7 +43,60 @@ type UnifiedJob = {
   link: string;
   remote: boolean;
   source: string;
+  direct: boolean;
   created_at?: number;
+  priority: number;
+};
+
+type GreenhouseJob = {
+  title?: string;
+  content?: string;
+  absolute_url?: string;
+  updated_at?: string;
+  location?: { name?: string };
+  departments?: Array<{ name?: string }>;
+};
+
+type AshbyJob = {
+  title?: string;
+  location?: string;
+  isRemote?: boolean;
+  workplaceType?: string;
+  descriptionPlain?: string;
+  descriptionHtml?: string;
+  publishedAt?: string;
+  employmentType?: string;
+  department?: string;
+  team?: string;
+  jobUrl?: string;
+  applyUrl?: string;
+  isListed?: boolean;
+  compensation?: {
+    compensationTierSummary?: string;
+    scrapeableCompensationSalarySummary?: string;
+  };
+};
+
+type LeverJob = {
+  text?: string;
+  descriptionPlain?: string;
+  description?: string;
+  hostedUrl?: string;
+  applyUrl?: string;
+  createdAt?: number;
+  categories?: {
+    location?: string;
+    commitment?: string;
+    team?: string;
+    department?: string;
+  };
+  workplaceType?: string;
+  salaryRange?: {
+    currency?: string;
+    min?: number;
+    max?: number;
+    interval?: string;
+  };
 };
 
 type ArbeitnowJob = {
@@ -35,7 +114,6 @@ type ArbeitnowJob = {
 type ArbeitnowResponse = { data?: ArbeitnowJob[] };
 
 type RemoteOkJob = {
-  id?: string | number;
   date_epoch?: number;
   company?: string;
   position?: string;
@@ -51,7 +129,28 @@ function cleanText(value: unknown, limit = 5000) {
 }
 
 function stripHtml(value: string) {
-  return cleanText(value.replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' '), 5000);
+  return cleanText(
+    value
+      .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+      .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&nbsp;|&#160;/gi, ' ')
+      .replace(/&amp;/gi, '&')
+      .replace(/&lt;/gi, '<')
+      .replace(/&gt;/gi, '>')
+      .replace(/&quot;/gi, '"')
+      .replace(/&#39;|&apos;/gi, "'"),
+    5000,
+  );
+}
+
+function toEpoch(value?: string | number) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value > 10_000_000_000 ? Math.floor(value / 1000) : value;
+  }
+  if (!value) return undefined;
+  const parsed = Date.parse(String(value));
+  return Number.isFinite(parsed) ? Math.floor(parsed / 1000) : undefined;
 }
 
 function postedLabel(createdAt?: number) {
@@ -67,73 +166,131 @@ function salaryFrom(text: string) {
   return match ? match[0].replace(/\s+/g, ' ') : 'Not disclosed';
 }
 
+function leverSalary(range?: LeverJob['salaryRange']) {
+  if (!range || !range.min || !range.max) return 'Not disclosed';
+  const symbol = range.currency === 'GBP' ? '£' : `${range.currency || ''} `;
+  return `${symbol}${Math.round(range.min).toLocaleString()}–${symbol}${Math.round(range.max).toLocaleString()}${range.interval ? ` / ${range.interval.toLowerCase()}` : ''}`;
+}
+
 function isUkRelevant(location: string, description: string, remote: boolean) {
   if (remote) return true;
   const text = `${location} ${description}`.toLowerCase();
   return ['united kingdom',' uk','uk ','england','scotland','wales','northern ireland','london','manchester','birmingham','bristol','leeds','liverpool','cardiff','edinburgh','glasgow','belfast','southampton','reading','cambridge','oxford','newcastle','nottingham','sheffield'].some((signal) => text.includes(signal));
 }
 
+async function fetchGreenhouse(company: string, board: string): Promise<UnifiedJob[]> {
+  const response = await fetch(`https://boards-api.greenhouse.io/v1/boards/${encodeURIComponent(board)}/jobs?content=true`, {
+    headers: { Accept: 'application/json' },
+    next: { revalidate: 1800 },
+  });
+  if (!response.ok) throw new Error(`Greenhouse ${company} ${response.status}`);
+  const payload = await response.json() as { jobs?: GreenhouseJob[] };
+  return (payload.jobs || []).map((job) => {
+    const description = stripHtml(job.content || '');
+    const location = cleanText(job.location?.name || 'Location not stated', 200);
+    const createdAt = toEpoch(job.updated_at);
+    return {
+      title: cleanText(job.title, 240), company, location,
+      salary: salaryFrom(description), posted: postedLabel(createdAt), description: description.slice(0, 2400),
+      skills: (job.departments || []).map((item) => cleanText(item.name, 120)).filter(Boolean).slice(0, 8),
+      link: cleanText(job.absolute_url, 1600), remote: /remote/i.test(location), source: 'Direct · Greenhouse', direct: true,
+      created_at: createdAt, priority: 3,
+    };
+  }).filter((job) => job.title && job.link && isUkRelevant(job.location, job.description, job.remote));
+}
+
+async function fetchAshby(company: string, board: string): Promise<UnifiedJob[]> {
+  const response = await fetch(`https://api.ashbyhq.com/posting-api/job-board/${encodeURIComponent(board)}?includeCompensation=true`, {
+    headers: { Accept: 'application/json' },
+    next: { revalidate: 1800 },
+  });
+  if (!response.ok) throw new Error(`Ashby ${company} ${response.status}`);
+  const payload = await response.json() as { jobs?: AshbyJob[] };
+  return (payload.jobs || []).filter((job) => job.isListed !== false).map((job) => {
+    const description = cleanText(job.descriptionPlain || stripHtml(job.descriptionHtml || ''), 2400);
+    const location = cleanText(job.location || 'Location not stated', 200);
+    const createdAt = toEpoch(job.publishedAt);
+    const salary = cleanText(job.compensation?.scrapeableCompensationSalarySummary || job.compensation?.compensationTierSummary, 240) || salaryFrom(description);
+    return {
+      title: cleanText(job.title, 240), company, location, salary, posted: postedLabel(createdAt), description,
+      skills: [job.department, job.team, job.employmentType, job.workplaceType].map((item) => cleanText(item, 120)).filter(Boolean),
+      link: cleanText(job.applyUrl || job.jobUrl, 1600), remote: Boolean(job.isRemote) || job.workplaceType === 'Remote',
+      source: 'Direct · Ashby', direct: true, created_at: createdAt, priority: 3,
+    };
+  }).filter((job) => job.title && job.link && isUkRelevant(job.location, job.description, job.remote));
+}
+
+async function fetchLever(company: string, site: string): Promise<UnifiedJob[]> {
+  const response = await fetch(`https://api.lever.co/v0/postings/${encodeURIComponent(site)}?mode=json`, {
+    headers: { Accept: 'application/json' },
+    next: { revalidate: 1800 },
+  });
+  if (!response.ok) throw new Error(`Lever ${company} ${response.status}`);
+  const payload = await response.json() as LeverJob[];
+  if (!Array.isArray(payload)) return [];
+  return payload.map((job) => {
+    const description = cleanText(job.descriptionPlain || stripHtml(job.description || ''), 2400);
+    const location = cleanText(job.categories?.location || 'Location not stated', 200);
+    const createdAt = toEpoch(job.createdAt);
+    const remote = job.workplaceType === 'remote' || /remote/i.test(location);
+    return {
+      title: cleanText(job.text, 240), company, location, salary: leverSalary(job.salaryRange), posted: postedLabel(createdAt), description,
+      skills: [job.categories?.department, job.categories?.team, job.categories?.commitment, job.workplaceType].map((item) => cleanText(item, 120)).filter(Boolean),
+      link: cleanText(job.applyUrl || job.hostedUrl, 1600), remote, source: 'Direct · Lever', direct: true,
+      created_at: createdAt, priority: 3,
+    };
+  }).filter((job) => job.title && job.link && isUkRelevant(job.location, job.description, job.remote));
+}
+
+async function fetchDirectJobs(): Promise<UnifiedJob[]> {
+  const calls: Array<Promise<UnifiedJob[]>> = [
+    ...GREENHOUSE_BOARDS.map(([company, board]) => fetchGreenhouse(company, board)),
+    ...ASHBY_BOARDS.map(([company, board]) => fetchAshby(company, board)),
+    ...LEVER_SITES.map(([company, site]) => fetchLever(company, site)),
+  ];
+  const settled = await Promise.allSettled(calls);
+  return settled.filter((result): result is PromiseFulfilledResult<UnifiedJob[]> => result.status === 'fulfilled').flatMap((result) => result.value);
+}
+
 async function fetchArbeitnow(): Promise<UnifiedJob[]> {
-  const pages = await Promise.allSettled([1, 2, 3].map(async (page) => {
-    const response = await fetch(`${ARBEITNOW_API}?page=${page}`, {
-      headers: { Accept: 'application/json' },
-      next: { revalidate: 900 },
-    });
+  const pages = await Promise.allSettled([1, 2].map(async (page) => {
+    const response = await fetch(`${ARBEITNOW_API}?page=${page}`, { headers: { Accept: 'application/json' }, next: { revalidate: 1800 } });
     if (!response.ok) throw new Error(`Arbeitnow ${response.status}`);
     const payload = await response.json() as ArbeitnowResponse;
     return Array.isArray(payload.data) ? payload.data : [];
   }));
-
-  return pages
-    .filter((result): result is PromiseFulfilledResult<ArbeitnowJob[]> => result.status === 'fulfilled')
-    .flatMap((result) => result.value)
-    .map((job) => {
-      const description = stripHtml(job.description || '');
-      const location = cleanText(job.location || (job.remote ? 'Remote' : 'Europe'), 200);
-      return {
-        title: cleanText(job.title, 240),
-        company: cleanText(job.company_name, 240),
-        location,
-        salary: salaryFrom(description),
-        posted: postedLabel(job.created_at),
-        description: description.slice(0, 2200),
-        skills: Array.from(new Set([...(job.tags || []), ...(job.job_types || [])])).slice(0, 12),
-        link: cleanText(job.url, 1600),
-        remote: Boolean(job.remote),
-        source: 'Arbeitnow',
-        created_at: job.created_at,
-      } satisfies UnifiedJob;
-    })
-    .filter((job) => job.title && job.company && job.link && isUkRelevant(job.location, job.description, job.remote));
+  return pages.filter((result): result is PromiseFulfilledResult<ArbeitnowJob[]> => result.status === 'fulfilled').flatMap((result) => result.value).map((job) => {
+    const description = stripHtml(job.description || '');
+    const location = cleanText(job.location || (job.remote ? 'Remote' : 'Europe'), 200);
+    return {
+      title: cleanText(job.title, 240), company: cleanText(job.company_name, 240), location, salary: salaryFrom(description),
+      posted: postedLabel(job.created_at), description: description.slice(0, 2200),
+      skills: Array.from(new Set([...(job.tags || []), ...(job.job_types || [])])).slice(0, 12),
+      link: cleanText(job.url, 1600), remote: Boolean(job.remote), source: 'Fallback · Arbeitnow', direct: false,
+      created_at: job.created_at, priority: 1,
+    };
+  }).filter((job) => job.title && job.company && job.link && isUkRelevant(job.location, job.description, job.remote));
 }
 
 async function fetchRemoteOk(): Promise<UnifiedJob[]> {
-  const response = await fetch(REMOTE_OK_API, {
-    headers: { Accept: 'application/json', 'User-Agent': 'CogniTwist/1.0' },
-    next: { revalidate: 900 },
-  });
+  const response = await fetch(REMOTE_OK_API, { headers: { Accept: 'application/json', 'User-Agent': 'CogniTwist/1.0' }, next: { revalidate: 1800 } });
   if (!response.ok) throw new Error(`Remote OK ${response.status}`);
   const payload = await response.json() as RemoteOkJob[];
   if (!Array.isArray(payload)) return [];
+  return payload.filter((item) => item && item.position && item.company && item.url).map((job) => {
+    const description = stripHtml(job.description || '');
+    return {
+      title: cleanText(job.position, 240), company: cleanText(job.company, 240), location: cleanText(job.location || 'Remote / Worldwide', 200),
+      salary: cleanText(job.salary, 240) || 'Not disclosed', posted: postedLabel(toEpoch(job.date_epoch)), description: description.slice(0, 2200),
+      skills: Array.isArray(job.tags) ? job.tags.slice(0, 12) : [], link: cleanText(job.url, 1600), remote: true,
+      source: 'Fallback · Remote OK', direct: false, created_at: toEpoch(job.date_epoch), priority: 1,
+    };
+  });
+}
 
-  return payload
-    .filter((item) => item && item.position && item.company && item.url)
-    .map((job) => {
-      const description = stripHtml(job.description || '');
-      return {
-        title: cleanText(job.position, 240),
-        company: cleanText(job.company, 240),
-        location: cleanText(job.location || 'Remote / Worldwide', 200),
-        salary: cleanText(job.salary, 240) || 'Not disclosed',
-        posted: postedLabel(Number(job.date_epoch) || undefined),
-        description: description.slice(0, 2200),
-        skills: Array.isArray(job.tags) ? job.tags.slice(0, 12) : [],
-        link: cleanText(job.url, 1600),
-        remote: true,
-        source: 'Remote OK',
-        created_at: Number(job.date_epoch) || undefined,
-      } satisfies UnifiedJob;
-    });
+function dedupeKey(job: UnifiedJob) {
+  const normalized = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  return `${normalized(job.company)}::${normalized(job.title)}::${normalized(job.location).replace(/remote|hybrid/g, '').trim()}`;
 }
 
 export async function GET(request: Request) {
@@ -144,45 +301,42 @@ export async function GET(request: Request) {
   const sourceFilter = cleanText(url.searchParams.get('source'), 40).toLowerCase();
   const postedDays = Math.max(0, Math.min(90, Number(url.searchParams.get('days') || 0) || 0));
 
-  const settled = await Promise.allSettled([fetchArbeitnow(), fetchRemoteOk()]);
-  const sourceErrors = settled
-    .filter((result): result is PromiseRejectedResult => result.status === 'rejected')
-    .map((result) => result.reason instanceof Error ? result.reason.message : String(result.reason));
-
-  const merged = settled
-    .filter((result): result is PromiseFulfilledResult<UnifiedJob[]> => result.status === 'fulfilled')
-    .flatMap((result) => result.value);
+  const settled = await Promise.allSettled([fetchDirectJobs(), fetchArbeitnow(), fetchRemoteOk()]);
+  const sourceErrors = settled.filter((result): result is PromiseRejectedResult => result.status === 'rejected').map((result) => result.reason instanceof Error ? result.reason.message : String(result.reason));
+  const merged = settled.filter((result): result is PromiseFulfilledResult<UnifiedJob[]> => result.status === 'fulfilled').flatMap((result) => result.value);
 
   const unique = new Map<string, UnifiedJob>();
   for (const job of merged) {
-    const key = job.link || `${job.company}::${job.title}::${job.location}`.toLowerCase();
-    if (!unique.has(key)) unique.set(key, job);
+    const key = dedupeKey(job);
+    const existing = unique.get(key);
+    if (!existing || job.priority > existing.priority || (job.priority === existing.priority && (job.created_at || 0) > (existing.created_at || 0))) unique.set(key, job);
   }
 
   const now = Date.now() / 1000;
-  const jobs = Array.from(unique.values())
-    .filter((job) => {
-      const haystack = `${job.title} ${job.company} ${job.description} ${job.skills.join(' ')}`.toLowerCase();
-      if (query && !query.split(/\s+/).every((token) => haystack.includes(token))) return false;
-      if (locationQuery && !job.remote && !job.location.toLowerCase().includes(locationQuery)) return false;
-      if (remoteOnly && !job.remote) return false;
-      if (sourceFilter && job.source.toLowerCase() !== sourceFilter) return false;
-      if (postedDays && job.created_at && (now - job.created_at) / 86400 > postedDays) return false;
-      return true;
-    })
-    .sort((a, b) => (b.created_at || 0) - (a.created_at || 0))
-    .slice(0, MAX_RESULTS)
-    .map(({ created_at, ...job }) => job);
+  const jobs = Array.from(unique.values()).filter((job) => {
+    const haystack = `${job.title} ${job.company} ${job.description} ${job.skills.join(' ')}`.toLowerCase();
+    if (query && !query.split(/\s+/).every((token) => haystack.includes(token))) return false;
+    if (locationQuery && !['uk','united kingdom'].includes(locationQuery) && !job.remote && !job.location.toLowerCase().includes(locationQuery)) return false;
+    if (remoteOnly && !job.remote) return false;
+    if (sourceFilter === 'direct' && !job.direct) return false;
+    if (sourceFilter === 'fallback' && job.direct) return false;
+    if (sourceFilter && !['direct','fallback'].includes(sourceFilter) && !job.source.toLowerCase().includes(sourceFilter)) return false;
+    if (postedDays && job.created_at && (now - job.created_at) / 86400 > postedDays) return false;
+    return true;
+  }).sort((a, b) => (b.priority - a.priority) || ((b.created_at || 0) - (a.created_at || 0))).slice(0, MAX_RESULTS).map(({ created_at, priority, ...job }) => job);
 
   if (!jobs.length && merged.length === 0) {
-    return NextResponse.json({ detail: `All free job sources are temporarily unavailable${sourceErrors.length ? `: ${sourceErrors.join(' | ')}` : '.'}` }, { status: 502 });
+    return NextResponse.json({ detail: `All job sources are temporarily unavailable${sourceErrors.length ? `: ${sourceErrors.join(' | ')}` : '.'}` }, { status: 502 });
   }
 
   return NextResponse.json({
     jobs,
     total: jobs.length,
     sources: Array.from(new Set(merged.map((job) => job.source))),
+    direct_count: merged.filter((job) => job.direct).length,
+    fallback_count: merged.filter((job) => !job.direct).length,
     partial: sourceErrors.length > 0,
     source_errors: sourceErrors,
+    search_strategy: 'direct ATS first; aggregator fallback second',
   });
 }
