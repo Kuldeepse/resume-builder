@@ -144,10 +144,18 @@ function stripHtml(value: string) {
   );
 }
 
+function normalizeSearch(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/data\s*centre/g, 'data center')
+    .replace(/datacentre/g, 'data center')
+    .replace(/datacenter/g, 'data center')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function toEpoch(value?: string | number) {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value > 10_000_000_000 ? Math.floor(value / 1000) : value;
-  }
+  if (typeof value === 'number' && Number.isFinite(value)) return value > 10_000_000_000 ? Math.floor(value / 1000) : value;
   if (!value) return undefined;
   const parsed = Date.parse(String(value));
   return Number.isFinite(parsed) ? Math.floor(parsed / 1000) : undefined;
@@ -172,17 +180,76 @@ function leverSalary(range?: LeverJob['salaryRange']) {
   return `${symbol}${Math.round(range.min).toLocaleString()}–${symbol}${Math.round(range.max).toLocaleString()}${range.interval ? ` / ${range.interval.toLowerCase()}` : ''}`;
 }
 
+const UK_LOCATION_SIGNALS = [
+  'united kingdom',' uk','uk ','england','scotland','wales','northern ireland','london','manchester','birmingham','bristol','leeds','liverpool','cardiff','edinburgh','glasgow','belfast','southampton','reading','cambridge','oxford','newcastle','nottingham','sheffield','milton keynes','slough','farnborough','portsmouth','guildford','croydon','watford','maidenhead','woking','york','derby','coventry','exeter','bath','brighton','chester','aberdeen','dundee','swansea','newport'
+];
+
+const REMOTE_UK_COMPATIBLE = ['remote','worldwide','global','europe','emea','united kingdom',' uk','uk ','england','scotland','wales','northern ireland'];
+const US_LOCATION_SIGNALS = [' usa','usa ','united states',' u.s.',' us ','california','new york','texas','virginia','florida','washington','massachusetts','illinois','colorado','georgia','arizona','north carolina','south carolina','pennsylvania','ohio','michigan','oregon','maryland','tennessee'];
+
+function containsAny(text: string, signals: string[]) {
+  const padded = ` ${text.toLowerCase()} `;
+  return signals.some((signal) => padded.includes(signal));
+}
+
 function isUkRelevant(location: string, description: string, remote: boolean) {
-  if (remote) return true;
-  const text = `${location} ${description}`.toLowerCase();
-  return ['united kingdom',' uk','uk ','england','scotland','wales','northern ireland','london','manchester','birmingham','bristol','leeds','liverpool','cardiff','edinburgh','glasgow','belfast','southampton','reading','cambridge','oxford','newcastle','nottingham','sheffield'].some((signal) => text.includes(signal));
+  const locationText = location.toLowerCase();
+  if (containsAny(locationText, UK_LOCATION_SIGNALS)) return true;
+  if (remote && !containsAny(locationText, US_LOCATION_SIGNALS)) return true;
+  const descriptionText = description.toLowerCase();
+  return containsAny(descriptionText, UK_LOCATION_SIGNALS) && !containsAny(locationText, US_LOCATION_SIGNALS);
+}
+
+function locationMatches(job: UnifiedJob, requestedLocation: string) {
+  const requested = normalizeSearch(requestedLocation);
+  if (!requested) return true;
+  const location = normalizeSearch(job.location);
+
+  if (requested === 'uk' || requested === 'united kingdom') {
+    if (containsAny(location, UK_LOCATION_SIGNALS)) return true;
+    if (containsAny(location, US_LOCATION_SIGNALS)) return false;
+    if (job.remote && containsAny(location || 'remote', REMOTE_UK_COMPATIBLE)) return true;
+    return false;
+  }
+
+  if (location.includes(requested)) return true;
+  if (job.remote && requested === 'remote') return true;
+  return false;
+}
+
+function queryRelevance(job: UnifiedJob, rawQuery: string) {
+  const query = normalizeSearch(rawQuery);
+  if (!query) return 1;
+
+  const title = normalizeSearch(job.title);
+  const company = normalizeSearch(job.company);
+  const skills = normalizeSearch(job.skills.join(' '));
+  const description = normalizeSearch(job.description);
+  const tokens = query.split(/\s+/).filter(Boolean);
+  const titleSkill = `${title} ${skills}`;
+  const titleHits = tokens.filter((token) => title.includes(token)).length;
+  const titleSkillHits = tokens.filter((token) => titleSkill.includes(token)).length;
+  const descriptionHits = tokens.filter((token) => description.includes(token)).length;
+
+  let score = 0;
+  if (title.includes(query)) score += 120;
+  if (company.includes(query)) score += 110;
+  if (skills.includes(query)) score += 80;
+  if (tokens.length && titleHits === tokens.length) score += 90;
+  else if (tokens.length > 1 && titleHits >= Math.ceil(tokens.length * 0.67)) score += 55;
+  if (tokens.length && titleSkillHits === tokens.length) score += 45;
+
+  const dataCenterQuery = query === 'data center' || query.includes('data center ');
+  if (dataCenterQuery && /(data center|critical facilities|data hall)/.test(title)) score += 140;
+
+  if (score === 0 && tokens.length === 1 && (title.includes(tokens[0]) || skills.includes(tokens[0]))) score = 50;
+  if (score > 0 && descriptionHits === tokens.length) score += 10;
+
+  return score;
 }
 
 async function fetchGreenhouse(company: string, board: string): Promise<UnifiedJob[]> {
-  const response = await fetch(`https://boards-api.greenhouse.io/v1/boards/${encodeURIComponent(board)}/jobs?content=true`, {
-    headers: { Accept: 'application/json' },
-    next: { revalidate: 1800 },
-  });
+  const response = await fetch(`https://boards-api.greenhouse.io/v1/boards/${encodeURIComponent(board)}/jobs?content=true`, { headers: { Accept: 'application/json' }, next: { revalidate: 1800 } });
   if (!response.ok) throw new Error(`Greenhouse ${company} ${response.status}`);
   const payload = await response.json() as { jobs?: GreenhouseJob[] };
   return (payload.jobs || []).map((job) => {
@@ -200,10 +267,7 @@ async function fetchGreenhouse(company: string, board: string): Promise<UnifiedJ
 }
 
 async function fetchAshby(company: string, board: string): Promise<UnifiedJob[]> {
-  const response = await fetch(`https://api.ashbyhq.com/posting-api/job-board/${encodeURIComponent(board)}?includeCompensation=true`, {
-    headers: { Accept: 'application/json' },
-    next: { revalidate: 1800 },
-  });
+  const response = await fetch(`https://api.ashbyhq.com/posting-api/job-board/${encodeURIComponent(board)}?includeCompensation=true`, { headers: { Accept: 'application/json' }, next: { revalidate: 1800 } });
   if (!response.ok) throw new Error(`Ashby ${company} ${response.status}`);
   const payload = await response.json() as { jobs?: AshbyJob[] };
   return (payload.jobs || []).filter((job) => job.isListed !== false).map((job) => {
@@ -221,10 +285,7 @@ async function fetchAshby(company: string, board: string): Promise<UnifiedJob[]>
 }
 
 async function fetchLever(company: string, site: string): Promise<UnifiedJob[]> {
-  const response = await fetch(`https://api.lever.co/v0/postings/${encodeURIComponent(site)}?mode=json`, {
-    headers: { Accept: 'application/json' },
-    next: { revalidate: 1800 },
-  });
+  const response = await fetch(`https://api.lever.co/v0/postings/${encodeURIComponent(site)}?mode=json`, { headers: { Accept: 'application/json' }, next: { revalidate: 1800 } });
   if (!response.ok) throw new Error(`Lever ${company} ${response.status}`);
   const payload = await response.json() as LeverJob[];
   if (!Array.isArray(payload)) return [];
@@ -295,8 +356,8 @@ function dedupeKey(job: UnifiedJob) {
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const query = cleanText(url.searchParams.get('q'), 160).toLowerCase();
-  const locationQuery = cleanText(url.searchParams.get('location'), 120).toLowerCase();
+  const query = cleanText(url.searchParams.get('q'), 160);
+  const locationQuery = cleanText(url.searchParams.get('location'), 120);
   const remoteOnly = url.searchParams.get('remote') === 'true';
   const sourceFilter = cleanText(url.searchParams.get('source'), 40).toLowerCase();
   const postedDays = Math.max(0, Math.min(90, Number(url.searchParams.get('days') || 0) || 0));
@@ -313,17 +374,25 @@ export async function GET(request: Request) {
   }
 
   const now = Date.now() / 1000;
-  const jobs = Array.from(unique.values()).filter((job) => {
-    const haystack = `${job.title} ${job.company} ${job.description} ${job.skills.join(' ')}`.toLowerCase();
-    if (query && !query.split(/\s+/).every((token) => haystack.includes(token))) return false;
-    if (locationQuery && !['uk','united kingdom'].includes(locationQuery) && !job.remote && !job.location.toLowerCase().includes(locationQuery)) return false;
-    if (remoteOnly && !job.remote) return false;
-    if (sourceFilter === 'direct' && !job.direct) return false;
-    if (sourceFilter === 'fallback' && job.direct) return false;
-    if (sourceFilter && !['direct','fallback'].includes(sourceFilter) && !job.source.toLowerCase().includes(sourceFilter)) return false;
-    if (postedDays && job.created_at && (now - job.created_at) / 86400 > postedDays) return false;
-    return true;
-  }).sort((a, b) => (b.priority - a.priority) || ((b.created_at || 0) - (a.created_at || 0))).slice(0, MAX_RESULTS).map(({ created_at, priority, ...job }) => job);
+  const ranked = Array.from(unique.values())
+    .map((job) => ({ job, relevance: queryRelevance(job, query) }))
+    .filter(({ job, relevance }) => {
+      if (query && relevance < 40) return false;
+      if (!locationMatches(job, locationQuery)) return false;
+      if (remoteOnly && !job.remote) return false;
+      if (sourceFilter === 'direct' && !job.direct) return false;
+      if (sourceFilter === 'fallback' && job.direct) return false;
+      if (sourceFilter && !['direct','fallback'].includes(sourceFilter) && !job.source.toLowerCase().includes(sourceFilter)) return false;
+      if (postedDays && job.created_at && (now - job.created_at) / 86400 > postedDays) return false;
+      return true;
+    })
+    .sort((a, b) => (b.relevance - a.relevance) || (b.job.priority - a.job.priority) || ((b.job.created_at || 0) - (a.job.created_at || 0)))
+    .slice(0, MAX_RESULTS);
+
+  const jobs = ranked.map(({ job }) => {
+    const { created_at, priority, ...publicJob } = job;
+    return publicJob;
+  });
 
   if (!jobs.length && merged.length === 0) {
     return NextResponse.json({ detail: `All job sources are temporarily unavailable${sourceErrors.length ? `: ${sourceErrors.join(' | ')}` : '.'}` }, { status: 502 });
@@ -337,6 +406,6 @@ export async function GET(request: Request) {
     fallback_count: merged.filter((job) => !job.direct).length,
     partial: sourceErrors.length > 0,
     source_errors: sourceErrors,
-    search_strategy: 'direct ATS first; aggregator fallback second',
+    search_strategy: 'title-and-skill relevance first; direct ATS preferred; strict requested-location eligibility',
   });
 }
