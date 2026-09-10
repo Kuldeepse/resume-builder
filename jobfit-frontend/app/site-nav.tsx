@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BriefcaseBusiness, Home, Mic2, Network, Search, ShieldCheck } from 'lucide-react';
+import { BriefcaseBusiness, Home, Mic2, Network, Search, ShieldCheck, Sparkles } from 'lucide-react';
 import ThemeToggle from './theme-toggle';
 
 const items = [
@@ -10,9 +10,16 @@ const items = [
   {
     href: '/jobs',
     label: 'Jobs',
-    desktopLabel: 'Job Intelligence',
+    desktopLabel: 'Job Search',
     icon: Search,
-    match: (pathname: string) => pathname.startsWith('/jobs'),
+    match: (pathname: string) => pathname === '/jobs' || pathname.startsWith('/jobs/'),
+  },
+  {
+    href: '/job-intelligence',
+    label: 'Fit',
+    desktopLabel: 'Job Intelligence',
+    icon: Sparkles,
+    match: (pathname: string) => pathname.startsWith('/job-intelligence'),
   },
   {
     href: '/live-interview',
@@ -31,6 +38,8 @@ const items = [
     match: (pathname: string) => pathname.startsWith('/admin/career-network'),
   },
 ];
+
+const mobileItems = items.filter((item) => item.href !== '/privacy' && !item.href.startsWith('/admin/'));
 
 export default function SiteNav() {
   const pathname = usePathname();
@@ -60,10 +69,10 @@ export default function SiteNav() {
       </nav>
 
       <nav
-        className="fixed inset-x-2 bottom-[max(0.65rem,env(safe-area-inset-bottom))] z-[60] grid grid-cols-7 rounded-[1.5rem] border border-[var(--surface-border)] bg-[var(--surface)] p-1.5 shadow-[var(--shadow-xl)] backdrop-blur-2xl md:hidden"
+        className="fixed inset-x-2 bottom-[max(0.65rem,env(safe-area-inset-bottom))] z-[60] grid grid-cols-6 rounded-[1.5rem] border border-[var(--surface-border)] bg-[var(--surface)] p-1.5 shadow-[var(--shadow-xl)] backdrop-blur-2xl md:hidden"
         aria-label="Mobile navigation and appearance"
       >
-        {items.map((item) => {
+        {mobileItems.map((item) => {
           const active = item.match(pathname);
           const Icon = item.icon;
           return (
@@ -74,7 +83,6 @@ export default function SiteNav() {
                 active ? 'bg-[var(--accent)] text-white' : 'text-[var(--ink-soft)] hover:bg-[var(--accent-soft)] hover:text-[var(--accent-strong)]'
               }`}
               aria-current={active ? 'page' : undefined}
-              aria-label={item.href.startsWith('/admin/') ? 'Open the protected CogniTwist admin report' : undefined}
             >
               <Icon className="h-[1.15rem] w-[1.15rem]" aria-hidden="true" />
               <span className="max-w-full truncate">{item.label}</span>
