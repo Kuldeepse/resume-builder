@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cognitwist-public-v4';
+const CACHE_NAME = 'cognitwist-public-v5';
 const SAFE_ASSETS = ['/', '/live-interview', '/privacy', '/icon.svg', '/manifest.webmanifest'];
 
 self.addEventListener('install', (event) => {
@@ -23,8 +23,17 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
-  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/admin/')) return;
-  if (url.pathname.startsWith('/career-network')) return;
+
+  // Dynamic/product-critical routes and Next.js runtime assets must always be fresh.
+  if (
+    url.pathname.startsWith('/_next/') ||
+    url.pathname.startsWith('/jobs') ||
+    url.pathname.startsWith('/api/') ||
+    url.pathname.startsWith('/admin/') ||
+    url.pathname.startsWith('/career-network')
+  ) {
+    return;
+  }
 
   event.respondWith(
     fetch(request)
