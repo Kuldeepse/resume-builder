@@ -3,6 +3,7 @@ import { Cormorant_Garamond, IBM_Plex_Sans, Plus_Jakarta_Sans, Sora, Space_Grote
 import Link from "next/link";
 import "./globals.css";
 import "./career-studio-overrides.css";
+import CareerStudioHandoff from "./career-studio-handoff";
 import SiteFooter from "./site-footer";
 import SiteNav from "./site-nav";
 import PwaRegister from "./pwa-register";
@@ -122,6 +123,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="en" className="h-full antialiased" suppressHydrationWarning>
       <body className={`${bodyFont.variable} ${displayFont.variable} ${editorialBodyFont.variable} ${techBodyFont.variable} ${techDisplayFont.variable} min-h-full pb-[calc(5.25rem+env(safe-area-inset-bottom))] text-[var(--foreground)] md:pb-0`}>
         <PwaRegister />
+        <CareerStudioHandoff />
         <header className="sticky top-0 z-50 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] md:px-8 md:pt-4">
           <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 rounded-[1.5rem] border border-[var(--surface-border)] bg-[var(--surface)] px-3 py-3 shadow-[var(--shadow-xl)] backdrop-blur-2xl md:rounded-[2rem] md:px-6">
             <Link href="/" className="flex min-w-0 items-center gap-3 font-black text-slate-950">
