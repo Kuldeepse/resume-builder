@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
   ArrowRight,
@@ -19,6 +19,7 @@ import {
   Target,
   Upload,
   UserCheck,
+  X,
 } from 'lucide-react';
 
 type JobMatch = {
@@ -45,7 +46,6 @@ type RecommendationFilter = 'all' | JobMatch['recommendation'];
 
 const API_URL = 'https://resume-builder-backend-ph7b.onrender.com';
 const SAVED_KEY = 'cognitwist-job-intelligence-saved';
-const SEARCH_TIMEOUT_MS = 45000;
 
 function jobKey(job: JobMatch) {
   return `${job.company}::${job.title}::${job.location}::${job.link}`;
@@ -65,16 +65,6 @@ function recommendationTone(recommendation: JobMatch['recommendation']) {
   return 'border-slate-200 bg-slate-50 text-slate-700';
 }
 
-async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number) {
-  const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetch(url, { ...init, signal: controller.signal });
-  } finally {
-    window.clearTimeout(timeoutId);
-  }
-}
-
 export default function JobsPage() {
   const [targetRole, setTargetRole] = useState('');
   const [location, setLocation] = useState('');
@@ -89,6 +79,8 @@ export default function JobsPage() {
   const [recommendationFilter, setRecommendationFilter] = useState<RecommendationFilter>('all');
   const [saved, setSaved] = useState<string[]>([]);
   const [showSavedOnly, setShowSavedOnly] = useState(false);
+  const searchControllerRef = useRef<AbortController | null>(null);
+  const statusTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     try {
@@ -106,6 +98,8 @@ export default function JobsPage() {
 
     return () => {
       controller.abort();
+      searchControllerRef.current?.abort();
+      if (statusTimerRef.current) window.clearTimeout(statusTimerRef.current);
       window.clearTimeout(timeoutId);
     };
   }, []);
@@ -136,8 +130,13 @@ export default function JobsPage() {
     return filteredJobs.find((job) => jobKey(job) === selectedKey) || filteredJobs[0];
   }, [filteredJobs, selectedKey]);
 
-  const runJobSearch = async (formData: FormData) => {
-    return fetchWithTimeout(`${API_URL}/search-jobs`, { method: 'POST', body: formData }, SEARCH_TIMEOUT_MS);
+  const cancelSearch = () => {
+    searchControllerRef.current?.abort();
+    searchControllerRef.current = null;
+    if (statusTimerRef.current) {
+      window.clearTimeout(statusTimerRef.current);
+      statusTimerRef.current = null;
+    }
   };
 
   const handleSearch = async () => {
@@ -150,10 +149,18 @@ export default function JobsPage() {
       return;
     }
 
+    searchControllerRef.current?.abort();
+    const controller = new AbortController();
+    searchControllerRef.current = controller;
+
     setLoading(true);
     setSearchStatus('Searching live roles and scoring them against your profile…');
     setError('');
     setSelectedKey('');
+
+    statusTimerRef.current = window.setTimeout(() => {
+      setSearchStatus('Still working — checking live vacancies and comparing them with your CV. You can keep waiting or cancel this search.');
+    }, 30000);
 
     const formData = new FormData();
     formData.append('target_role', targetRole.trim());
@@ -162,19 +169,11 @@ export default function JobsPage() {
     if (resumeFile) formData.append('resume_file', resumeFile);
 
     try {
-      let response: Response;
-
-      try {
-        response = await runJobSearch(formData);
-      } catch (firstError) {
-        if (firstError instanceof DOMException && firstError.name === 'AbortError') {
-          throw new Error('The live job search took longer than 45 seconds. The search service may be under load. Please try again.');
-        }
-
-        setSearchStatus('The search service is waking up. Retrying automatically…');
-        await new Promise((resolve) => window.setTimeout(resolve, 1200));
-        response = await runJobSearch(formData);
-      }
+      const response = await fetch(`${API_URL}/search-jobs`, {
+        method: 'POST',
+        body: formData,
+        signal: controller.signal,
+      });
 
       const data = await response.json().catch(() => null);
       if (!response.ok) throw new Error(data?.detail || `Job search failed (${response.status}).`);
@@ -186,7 +185,7 @@ export default function JobsPage() {
       setSearchStatus('');
     } catch (requestError) {
       if (requestError instanceof DOMException && requestError.name === 'AbortError') {
-        setError('The live job search timed out after 45 seconds. Please retry; the service may have been waking from sleep.');
+        setError('Search cancelled. Your CV and search criteria are still available so you can run it again.');
       } else if (requestError instanceof TypeError) {
         setError('CogniTwist could not reach the live job-search service. Please retry in a few seconds. Your CV and search criteria are still on this page.');
       } else {
@@ -194,6 +193,11 @@ export default function JobsPage() {
       }
       setSearchStatus('');
     } finally {
+      if (statusTimerRef.current) {
+        window.clearTimeout(statusTimerRef.current);
+        statusTimerRef.current = null;
+      }
+      if (searchControllerRef.current === controller) searchControllerRef.current = null;
       setLoading(false);
     }
   };
@@ -277,7 +281,12 @@ export default function JobsPage() {
           </div>
 
           {error && <div role="alert" className="mt-4 rounded-2xl border border-rose-300 bg-rose-50 p-4 text-sm font-semibold text-rose-900">{error}</div>}
-          {loading && searchStatus && <div className="mt-4 flex items-center gap-3 rounded-2xl border border-[var(--surface-border)] bg-[var(--accent-soft)] p-4 text-xs font-bold text-[var(--accent-strong)]"><RefreshCw className="h-4 w-4 animate-spin" /> {searchStatus}</div>}
+          {loading && searchStatus && (
+            <div className="mt-4 flex items-start justify-between gap-3 rounded-2xl border border-[var(--surface-border)] bg-[var(--accent-soft)] p-4 text-xs font-bold text-[var(--accent-strong)]">
+              <div className="flex items-start gap-3"><RefreshCw className="mt-0.5 h-4 w-4 shrink-0 animate-spin" /><span>{searchStatus}</span></div>
+              <button type="button" onClick={cancelSearch} className="flex shrink-0 items-center gap-1 rounded-lg border border-[var(--surface-border)] bg-[var(--surface)] px-2.5 py-1.5 text-[10px] font-black text-[var(--foreground)]"><X className="h-3.5 w-3.5" /> Cancel</button>
+            </div>
+          )}
 
           <button type="button" onClick={handleSearch} disabled={loading} className="mt-5 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(135deg,var(--accent),var(--highlight))] px-5 text-sm font-black text-white shadow-[var(--shadow-xl)] disabled:opacity-55">
             {loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
