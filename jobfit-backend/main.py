@@ -14,6 +14,7 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from google import genai
 from google.genai import types
+from job_agent import discover_jobs_with_agent, get_agent_status
 from PyPDF2 import PdfReader
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
@@ -373,6 +374,11 @@ async def health_check():
     return {"status": "healthy"}
 
 
+@app.get("/job-agent/status")
+async def job_agent_status():
+    return get_agent_status()
+
+
 @app.post("/build-resume/")
 @app.post("/build-resume")
 async def build_and_compare_resume(
@@ -541,55 +547,75 @@ async def search_jobs(
     if not candidate_profile:
         raise HTTPException(status_code=400, detail="Upload a CV or enter a role and skills summary.")
 
+    jobs_result: dict[str, Any] = {}
+    agent_error: Optional[Exception] = None
+    search_mode = ""
+
+    try:
+        agent_result = discover_jobs_with_agent(
+            target_role=safe_text(target_role, 300),
+            location=safe_text(location_city, 200),
+            candidate_profile=candidate_profile[:MAX_PROFILE_CHARS],
+            max_jobs=20,
+        )
+        if agent_result:
+            jobs_result = agent_result
+            search_mode = "open_source_agent"
+    except Exception as exc:
+        agent_error = exc
+
     search_query = (
         f'"{safe_text(target_role, 300)}" jobs in "{safe_text(location_city, 200)}" posted last 14 days '
         "site:linkedin.com OR site:indeed.com OR site:lever.co OR site:greenhouse.io "
         "OR site:myworkdayjobs.com OR site:smartrecruiters.com OR site:jobs.ashbyhq.com"
     )
 
-    job_schema = {
-        "type": "object",
-        "properties": {
-            "jobs": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "title": {"type": "string"},
-                        "company": {"type": "string"},
-                        "location": {"type": "string"},
-                        "salary": {"type": "string"},
-                        "posted": {"type": "string"},
-                        "description": {"type": "string"},
-                        "skills": {"type": "array", "items": {"type": "string"}},
-                        "link": {"type": "string"},
-                        "match_score": {"type": "integer"},
-                        "matched_requirements": {"type": "array", "items": {"type": "string"}},
-                        "missing_requirements": {"type": "array", "items": {"type": "string"}},
-                        "recommendation": {"type": "string"},
-                    },
-                    "required": [
-                        "title",
-                        "company",
-                        "location",
-                        "salary",
-                        "posted",
-                        "description",
-                        "skills",
-                        "link",
-                        "match_score",
-                        "matched_requirements",
-                        "missing_requirements",
-                        "recommendation",
-                    ],
-                },
-            },
-            "best_match_summary": {"type": "string"},
-        },
-        "required": ["jobs", "best_match_summary"],
-    }
+    primary_error: Optional[Exception] = None
 
-    single_pass_prompt = f"""You are CogniTwist's job discovery and candidate-fit engine.
+    if not jobs_result:
+        job_schema = {
+            "type": "object",
+            "properties": {
+                "jobs": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "title": {"type": "string"},
+                            "company": {"type": "string"},
+                            "location": {"type": "string"},
+                            "salary": {"type": "string"},
+                            "posted": {"type": "string"},
+                            "description": {"type": "string"},
+                            "skills": {"type": "array", "items": {"type": "string"}},
+                            "link": {"type": "string"},
+                            "match_score": {"type": "integer"},
+                            "matched_requirements": {"type": "array", "items": {"type": "string"}},
+                            "missing_requirements": {"type": "array", "items": {"type": "string"}},
+                            "recommendation": {"type": "string"},
+                        },
+                        "required": [
+                            "title",
+                            "company",
+                            "location",
+                            "salary",
+                            "posted",
+                            "description",
+                            "skills",
+                            "link",
+                            "match_score",
+                            "matched_requirements",
+                            "missing_requirements",
+                            "recommendation",
+                        ],
+                    },
+                },
+                "best_match_summary": {"type": "string"},
+            },
+            "required": ["jobs", "best_match_summary"],
+        }
+
+        single_pass_prompt = f"""You are CogniTwist's job discovery and candidate-fit engine.
 Use Google Search to find current, real job openings relevant to the search query below.
 Prefer direct employer or ATS application pages. Only return jobs you can support from search results; never invent a job, employer, salary, date, requirement or link.
 
@@ -615,36 +641,35 @@ For every returned job:
 - return the exact HTTPS job/application URL when available.
 Return the strongest relevant jobs first."""
 
-    jobs_result: dict[str, Any] = {}
-    primary_error: Optional[Exception] = None
-    job_search_model = os.getenv("JOB_SEARCH_MODEL", "gemini-3.8-flash")
+        job_search_model = os.getenv("JOB_SEARCH_MODEL", "gemini-3.8-flash")
 
-    try:
-        response = gemini_client.models.generate_content(
-            model=job_search_model,
-            contents=single_pass_prompt,
-            config={
-                "tools": [{"google_search": {}}],
-                "response_format": {
-                    "text": {
-                        "mime_type": "application/json",
-                        "schema": job_schema,
-                    }
+        try:
+            response = gemini_client.models.generate_content(
+                model=job_search_model,
+                contents=single_pass_prompt,
+                config={
+                    "tools": [{"google_search": {}}],
+                    "response_format": {
+                        "text": {
+                            "mime_type": "application/json",
+                            "schema": job_schema,
+                        }
+                    },
+                    "temperature": 0.1,
                 },
-                "temperature": 0.1,
-            },
-        )
-        clean_text = (response.text or "").strip()
-        if "```json" in clean_text:
-            clean_text = clean_text.split("```json")[-1].split("```")[0].strip()
-        elif "```" in clean_text:
-            clean_text = clean_text.split("```")[-1].split("```")[0].strip()
-        parsed = json.loads(clean_text)
-        if not isinstance(parsed, dict):
-            raise ValueError("Single-pass job search did not return an object.")
-        jobs_result = parsed
-    except Exception as exc:
-        primary_error = exc
+            )
+            clean_text = (response.text or "").strip()
+            if "```json" in clean_text:
+                clean_text = clean_text.split("```json")[-1].split("```")[0].strip()
+            elif "```" in clean_text:
+                clean_text = clean_text.split("```")[-1].split("```")[0].strip()
+            parsed = json.loads(clean_text)
+            if not isinstance(parsed, dict):
+                raise ValueError("Single-pass job search did not return an object.")
+            jobs_result = parsed
+            search_mode = "single_pass_grounded"
+        except Exception as exc:
+            primary_error = exc
 
     if not jobs_result:
         try:
@@ -707,11 +732,16 @@ Score each job against the candidate profile, role objective and location. Do no
             elif "```" in clean_text:
                 clean_text = clean_text.split("```")[-1].split("```")[0].strip()
             jobs_result = json.loads(clean_text)
+            search_mode = "compatibility_fallback"
         except Exception as fallback_exc:
-            primary_detail = safe_text(primary_error, 1000) if primary_error else "single-pass search unavailable"
+            primary_detail = safe_text(primary_error, 800) if primary_error else "single-pass search unavailable"
+            agent_detail = safe_text(agent_error, 800) if agent_error else "agent not configured or unavailable"
             raise HTTPException(
                 status_code=500,
-                detail=f"Job search failed. Primary: {primary_detail}. Fallback: {safe_text(fallback_exc, 1000)}",
+                detail=(
+                    f"Job search failed. Agent: {agent_detail}. "
+                    f"Primary: {primary_detail}. Fallback: {safe_text(fallback_exc, 800)}"
+                ),
             ) from fallback_exc
 
     sanitized_jobs = []
@@ -752,5 +782,6 @@ Score each job against the candidate profile, role objective and location. Do no
             2000,
         ),
         "profile_preview": candidate_profile[:1800],
-        "search_mode": "single_pass_grounded" if primary_error is None else "compatibility_fallback",
+        "search_mode": search_mode or "unknown",
+        "agent_configured": bool(get_agent_status().get("configured")),
     }
