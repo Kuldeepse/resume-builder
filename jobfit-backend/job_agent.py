@@ -1,9 +1,11 @@
+import ipaddress
 import json
 import os
+import socket
 from typing import Any, Optional
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
-from urllib.request import Request, urlopen
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from google import genai
 from google.genai import types
@@ -24,13 +26,74 @@ def _agent_url() -> str:
     return (os.getenv("JOB_AGENT_URL") or "").strip()
 
 
+def _allowed_agent_hosts() -> set[str]:
+    return {
+        host.strip().lower().rstrip(".")
+        for host in (os.getenv("JOB_AGENT_ALLOWED_HOSTS") or "").split(",")
+        if host.strip()
+    }
+
+
+def _host_is_allowed_by_policy(hostname: str) -> bool:
+    allowed_hosts = _allowed_agent_hosts()
+    if not allowed_hosts:
+        return True
+    return any(hostname == host or hostname.endswith(f".{host}") for host in allowed_hosts)
+
+
+def _assert_public_host(hostname: str, port: int) -> None:
+    try:
+        literal_ip = ipaddress.ip_address(hostname)
+        if not literal_ip.is_global:
+            raise RuntimeError("JOB_AGENT_URL must not target a private or non-public address.")
+        return
+    except ValueError:
+        pass
+
+    try:
+        resolved = socket.getaddrinfo(hostname, port, type=socket.SOCK_STREAM)
+    except socket.gaierror as exc:
+        raise RuntimeError("JOB_AGENT_URL hostname could not be resolved safely.") from exc
+
+    addresses = {item[4][0] for item in resolved if item and item[4]}
+    if not addresses:
+        raise RuntimeError("JOB_AGENT_URL hostname did not resolve to a public address.")
+
+    for address in addresses:
+        try:
+            resolved_ip = ipaddress.ip_address(address)
+        except ValueError as exc:
+            raise RuntimeError("JOB_AGENT_URL resolved to an invalid network address.") from exc
+        if not resolved_ip.is_global:
+            raise RuntimeError("JOB_AGENT_URL must not resolve to a private or non-public address.")
+
+
 def _validate_agent_url(value: str) -> str:
     if not value:
         return ""
-    parsed = urlparse(value)
-    if parsed.scheme != "https" or not parsed.hostname:
+
+    try:
+        parsed = urlparse(value)
+    except ValueError as exc:
+        raise RuntimeError("JOB_AGENT_URL is invalid.") from exc
+
+    if parsed.scheme.lower() != "https" or not parsed.hostname:
         raise RuntimeError("JOB_AGENT_URL must be an HTTPS endpoint.")
+    if parsed.username or parsed.password:
+        raise RuntimeError("JOB_AGENT_URL must not contain embedded credentials.")
+
+    hostname = parsed.hostname.lower().rstrip(".")
+    if not _host_is_allowed_by_policy(hostname):
+        raise RuntimeError("JOB_AGENT_URL host is not in JOB_AGENT_ALLOWED_HOSTS.")
+
+    _assert_public_host(hostname, parsed.port or 443)
     return value
+
+
+class _SafeRedirectHandler(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        _validate_agent_url(newurl)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
 def _clean_json_text(value: str) -> str:
@@ -132,7 +195,8 @@ def get_agent_status() -> dict[str, Any]:
     return {
         "configured": bool(url),
         "provider": "open_source_agent" if url else "local_grounded_search",
-        "endpoint_host": urlparse(url).hostname if url else None,
+        "authenticated": bool((os.getenv("JOB_AGENT_TOKEN") or "").strip()) if url else None,
+        "host_allowlist_configured": bool(_allowed_agent_hosts()) if url else None,
         "timeout_seconds": _safe_timeout(),
         "local_fallback_enabled": local_enabled,
         "local_fallback_model": os.getenv("JOB_AGENT_LOCAL_MODEL", LOCAL_FALLBACK_MODEL) if local_enabled else None,
@@ -148,7 +212,7 @@ def discover_jobs_with_agent(
 ) -> Optional[dict[str, Any]]:
     """Discover jobs through an external OSS agent or the fast built-in recovery provider.
 
-    If JOB_AGENT_URL is configured, Hermes or another compatible agent is used first.
+    If JOB_AGENT_URL is configured, an authenticated HTTPS agent is used first.
     Otherwise CogniTwist uses one grounded Gemini call to avoid the slower legacy
     two-step search path while the persistent job index is being built.
     """
@@ -161,6 +225,10 @@ def discover_jobs_with_agent(
             candidate_profile=candidate_profile,
             max_jobs=max_jobs,
         )
+
+    token = (os.getenv("JOB_AGENT_TOKEN") or "").strip()
+    if not token:
+        raise RuntimeError("External job agent is disabled until JOB_AGENT_TOKEN is configured.")
 
     payload = {
         "task": "discover_score_and_rank_jobs",
@@ -211,23 +279,21 @@ def discover_jobs_with_agent(
         "Accept": "application/json",
         "Content-Type": "application/json",
         "User-Agent": "CogniTwist-Job-Intelligence/1.0",
+        "Authorization": f"Bearer {token}",
     }
-    token = (os.getenv("JOB_AGENT_TOKEN") or "").strip()
-    if token:
-        headers["Authorization"] = f"Bearer {token}"
 
     request = Request(url, data=body, headers=headers, method="POST")
+    opener = build_opener(_SafeRedirectHandler())
 
     try:
-        with urlopen(request, timeout=_safe_timeout()) as response:
+        with opener.open(request, timeout=_safe_timeout()) as response:
             raw = response.read(MAX_RESPONSE_BYTES + 1)
             if len(raw) > MAX_RESPONSE_BYTES:
-                raise RuntimeError("Job agent response exceeded 2 MB.")
+                raise RuntimeError("Job agent response exceeded the permitted response size.")
     except HTTPError as exc:
-        detail = exc.read(1200).decode("utf-8", errors="replace") if exc.fp else ""
-        raise RuntimeError(f"Job agent returned HTTP {exc.code}: {detail}") from exc
+        raise RuntimeError(f"Job agent returned HTTP {exc.code}.") from exc
     except URLError as exc:
-        raise RuntimeError(f"Job agent is unreachable: {exc.reason}") from exc
+        raise RuntimeError("Job agent is unreachable.") from exc
 
     try:
         result = json.loads(raw.decode("utf-8"))
