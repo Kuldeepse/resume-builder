@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic';
 
 const ARBEITNOW_API = 'https://www.arbeitnow.com/api/job-board-api';
 const REMOTE_OK_API = 'https://remoteok.com/api';
+const EQUINIX_UK_API = 'https://careers.equinix.com/operations-UK';
 const MAX_RESULTS = 60;
 
 const GREENHOUSE_BOARDS = [
@@ -183,23 +184,34 @@ function leverSalary(range?: LeverJob['salaryRange']) {
 }
 
 const UK_LOCATION_SIGNALS = [
-  'united kingdom',' uk','uk ','england','scotland','wales','northern ireland','london','manchester','birmingham','bristol','leeds','liverpool','cardiff','edinburgh','glasgow','belfast','southampton','reading','cambridge','oxford','newcastle','nottingham','sheffield','milton keynes','slough','farnborough','portsmouth','guildford','croydon','watford','maidenhead','woking','york','derby','coventry','exeter','bath','brighton','chester','aberdeen','dundee','swansea','newport','feltham'
+  'united kingdom',' uk','uk ','england','scotland','wales','northern ireland','london','manchester','birmingham','bristol','leeds','liverpool','cardiff','edinburgh','glasgow','belfast','southampton','reading','cambridge','oxford','newcastle','nottingham','sheffield','milton keynes','slough','farnborough','portsmouth','guildford','croydon','watford','maidenhead','woking','york','derby','coventry','exeter','bath','brighton','chester','aberdeen','dundee','swansea','newport','feltham','crawley'
 ];
 
 const REMOTE_UK_COMPATIBLE = ['remote','worldwide','global','europe','emea','united kingdom',' uk','uk ','england','scotland','wales','northern ireland'];
 const US_LOCATION_SIGNALS = [' usa','usa ','united states',' u.s.',' us ','california','new york','texas','virginia','florida','washington','massachusetts','illinois','colorado','georgia','arizona','north carolina','south carolina','pennsylvania','ohio','michigan','oregon','maryland','tennessee'];
+const US_STATE_CODES = new Set(['AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY','DC']);
 
 function containsAny(text: string, signals: string[]) {
   const padded = ` ${text.toLowerCase()} `;
   return signals.some((signal) => padded.includes(signal));
 }
 
+function hasUsStateCode(location: string) {
+  const matches = location.toUpperCase().match(/(?:^|,|\s)([A-Z]{2})(?=\s|,|$)/g) || [];
+  return matches.some((match) => US_STATE_CODES.has(match.replace(/[^A-Z]/g, '')));
+}
+
+function isUsLocation(location: string) {
+  return containsAny(location, US_LOCATION_SIGNALS) || hasUsStateCode(location);
+}
+
 function isUkRelevant(location: string, description: string, remote: boolean) {
   const locationText = location.toLowerCase();
   if (containsAny(locationText, UK_LOCATION_SIGNALS)) return true;
-  if (remote && !containsAny(locationText, US_LOCATION_SIGNALS)) return true;
+  if (isUsLocation(locationText)) return false;
+  if (remote) return true;
   const descriptionText = description.toLowerCase();
-  return containsAny(descriptionText, UK_LOCATION_SIGNALS) && !containsAny(locationText, US_LOCATION_SIGNALS);
+  return containsAny(descriptionText, UK_LOCATION_SIGNALS);
 }
 
 function locationMatches(job: UnifiedJob, requestedLocation: string) {
@@ -209,7 +221,7 @@ function locationMatches(job: UnifiedJob, requestedLocation: string) {
 
   if (requested === 'uk' || requested === 'united kingdom') {
     if (containsAny(location, UK_LOCATION_SIGNALS)) return true;
-    if (containsAny(location, US_LOCATION_SIGNALS)) return false;
+    if (isUsLocation(job.location)) return false;
     if (job.remote && containsAny(location || 'remote', REMOTE_UK_COMPATIBLE)) return true;
     return false;
   }
@@ -218,6 +230,11 @@ function locationMatches(job: UnifiedJob, requestedLocation: string) {
   if (job.remote && requested === 'remote') return true;
   return false;
 }
+
+const DATA_CENTER_TITLE_SIGNALS = [
+  'facility','facilities','infrastructure','operations','engineer','engineering','technician','technical','electrical','mechanical','controls','site','shift','construction','commissioning','project','programme','program','capacity','network','security','manager','director','supervisor'
+];
+const DATA_CENTER_EMPLOYERS = new Set(['yondr','serverfarm','equinix']);
 
 function queryRelevance(job: UnifiedJob, rawQuery: string) {
   const query = normalizeSearch(rawQuery);
@@ -241,8 +258,18 @@ function queryRelevance(job: UnifiedJob, rawQuery: string) {
   else if (tokens.length > 1 && titleHits >= Math.ceil(tokens.length * 0.67)) score += 55;
   if (tokens.length && titleSkillHits === tokens.length) score += 45;
 
-  const dataCenterQuery = query === 'data center' || query.includes('data center ');
-  if (dataCenterQuery && /(data center|critical facilities|data hall)/.test(title)) score += 140;
+  const dataCenterQuery = query.includes('data center');
+  if (dataCenterQuery) {
+    const domainText = `${title} ${skills} ${description}`;
+    const explicitDomain = /(data center|critical facilities|data hall|hyperscale|colocation|mission critical)/.test(domainText);
+    const roleSignal = DATA_CENTER_TITLE_SIGNALS.some((signal) => title.includes(signal));
+    const requestedRoleTokens = tokens.filter((token) => !['data','center','centre'].includes(token));
+    const requestedRoleMatch = requestedRoleTokens.length === 0 || requestedRoleTokens.some((token) => title.includes(token));
+
+    if (/(data center|critical facilities|data hall)/.test(title)) score += 160;
+    else if (explicitDomain && roleSignal && requestedRoleMatch) score += 85;
+    else if (DATA_CENTER_EMPLOYERS.has(company) && roleSignal && requestedRoleMatch) score += 65;
+  }
 
   if (score === 0 && tokens.length === 1 && (title.includes(tokens[0]) || skills.includes(tokens[0]))) score = 50;
   if (score > 0 && descriptionHits === tokens.length) score += 10;
@@ -305,11 +332,57 @@ async function fetchLever(company: string, site: string): Promise<UnifiedJob[]> 
   }).filter((job) => job.title && job.link && isUkRelevant(job.location, job.description, job.remote));
 }
 
+async function fetchEquinixUk(): Promise<UnifiedJob[]> {
+  const response = await fetch(EQUINIX_UK_API, {
+    headers: { Accept: 'text/html', 'User-Agent': 'CogniTwist/1.0 (+job-search)' },
+    next: { revalidate: 1800 },
+  });
+  if (!response.ok) throw new Error(`Equinix UK ${response.status}`);
+  const html = await response.text();
+  const jobs = new Map<string, UnifiedJob>();
+  const anchorPattern = /<a\b[^>]*href=["']([^"']*\/jobs\/[^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+  let match: RegExpExecArray | null;
+
+  while ((match = anchorPattern.exec(html)) !== null) {
+    const title = stripHtml(match[2] || '');
+    if (!title || title.length < 5 || /search|apply now|learn more|view all/i.test(title)) continue;
+    let link = match[1];
+    if (link.startsWith('/')) link = `https://careers.equinix.com${link}`;
+    if (!link.startsWith('http')) continue;
+
+    const contextStart = Math.max(0, match.index - 700);
+    const contextEnd = Math.min(html.length, match.index + match[0].length + 900);
+    const context = stripHtml(html.slice(contextStart, contextEnd));
+    const city = ['Slough','Manchester','London','Crawley'].find((candidate) => context.toLowerCase().includes(candidate.toLowerCase()));
+    const location = city ? `${city}, United Kingdom` : 'United Kingdom';
+    const description = cleanText(`Equinix UK data center operations. ${context}`, 2200);
+    const key = `${title.toLowerCase()}::${location.toLowerCase()}`;
+
+    jobs.set(key, {
+      title,
+      company: 'Equinix',
+      location,
+      salary: salaryFrom(description),
+      posted: '',
+      description,
+      skills: ['Data Center Operations', 'Critical Facilities'],
+      link,
+      remote: false,
+      source: 'Direct · Employer',
+      direct: true,
+      priority: 4,
+    });
+  }
+
+  return Array.from(jobs.values());
+}
+
 async function fetchDirectJobs(): Promise<UnifiedJob[]> {
   const calls: Array<Promise<UnifiedJob[]>> = [
     ...GREENHOUSE_BOARDS.map(([company, board]) => fetchGreenhouse(company, board)),
     ...ASHBY_BOARDS.map(([company, board]) => fetchAshby(company, board)),
     ...LEVER_SITES.map(([company, site]) => fetchLever(company, site)),
+    fetchEquinixUk(),
   ];
   const settled = await Promise.allSettled(calls);
   return settled.filter((result): result is PromiseFulfilledResult<UnifiedJob[]> => result.status === 'fulfilled').flatMap((result) => result.value);
@@ -343,13 +416,14 @@ async function fetchRemoteOk(): Promise<UnifiedJob[]> {
   if (!Array.isArray(payload)) return [];
   return payload.filter((item) => item && item.position && item.company && item.url).map((job) => {
     const description = stripHtml(job.description || '');
+    const location = cleanText(job.location || 'Remote / Worldwide', 200);
     return {
-      title: cleanText(job.position, 240), company: cleanText(job.company, 240), location: cleanText(job.location || 'Remote / Worldwide', 200),
+      title: cleanText(job.position, 240), company: cleanText(job.company, 240), location,
       salary: cleanText(job.salary, 240) || 'Not disclosed', posted: postedLabel(toEpoch(job.date_epoch)), description: description.slice(0, 2200),
       skills: Array.isArray(job.tags) ? job.tags.slice(0, 12) : [], link: cleanText(job.url, 1600), remote: true,
       source: 'Fallback · Remote OK', direct: false, created_at: toEpoch(job.date_epoch), priority: 1,
     };
-  });
+  }).filter((job) => !isUsLocation(job.location));
 }
 
 function dedupeKey(job: UnifiedJob) {
@@ -408,6 +482,6 @@ export async function GET(request: Request) {
     fallback_count: merged.filter((job) => !job.direct).length,
     partial: sourceErrors.length > 0,
     source_errors: sourceErrors,
-    search_strategy: 'expanded direct ATS coverage; title-and-skill relevance first; strict requested-location eligibility',
+    search_strategy: 'domain-aware relevance; direct ATS/employer preferred; strict requested-location eligibility',
   });
 }
