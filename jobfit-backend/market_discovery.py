@@ -7,7 +7,6 @@ from typing import Any
 from urllib.parse import urlparse
 
 from google import genai
-from google.genai import types
 
 DEFAULT_MODEL = "gemini-2.5-flash"
 MAX_PASS_JOBS = 20
@@ -123,7 +122,7 @@ def _query_passes(target_role: str, location: str, freshness_days: int) -> list[
     ]
 
 
-def _run_pass(client: genai.Client, *, pass_name: str, query: str, target_role: str, location: str, freshness_days: int, max_jobs: int) -> dict[str, Any]:
+def _run_pass(*, pass_name: str, query: str, target_role: str, location: str, freshness_days: int, max_jobs: int) -> dict[str, Any]:
     prompt = f"""You are CogniTwist Market Discovery.
 Use Google Search to discover current, real job vacancies for the market query below.
 This is MARKET DISCOVERY ONLY. There is no candidate profile and you must not score candidate fit.
@@ -149,6 +148,7 @@ Rules:
 - Return valid JSON only.
 """
 
+    client = genai.Client()
     model = os.getenv("MARKET_DISCOVERY_MODEL", DEFAULT_MODEL)
     response = client.models.generate_content(
         model=model,
@@ -207,7 +207,6 @@ def discover_market_jobs(*, target_role: str, location: str, freshness_days: int
     days = max(1, min(90, int(freshness_days or 14)))
     requested_max = max(1, min(MAX_TOTAL_JOBS, int(max_jobs or 50)))
     passes = _query_passes(role, place, days)
-    client = genai.Client()
     per_pass = min(MAX_PASS_JOBS, max(8, (requested_max + len(passes) - 1) // len(passes) + 4))
 
     results: list[dict[str, Any]] = []
@@ -217,7 +216,6 @@ def discover_market_jobs(*, target_role: str, location: str, freshness_days: int
         future_map = {
             pool.submit(
                 _run_pass,
-                client,
                 pass_name=pass_name,
                 query=query,
                 target_role=role,
