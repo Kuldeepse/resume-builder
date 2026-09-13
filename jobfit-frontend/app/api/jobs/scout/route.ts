@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { GET as runBrowse } from '../browse/route';
 import { validateJobsForSearch } from '../job-trust';
+import { persistValidatedMarketRun } from '../job-market-index';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -161,6 +162,7 @@ async function runFastConfiguredSearch(request: Request, variants: string[]): Pr
 
 export async function GET(request: Request) {
   const startedAt = Date.now();
+  const runId = crypto.randomUUID();
   const incoming = new URL(request.url);
   const query = cleanText(incoming.searchParams.get('q') || '', 160);
   const location = cleanText(incoming.searchParams.get('location') || '', 120);
@@ -179,12 +181,37 @@ export async function GET(request: Request) {
   const employers = unique(jobs.map((job) => normalizeEmployer(job.company)));
   const sourceErrorCount = Array.isArray(browse.source_errors) ? browse.source_errors.length : 0;
   const partial = Boolean(browse.partial) || sourceErrorCount > 0;
+  const sourceHealth = !jobs.length ? 'no_results' : partial ? 'degraded' : 'healthy';
+  const coverageConfidence = 'configured_sources_validated';
+  const coverageNote = `Fast configured-source results passed deterministic role, location, freshness and vacancy-URL checks. ${trustGate.rejected.length} candidate result${trustGate.rejected.length === 1 ? ' was' : 's were'} withheld because the search intent could not be validated. Market coverage is not exhaustive.`;
 
   const fallbackReasons: string[] = [];
   if (!jobs.length) fallbackReasons.push('The fast source pass has not produced a validated role yet; expanded employer/ATS discovery is continuing automatically.');
   if (partial) fallbackReasons.push('At least one configured discovery source was incomplete or exceeded the fast-response budget.');
   if (jobs.length > 0 && directJobs.length === 0) fallbackReasons.push('No direct employer/ATS vacancies were returned yet.');
   if (jobs.length > 0 && employers.length <= 1) fallbackReasons.push('Employer diversity is narrow; expanded discovery is required.');
+
+  const marketIndex = await persistValidatedMarketRun({
+    runId,
+    lane: 'configured',
+    query,
+    location,
+    freshnessDays,
+    startedAt,
+    completedAt: Date.now(),
+    jobs,
+    rolesReceived: rawJobs.length,
+    rolesRejected: trustGate.rejected.length,
+    sourceHealth,
+    sourceErrorCount,
+    coverageConfidence,
+    coverageNote,
+    metadata: {
+      query_variants: variants,
+      sources_observed: sources,
+      search_strategy: cleanText(browse.search_strategy, 500),
+    },
+  });
 
   return NextResponse.json({
     jobs,
@@ -198,8 +225,9 @@ export async function GET(request: Request) {
       : [],
     search_strategy: `${cleanText(browse.search_strategy, 500)}; deterministic query/location/freshness trust gate`,
     query_variants: variants,
+    market_index: marketIndex,
     telemetry: {
-      run_id: crypto.randomUUID(),
+      run_id: runId,
       duration_ms: Date.now() - startedAt,
       roles_returned: jobs.length,
       unique_employers: employers.length,
@@ -210,16 +238,17 @@ export async function GET(request: Request) {
       fallback_roles: fallbackJobs.length,
       direct_share_percent: jobs.length ? Math.round((directJobs.length / jobs.length) * 100) : 0,
       source_error_count: sourceErrorCount,
-      source_health: !jobs.length ? 'no_results' : partial ? 'degraded' : 'healthy',
+      source_health: sourceHealth,
       fallback_recommended: true,
       fallback_reasons: fallbackReasons.length
         ? fallbackReasons
         : ['Expanded employer/ATS discovery is running separately to improve market recall.'],
-      coverage_confidence: 'configured_sources_validated',
-      coverage_note: `Fast configured-source results passed deterministic role, location, freshness and vacancy-URL checks. ${trustGate.rejected.length} candidate result${trustGate.rejected.length === 1 ? ' was' : 's were'} withheld because the search intent could not be validated. Market coverage is not exhaustive.`,
+      coverage_confidence: coverageConfidence,
+      coverage_note: coverageNote,
       configured_lane_roles: jobs.length,
       expanded_lane_roles: 0,
       filtered_untrusted_roles: trustGate.rejected.length,
+      market_index_status: marketIndex.status,
     },
   });
 }
