@@ -78,7 +78,7 @@ export async function GET(request: Request) {
   const partial = Boolean(browse.partial) || sourceErrorCount > 0;
 
   const fallbackReasons: string[] = [];
-  if (!jobs.length) fallbackReasons.push('No jobs were returned from the configured source lane.');
+  if (!jobs.length) fallbackReasons.push('The fast configured-source pass returned no roles; expanded employer/ATS discovery is the next stage.');
   if (partial) fallbackReasons.push('At least one configured discovery source was incomplete or exceeded the fast-response budget.');
   if (jobs.length > 0 && directJobs.length === 0) fallbackReasons.push('No direct employer/ATS vacancies were returned yet.');
   if (jobs.length > 0 && employers.length <= 1) fallbackReasons.push('Employer diversity is narrow; expanded discovery is required.');
@@ -112,7 +112,7 @@ export async function GET(request: Request) {
         ? fallbackReasons
         : ['Expanded employer/ATS discovery is running separately to improve market recall.'],
       coverage_confidence: 'configured_sources_only',
-      coverage_note: 'Fast configured-source results are returned within a bounded response window. CogniTwist then expands employer and ATS coverage separately, so a slow provider cannot fail the whole search.',
+      coverage_note: 'Fast configured-source results are returned within a bounded response window. A zero result from this first pass is not evidence that the wider market has no matching vacancies; CogniTwist expands employer and ATS coverage separately.',
       configured_lane_roles: jobs.length,
       expanded_lane_roles: 0,
     },
