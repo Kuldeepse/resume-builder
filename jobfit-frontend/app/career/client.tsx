@@ -51,8 +51,10 @@ type ScoutTelemetry = {
   source_health: 'healthy' | 'degraded' | 'no_results';
   fallback_recommended: boolean;
   fallback_reasons: string[];
-  coverage_confidence: 'not_measured';
+  coverage_confidence: string;
   coverage_note: string;
+  configured_lane_roles?: number;
+  expanded_lane_roles?: number;
 };
 
 type ScoutResult = {
@@ -65,6 +67,12 @@ type ScoutResult = {
   source_errors?: string[];
   search_strategy?: string;
   telemetry: ScoutTelemetry;
+  expanded_discovery?: {
+    available?: boolean;
+    jobs_before_merge?: number;
+    passes_completed?: string[];
+    passes_failed?: string[];
+  };
 };
 
 const panelClass = 'rounded-[1.75rem] border border-[var(--surface-border)] bg-[var(--surface)] shadow-[var(--shadow-xl)]';
@@ -76,18 +84,11 @@ function jobDescription(job: Job) {
     job.location ? `Location: ${job.location}` : '',
     job.description || '',
     job.skills?.length ? `Role signals: ${job.skills.join(', ')}` : '',
-  ]
-    .filter(Boolean)
-    .join('\n\n');
+  ].filter(Boolean).join('\n\n');
 }
 
 function companyInitials(company: string) {
-  return company
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join('') || 'CO';
+  return company.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join('') || 'CO';
 }
 
 function healthTone(health: ScoutTelemetry['source_health']) {
@@ -97,9 +98,16 @@ function healthTone(health: ScoutTelemetry['source_health']) {
 }
 
 function healthLabel(health: ScoutTelemetry['source_health']) {
-  if (health === 'healthy') return 'Configured discovery healthy';
+  if (health === 'healthy') return 'Discovery healthy';
   if (health === 'degraded') return 'Discovery partially degraded';
   return 'No results observed';
+}
+
+function coverageLabel(value: string) {
+  if (value === 'expanded') return 'Expanded';
+  if (value === 'expanded_partial') return 'Expanded · partial';
+  if (value === 'configured_sources_only') return 'Configured sources';
+  return value ? value.replace(/_/g, ' ') : 'Not measured';
 }
 
 export default function CareerCopilotClient() {
@@ -109,6 +117,7 @@ export default function CareerCopilotClient() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState<ScoutResult | null>(null);
+  const [visibleCount, setVisibleCount] = useState(24);
 
   const searchJobs = async () => {
     if (!role.trim()) {
@@ -119,6 +128,7 @@ export default function CareerCopilotClient() {
     setLoading(true);
     setError('');
     setResult(null);
+    setVisibleCount(24);
 
     try {
       const params = new URLSearchParams();
@@ -139,59 +149,39 @@ export default function CareerCopilotClient() {
   };
 
   const analyseFit = (job: Job) => {
-    window.sessionStorage.setItem(
-      'cognitwist-job-intelligence-prefill',
-      JSON.stringify({
-        targetRole: job.title,
-        location: job.location || 'UK',
-        jobDescription: jobDescription(job),
-      }),
-    );
+    window.sessionStorage.setItem('cognitwist-job-intelligence-prefill', JSON.stringify({
+      targetRole: job.title,
+      location: job.location || 'UK',
+      jobDescription: jobDescription(job),
+    }));
     window.location.href = '/job-intelligence';
   };
 
   const tailorCv = (job: Job) => {
-    window.sessionStorage.setItem(
-      'cognitwist-career-studio-context',
-      JSON.stringify({ targetRole: job.title, jobDescription: jobDescription(job) }),
-    );
+    window.sessionStorage.setItem('cognitwist-career-studio-context', JSON.stringify({
+      targetRole: job.title,
+      jobDescription: jobDescription(job),
+    }));
     window.location.href = '/studio';
   };
 
   const startInterview = (job: Job) => {
-    window.sessionStorage.setItem(
-      'cognitwist-live-interview-context',
-      JSON.stringify({ role: job.title, jobDescription: jobDescription(job), interviewType: 'behavioural' }),
-    );
+    window.sessionStorage.setItem('cognitwist-live-interview-context', JSON.stringify({
+      role: job.title,
+      jobDescription: jobDescription(job),
+      interviewType: 'behavioural',
+    }));
     window.location.href = `/live-interview?role=${encodeURIComponent(job.title)}&type=behavioural`;
   };
 
   const agents = [
-    {
-      name: 'Career Copilot',
-      detail: 'Coordinates the next best action across opportunity, CV and interview workflows.',
-      status: 'Ready',
-      icon: Bot,
-    },
-    {
-      name: 'Job Scout',
-      detail: 'Discovers the market before any personal fit filtering and records source health.',
-      status: loading ? 'Working' : result ? 'Completed' : 'Ready',
-      icon: Search,
-    },
-    {
-      name: 'CV Strategist',
-      detail: 'Turns a selected vacancy into evidence-grounded CV changes for approval.',
-      status: 'Available',
-      icon: FileText,
-    },
-    {
-      name: 'Interview Coach',
-      detail: 'Carries the same vacancy context into role-specific interview practice.',
-      status: 'Available',
-      icon: Mic2,
-    },
-  ];
+    ['Career Copilot', 'Coordinates the next best action across opportunity, CV and interview workflows.', 'Ready', Bot],
+    ['Job Scout', 'Searches configured sources and dynamic employer/ATS discovery before personal fit scoring.', loading ? 'Working' : result ? 'Completed' : 'Ready', Search],
+    ['CV Strategist', 'Turns a selected vacancy into evidence-grounded CV changes for approval.', 'Available', FileText],
+    ['Interview Coach', 'Carries the same vacancy context into role-specific interview practice.', 'Available', Mic2],
+  ] as const;
+
+  const displayedJobs = result?.jobs.slice(0, visibleCount) || [];
 
   return (
     <main className="min-h-screen px-3 pb-32 pt-6 text-[var(--foreground)] md:px-8 md:pb-12 md:pt-10">
@@ -200,87 +190,45 @@ export default function CareerCopilotClient() {
           <div className="pointer-events-none absolute -right-24 -top-28 h-80 w-80 rounded-full bg-[var(--accent-soft)] blur-3xl" />
           <div className="relative grid gap-8 xl:grid-cols-[1.15fr_0.85fr] xl:items-end">
             <div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-[var(--surface-border)] bg-[var(--accent-soft)] px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-[var(--accent-strong)]">
-                <Sparkles className="h-3.5 w-3.5" /> CogniTwist Career Copilot
-              </div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-[var(--surface-border)] bg-[var(--accent-soft)] px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-[var(--accent-strong)]"><Sparkles className="h-3.5 w-3.5" /> CogniTwist Career Copilot</div>
               <h1 className="mt-5 max-w-4xl text-4xl font-black tracking-tight md:text-6xl">Your AI career team, in one workspace.</h1>
-              <p className="mt-4 max-w-3xl text-sm leading-7 text-[var(--ink-soft)] md:text-base">
-                Discover the opportunity market first, then carry the same verified role context through fit analysis, evidence-preserving CV tailoring and interview preparation.
-              </p>
+              <p className="mt-4 max-w-3xl text-sm leading-7 text-[var(--ink-soft)] md:text-base">Discover the opportunity market broadly, then carry the same verified role context through fit analysis, evidence-preserving CV tailoring and interview preparation.</p>
               <div className="mt-6 flex flex-wrap gap-3">
-                <button type="button" onClick={() => document.getElementById('job-scout')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className="inline-flex min-h-12 items-center gap-2 rounded-2xl bg-[linear-gradient(135deg,var(--accent),var(--highlight))] px-5 text-sm font-black text-white shadow-[var(--shadow-xl)]">
-                  <Search className="h-4 w-4" /> Start Job Scout
-                </button>
-                <Link href="/studio" className="inline-flex min-h-12 items-center gap-2 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-strong)] px-5 text-sm font-black">
-                  <FileText className="h-4 w-4" /> Open Career Studio
-                </Link>
+                <button type="button" onClick={() => document.getElementById('job-scout')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className="inline-flex min-h-12 items-center gap-2 rounded-2xl bg-[linear-gradient(135deg,var(--accent),var(--highlight))] px-5 text-sm font-black text-white shadow-[var(--shadow-xl)]"><Search className="h-4 w-4" /> Start Job Scout</button>
+                <Link href="/studio" className="inline-flex min-h-12 items-center gap-2 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-strong)] px-5 text-sm font-black"><FileText className="h-4 w-4" /> Open Career Studio</Link>
               </div>
             </div>
-
             <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
               {[
-                ['Market-first discovery', 'A CV is not required to decide which vacancies enter the market set.'],
-                ['Evidence guardrails', 'Unsupported claims are never silently added to an application.'],
+                ['Market-first discovery', 'Candidate fit never decides which vacancies enter discovery.'],
+                ['Multi-lane search', 'Configured feeds plus dynamic employer and ATS discovery are merged.'],
                 ['Human-controlled actions', 'CogniTwist does not auto-apply or disclose your identity.'],
               ].map(([title, detail], index) => (
-                <div key={title} className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-strong)] p-4">
-                  <div className="flex items-start gap-3">
-                    {index === 0 ? <Target className="mt-0.5 h-4 w-4 text-[var(--accent-strong)]" /> : <ShieldCheck className="mt-0.5 h-4 w-4 text-[var(--accent-strong)]" />}
-                    <div><p className="text-xs font-black">{title}</p><p className="mt-1 text-[11px] leading-5 text-[var(--ink-soft)]">{detail}</p></div>
-                  </div>
-                </div>
+                <div key={title} className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-strong)] p-4"><div className="flex items-start gap-3">{index === 0 ? <Target className="mt-0.5 h-4 w-4 text-[var(--accent-strong)]" /> : <ShieldCheck className="mt-0.5 h-4 w-4 text-[var(--accent-strong)]" />}<div><p className="text-xs font-black">{title}</p><p className="mt-1 text-[11px] leading-5 text-[var(--ink-soft)]">{detail}</p></div></div></div>
               ))}
             </div>
           </div>
         </section>
 
         <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4" aria-label="Career agent team">
-          {agents.map((agent) => {
-            const Icon = agent.icon;
-            return (
-              <article key={agent.name} className={`${panelClass} p-5`}>
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--accent-soft)] text-[var(--accent-strong)]"><Icon className={`h-5 w-5 ${agent.status === 'Working' ? 'animate-pulse' : ''}`} /></div>
-                  <span className="rounded-full border border-[var(--surface-border)] bg-[var(--surface-strong)] px-2.5 py-1 text-[9px] font-black uppercase tracking-wide text-[var(--ink-soft)]">{agent.status}</span>
-                </div>
-                <h2 className="mt-4 text-base font-black">{agent.name}</h2>
-                <p className="mt-2 text-xs leading-6 text-[var(--ink-soft)]">{agent.detail}</p>
-              </article>
-            );
-          })}
+          {agents.map(([name, detail, status, Icon]) => (
+            <article key={name} className={`${panelClass} p-5`}>
+              <div className="flex items-start justify-between gap-3"><div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--accent-soft)] text-[var(--accent-strong)]"><Icon className={`h-5 w-5 ${status === 'Working' ? 'animate-pulse' : ''}`} /></div><span className="rounded-full border border-[var(--surface-border)] bg-[var(--surface-strong)] px-2.5 py-1 text-[9px] font-black uppercase tracking-wide text-[var(--ink-soft)]">{status}</span></div>
+              <h2 className="mt-4 text-base font-black">{name}</h2><p className="mt-2 text-xs leading-6 text-[var(--ink-soft)]">{detail}</p>
+            </article>
+          ))}
         </section>
 
         <section id="job-scout" className={`${panelClass} scroll-mt-28 overflow-hidden`}>
-          <div className="border-b border-[var(--surface-border)] p-5 md:p-7">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <div className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-[var(--accent-strong)]"><Activity className="h-3.5 w-3.5" /> Job Scout</div>
-                <h2 className="mt-2 text-2xl font-black md:text-3xl">Search the market before scoring the candidate.</h2>
-                <p className="mt-2 max-w-3xl text-xs leading-6 text-[var(--ink-soft)]">This V3 baseline records the health of the configured direct ATS/employer and fallback discovery set. Crawl4AI and browser-agent fallback will be measured against this baseline.</p>
-              </div>
-              <Link href="/jobs" className="inline-flex items-center gap-2 rounded-xl border border-[var(--surface-border)] px-4 py-3 text-xs font-black">Advanced search <ArrowRight className="h-4 w-4" /></Link>
-            </div>
-          </div>
-
+          <div className="border-b border-[var(--surface-border)] p-5 md:p-7"><div className="flex flex-wrap items-start justify-between gap-4"><div><div className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-[var(--accent-strong)]"><Activity className="h-3.5 w-3.5" /> Job Scout</div><h2 className="mt-2 text-2xl font-black md:text-3xl">Search beyond the preconfigured source list.</h2><p className="mt-2 max-w-3xl text-xs leading-6 text-[var(--ink-soft)]">Job Scout runs deterministic feeds and dynamic grounded employer/ATS discovery in parallel, then merges and deduplicates the market set before any candidate scoring.</p></div><Link href="/jobs" className="inline-flex items-center gap-2 rounded-xl border border-[var(--surface-border)] px-4 py-3 text-xs font-black">Advanced search <ArrowRight className="h-4 w-4" /></Link></div></div>
           <div className="p-5 md:p-7">
             <div className="grid gap-4 lg:grid-cols-[1.15fr_0.65fr_0.45fr_auto] lg:items-end">
-              <label className="text-xs font-black">Role, skill or company
-                <input className={`${inputClass} mt-2`} value={role} onChange={(event) => setRole(event.target.value)} placeholder="e.g. Senior Technical Project Manager" />
-              </label>
-              <label className="text-xs font-black">Location
-                <input className={`${inputClass} mt-2`} value={location} onChange={(event) => setLocation(event.target.value)} placeholder="UK / London / Remote" />
-              </label>
-              <label className="text-xs font-black">Freshness
-                <select className={`${inputClass} mt-2`} value={postedDays} onChange={(event) => setPostedDays(event.target.value)}>
-                  <option value="3">3 days</option><option value="7">7 days</option><option value="14">14 days</option><option value="30">30 days</option><option value="0">Any date</option>
-                </select>
-              </label>
-              <button type="button" onClick={searchJobs} disabled={loading} className="flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[var(--accent)] px-6 text-sm font-black text-white disabled:opacity-55">
-                {loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}{loading ? 'Scout working…' : 'Run Job Scout'}
-              </button>
+              <label className="text-xs font-black">Role, skill or company<input className={`${inputClass} mt-2`} value={role} onChange={(event) => setRole(event.target.value)} placeholder="e.g. Senior Technical Project Manager" /></label>
+              <label className="text-xs font-black">Location<input className={`${inputClass} mt-2`} value={location} onChange={(event) => setLocation(event.target.value)} placeholder="UK / London / Remote" /></label>
+              <label className="text-xs font-black">Freshness<select className={`${inputClass} mt-2`} value={postedDays} onChange={(event) => setPostedDays(event.target.value)}><option value="3">3 days</option><option value="7">7 days</option><option value="14">14 days</option><option value="30">30 days</option><option value="0">Any date</option></select></label>
+              <button type="button" onClick={searchJobs} disabled={loading} className="flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[var(--accent)] px-6 text-sm font-black text-white disabled:opacity-55">{loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}{loading ? 'Scout working…' : 'Run Job Scout'}</button>
             </div>
-
-            {loading && <div className="mt-5 rounded-2xl border border-[var(--surface-border)] bg-[var(--accent-soft)] p-4 text-xs leading-6"><span className="font-black">Job Scout is working.</span> Querying configured market sources and building a source-health receipt.</div>}
+            {loading && <div className="mt-5 rounded-2xl border border-[var(--surface-border)] bg-[var(--accent-soft)] p-4 text-xs leading-6"><span className="font-black">Job Scout is working.</span> Running configured sources and expanded market discovery in parallel, then removing duplicates.</div>}
             {error && <div role="alert" className="mt-5 rounded-2xl border border-rose-300 bg-rose-50 p-4 text-sm font-semibold text-rose-900"><AlertTriangle className="mr-2 inline h-4 w-4" />{error}</div>}
           </div>
         </section>
@@ -288,69 +236,44 @@ export default function CareerCopilotClient() {
         {result && (
           <section id="job-scout-results" className="scroll-mt-28 space-y-5">
             <div className={`${panelClass} p-5 md:p-6`}>
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--accent-strong)]">Job Scout receipt · {result.telemetry.run_id.slice(0, 8)}</p>
-                  <h2 className="mt-2 text-2xl font-black">Discovery run completed.</h2>
-                  <p className="mt-2 max-w-3xl text-xs leading-6 text-[var(--ink-soft)]">{result.telemetry.coverage_note}</p>
-                </div>
-                <span className={`rounded-full border px-3 py-1.5 text-[10px] font-black ${healthTone(result.telemetry.source_health)}`}>{healthLabel(result.telemetry.source_health)}</span>
-              </div>
+              <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--accent-strong)]">Job Scout receipt · {result.telemetry.run_id.slice(0, 8)}</p><h2 className="mt-2 text-2xl font-black">{result.total} distinct roles discovered.</h2><p className="mt-2 max-w-3xl text-xs leading-6 text-[var(--ink-soft)]">{result.telemetry.coverage_note}</p></div><span className={`rounded-full border px-3 py-1.5 text-[10px] font-black ${healthTone(result.telemetry.source_health)}`}>{healthLabel(result.telemetry.source_health)}</span></div>
 
               <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
                 {[
                   ['Roles', String(result.telemetry.roles_returned), BriefcaseBusiness],
                   ['Employers', String(result.telemetry.unique_employers), UsersRound],
-                  ['Sources', String(result.telemetry.sources_observed), Activity],
-                  ['Direct share', `${result.telemetry.direct_share_percent}%`, ShieldCheck],
+                  ['Configured lane', String(result.telemetry.configured_lane_roles ?? 0), Activity],
+                  ['Expanded lane', String(result.telemetry.expanded_lane_roles ?? 0), Sparkles],
                   ['Run time', `${Math.max(1, Math.round(result.telemetry.duration_ms / 100) / 10)}s`, Clock3],
-                  ['Coverage', 'Not measured', Target],
+                  ['Coverage', coverageLabel(result.telemetry.coverage_confidence), Target],
                 ].map(([label, value, MetricIcon]) => {
                   const Icon = MetricIcon as typeof Activity;
-                  return <div key={String(label)} className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-strong)] p-4"><Icon className="h-4 w-4 text-[var(--accent-strong)]" /><p className="mt-3 text-[9px] font-black uppercase tracking-wide text-[var(--ink-soft)]">{String(label)}</p><p className="mt-1 text-xl font-black">{String(value)}</p></div>;
+                  return <div key={String(label)} className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-strong)] p-4"><Icon className="h-4 w-4 text-[var(--accent-strong)]" /><p className="mt-3 text-[9px] font-black uppercase tracking-wide text-[var(--ink-soft)]">{String(label)}</p><p className="mt-1 text-lg font-black">{String(value)}</p></div>;
                 })}
               </div>
 
               <div className="mt-4 flex flex-wrap gap-2">{result.sources.map((source) => <span key={source} className="rounded-full border border-[var(--surface-border)] bg-[var(--surface-strong)] px-3 py-1.5 text-[9px] font-black">{source}</span>)}</div>
 
-              {result.telemetry.fallback_recommended ? (
-                <div className="mt-5 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-950">
-                  <div className="flex items-start gap-3"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /><div><p className="text-xs font-black">Deeper fallback discovery recommended</p><ul className="mt-2 space-y-1 text-[11px] leading-5">{result.telemetry.fallback_reasons.map((reason) => <li key={reason}>• {reason}</li>)}</ul><p className="mt-3 text-[10px] font-bold">This is the trigger that the upcoming Crawl4AI / browser-agent layer will consume automatically.</p></div></div>
-                </div>
-              ) : (
-                <div className="mt-5 flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-xs font-bold text-emerald-950"><CheckCircle2 className="h-4 w-4" /> No fallback trigger fired for this configured-source run.</div>
-              )}
-
+              {result.telemetry.fallback_recommended ? <div className="mt-5 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-950"><div className="flex items-start gap-3"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /><div><p className="text-xs font-black">Coverage still needs another pass</p><ul className="mt-2 space-y-1 text-[11px] leading-5">{result.telemetry.fallback_reasons.map((reason) => <li key={reason}>• {reason}</li>)}</ul></div></div></div> : <div className="mt-5 flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-xs font-bold text-emerald-950"><CheckCircle2 className="h-4 w-4" /> No anomaly trigger fired for this discovery run.</div>}
               {result.source_errors?.length ? <div className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950">{result.source_errors.join(' ')}</div> : null}
             </div>
 
             {result.jobs.length ? (
-              <div className="grid gap-4 lg:grid-cols-2">
-                {result.jobs.slice(0, 12).map((job) => (
-                  <article key={`${job.company}-${job.title}-${job.link}`} className={`${panelClass} overflow-hidden`}>
-                    <div className="p-5 md:p-6">
-                      <div className="flex items-start gap-4">
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-strong)] text-xs font-black text-[var(--accent-strong)]">{companyInitials(job.company)}</div>
-                        <div className="min-w-0 flex-1"><p className="truncate text-[10px] font-black uppercase tracking-wide text-[var(--accent-strong)]">{job.company}</p><h3 className="mt-1 text-lg font-black leading-snug">{job.title}</h3><p className="mt-2 flex items-center gap-1 text-[11px] text-[var(--ink-soft)]"><MapPin className="h-3.5 w-3.5" /> {job.location || 'Location not stated'} {job.posted ? `· ${job.posted}` : ''}</p></div>
-                      </div>
-                      <div className="mt-4 flex flex-wrap gap-2"><span className={`rounded-full border px-2.5 py-1 text-[9px] font-black ${job.direct ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-[var(--surface-border)] bg-[var(--surface-strong)]'}`}>{job.source}</span>{job.remote ? <span className="rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-[9px] font-black text-sky-900">Remote</span> : null}<span className="rounded-full border border-[var(--surface-border)] px-2.5 py-1 text-[9px] font-black">{job.salary || 'Not disclosed'}</span></div>
-                      <p className="mt-4 line-clamp-4 text-xs leading-6 text-[var(--ink-soft)]">{job.description || 'Open the source vacancy for the full role description.'}</p>
-                      {job.skills?.length ? <div className="mt-4 flex flex-wrap gap-1.5">{job.skills.slice(0, 6).map((skill) => <span key={skill} className="rounded-lg bg-[var(--accent-soft)] px-2 py-1 text-[9px] font-bold text-[var(--accent-strong)]">{skill}</span>)}</div> : null}
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 border-t border-[var(--surface-border)] bg-[var(--surface-strong)] p-3 sm:grid-cols-4">
-                      <button type="button" onClick={() => analyseFit(job)} className="flex min-h-10 items-center justify-center gap-1.5 rounded-xl bg-[var(--accent)] px-2 text-[10px] font-black text-white"><Target className="h-3.5 w-3.5" /> Analyse</button>
-                      <button type="button" onClick={() => tailorCv(job)} className="flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-[var(--surface-border)] bg-[var(--surface)] px-2 text-[10px] font-black"><FileText className="h-3.5 w-3.5" /> Tailor CV</button>
-                      <button type="button" onClick={() => startInterview(job)} className="flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-[var(--surface-border)] bg-[var(--surface)] px-2 text-[10px] font-black"><Mic2 className="h-3.5 w-3.5" /> Practise</button>
-                      <a href={job.link} target="_blank" rel="noopener noreferrer" className="flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-[var(--surface-border)] bg-[var(--surface)] px-2 text-[10px] font-black"><ExternalLink className="h-3.5 w-3.5" /> Apply</a>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            ) : (
-              <div className={`${panelClass} p-8 text-center`}><BriefcaseBusiness className="mx-auto h-8 w-8 text-[var(--ink-soft)]" /><h3 className="mt-3 font-black">No roles returned from this configured search.</h3><p className="mt-2 text-xs text-[var(--ink-soft)]">That is a fallback trigger, not proof that no vacancies exist.</p></div>
-            )}
+              <>
+                <div className="flex items-center justify-between gap-3 px-1 text-xs text-[var(--ink-soft)]"><span>Showing {displayedJobs.length} of {result.jobs.length} discovered roles</span><span>Duplicates removed before display</span></div>
+                <div className="grid gap-4 lg:grid-cols-2">
+                  {displayedJobs.map((job) => (
+                    <article key={`${job.company}-${job.title}-${job.link}`} className={`${panelClass} overflow-hidden`}>
+                      <div className="p-5 md:p-6"><div className="flex items-start gap-4"><div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-strong)] text-xs font-black text-[var(--accent-strong)]">{companyInitials(job.company)}</div><div className="min-w-0 flex-1"><p className="truncate text-[10px] font-black uppercase tracking-wide text-[var(--accent-strong)]">{job.company}</p><h3 className="mt-1 text-lg font-black leading-snug">{job.title}</h3><p className="mt-2 flex items-center gap-1 text-[11px] text-[var(--ink-soft)]"><MapPin className="h-3.5 w-3.5" /> {job.location || 'Location not stated'} {job.posted ? `· ${job.posted}` : ''}</p></div></div><div className="mt-4 flex flex-wrap gap-2"><span className={`rounded-full border px-2.5 py-1 text-[9px] font-black ${job.direct ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-[var(--surface-border)] bg-[var(--surface-strong)]'}`}>{job.source}</span>{job.remote ? <span className="rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-[9px] font-black text-sky-900">Remote</span> : null}<span className="rounded-full border border-[var(--surface-border)] px-2.5 py-1 text-[9px] font-black">{job.salary || 'Not disclosed'}</span></div><p className="mt-4 line-clamp-4 text-xs leading-6 text-[var(--ink-soft)]">{job.description || 'Open the source vacancy for the full role description.'}</p>{job.skills?.length ? <div className="mt-4 flex flex-wrap gap-1.5">{job.skills.slice(0, 6).map((skill) => <span key={skill} className="rounded-lg bg-[var(--accent-soft)] px-2 py-1 text-[9px] font-bold text-[var(--accent-strong)]">{skill}</span>)}</div> : null}</div>
+                      <div className="grid grid-cols-2 gap-2 border-t border-[var(--surface-border)] bg-[var(--surface-strong)] p-3 sm:grid-cols-4"><button type="button" onClick={() => analyseFit(job)} className="flex min-h-10 items-center justify-center gap-1.5 rounded-xl bg-[var(--accent)] px-2 text-[10px] font-black text-white"><Target className="h-3.5 w-3.5" /> Analyse</button><button type="button" onClick={() => tailorCv(job)} className="flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-[var(--surface-border)] bg-[var(--surface)] px-2 text-[10px] font-black"><FileText className="h-3.5 w-3.5" /> Tailor CV</button><button type="button" onClick={() => startInterview(job)} className="flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-[var(--surface-border)] bg-[var(--surface)] px-2 text-[10px] font-black"><Mic2 className="h-3.5 w-3.5" /> Practise</button><a href={job.link} target="_blank" rel="noopener noreferrer" className="flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-[var(--surface-border)] bg-[var(--surface)] px-2 text-[10px] font-black"><ExternalLink className="h-3.5 w-3.5" /> Apply</a></div>
+                    </article>
+                  ))}
+                </div>
+                {visibleCount < result.jobs.length ? <div className="flex justify-center"><button type="button" onClick={() => setVisibleCount((count) => Math.min(result.jobs.length, count + 24))} className="inline-flex min-h-12 items-center gap-2 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] px-6 text-sm font-black shadow-[var(--shadow-lg)]">Show 24 more <ArrowRight className="h-4 w-4" /></button></div> : null}
+              </>
+            ) : <div className={`${panelClass} p-8 text-center`}><BriefcaseBusiness className="mx-auto h-8 w-8 text-[var(--ink-soft)]" /><h3 className="mt-3 font-black">No roles returned after the available discovery lanes.</h3><p className="mt-2 text-xs text-[var(--ink-soft)]">That is still not proof that no vacancies exist; the coverage receipt will show whether another discovery pass is required.</p></div>}
 
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-4 text-xs"><div className="flex items-center gap-2 text-[var(--ink-soft)]"><CheckCircle2 className="h-4 w-4 text-[var(--accent-strong)]" /> Continue from the selected opportunity without rebuilding context.</div><Link href="/jobs" className="inline-flex items-center gap-2 rounded-xl border border-[var(--surface-border)] px-4 py-2 font-black">View full Job Search <ArrowRight className="h-4 w-4" /></Link></div>
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-4 text-xs"><div className="flex items-center gap-2 text-[var(--ink-soft)]"><CheckCircle2 className="h-4 w-4 text-[var(--accent-strong)]" /> Continue from any discovered opportunity without rebuilding context.</div><Link href="/jobs" className="inline-flex items-center gap-2 rounded-xl border border-[var(--surface-border)] px-4 py-2 font-black">View full Job Search <ArrowRight className="h-4 w-4" /></Link></div>
           </section>
         )}
       </div>
