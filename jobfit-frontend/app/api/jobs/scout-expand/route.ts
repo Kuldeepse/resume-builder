@@ -29,6 +29,11 @@ type ExpandedPayload = {
   coverage_note?: string;
 };
 
+type CompatibilityPayload = {
+  jobs?: Job[];
+  search_mode?: string;
+};
+
 function cleanText(value: unknown, limit = 1000) {
   return String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, limit);
 }
@@ -70,6 +75,35 @@ function sanitiseJob(job: Job): Job | null {
   };
 }
 
+function sanitiseJobs(jobs: Job[] | undefined, sourceOverride?: string) {
+  return (Array.isArray(jobs) ? jobs : [])
+    .map((job) => sanitiseJob(sourceOverride ? { ...job, source: sourceOverride, source_type: 'indexed_job_source', direct: false } : job))
+    .filter((job): job is Job => Boolean(job))
+    .slice(0, 60);
+}
+
+async function runCompatibilityGrounded(backendBase: string, role: string, location: string) {
+  const form = new FormData();
+  form.append('target_role', role);
+  form.append('location_city', location);
+  form.append(
+    'resume_skills',
+    'MARKET DISCOVERY ONLY. No candidate profile is supplied. Discover current relevant vacancies broadly for the requested role and location. Do not narrow discovery using candidate evidence.',
+  );
+
+  const response = await fetch(`${backendBase}/search-jobs`, {
+    method: 'POST',
+    cache: 'no-store',
+    signal: AbortSignal.timeout(12000),
+    body: form,
+    headers: { Accept: 'application/json' },
+  });
+
+  const payload = (await response.json().catch(() => null)) as CompatibilityPayload | null;
+  if (!response.ok || !payload) throw new Error('compatibility_unavailable');
+  return sanitiseJobs(payload.jobs, 'Grounded · Compatibility Search');
+}
+
 export async function GET(request: Request) {
   const startedAt = Date.now();
   const incoming = new URL(request.url);
@@ -86,55 +120,68 @@ export async function GET(request: Request) {
   form.append('freshness_days', String(days));
   form.append('max_jobs', '60');
 
+  let dedicatedStatus = 'not_attempted';
+
   try {
     const response = await fetch(`${backendBase}/discover-market-jobs`, {
       method: 'POST',
       cache: 'no-store',
-      signal: AbortSignal.timeout(22000),
+      signal: AbortSignal.timeout(15000),
       body: form,
       headers: { Accept: 'application/json' },
     });
 
     const payload = (await response.json().catch(() => null)) as ExpandedPayload | null;
-    if (!response.ok || !payload) {
+    dedicatedStatus = response.ok && payload ? 'completed' : `http_${response.status}`;
+
+    if (response.ok && payload) {
+      const jobs = sanitiseJobs(payload.jobs);
+      if (jobs.length) {
+        return NextResponse.json({
+          jobs,
+          total: jobs.length,
+          partial: Array.isArray(payload.failed_passes) && payload.failed_passes.length > 0,
+          status: 'completed',
+          duration_ms: Date.now() - startedAt,
+          passes_completed: Array.isArray(payload.passes) ? payload.passes : [],
+          passes_failed: Array.isArray(payload.failed_passes) ? payload.failed_passes : [],
+          search_strategy: cleanText(payload.search_strategy, 500),
+          coverage_note: cleanText(payload.coverage_note, 800) || 'Expanded employer/ATS discovery completed.',
+        });
+      }
+      dedicatedStatus = 'completed_zero_results';
+    }
+  } catch {
+    dedicatedStatus = 'timeout_or_unavailable';
+  }
+
+  try {
+    const compatibilityJobs = await runCompatibilityGrounded(backendBase, role, location);
+    if (compatibilityJobs.length) {
       return NextResponse.json({
-        jobs: [],
-        total: 0,
+        jobs: compatibilityJobs,
+        total: compatibilityJobs.length,
         partial: true,
-        status: 'expanded_unavailable',
+        status: 'compatibility_completed',
         duration_ms: Date.now() - startedAt,
-        passes_completed: [],
-        passes_failed: ['expanded_market'],
-        coverage_note: 'Expanded discovery is temporarily unavailable. Configured-source results remain usable.',
+        passes_completed: ['compatibility_grounded'],
+        passes_failed: dedicatedStatus === 'completed_zero_results' ? [] : ['expanded_market'],
+        search_strategy: 'grounded compatibility market discovery after dedicated expanded lane was unavailable or returned no verified roles',
+        coverage_note: `Expanded fallback found ${compatibilityJobs.length} grounded roles. Wider market coverage is still being improved and should not be treated as exhaustive.`,
       });
     }
-
-    const jobs = (Array.isArray(payload.jobs) ? payload.jobs : [])
-      .map(sanitiseJob)
-      .filter((job): job is Job => Boolean(job))
-      .slice(0, 60);
-
-    return NextResponse.json({
-      jobs,
-      total: jobs.length,
-      partial: Array.isArray(payload.failed_passes) && payload.failed_passes.length > 0,
-      status: 'completed',
-      duration_ms: Date.now() - startedAt,
-      passes_completed: Array.isArray(payload.passes) ? payload.passes : [],
-      passes_failed: Array.isArray(payload.failed_passes) ? payload.failed_passes : [],
-      search_strategy: cleanText(payload.search_strategy, 500),
-      coverage_note: cleanText(payload.coverage_note, 800) || 'Expanded employer/ATS discovery completed.',
-    });
   } catch {
-    return NextResponse.json({
-      jobs: [],
-      total: 0,
-      partial: true,
-      status: 'expanded_timeout',
-      duration_ms: Date.now() - startedAt,
-      passes_completed: [],
-      passes_failed: ['expanded_market'],
-      coverage_note: 'Expanded discovery timed out. Configured-source results remain usable and the search did not fail.',
-    });
+    // Return a safe empty result below. The fast configured lane remains independent.
   }
+
+  return NextResponse.json({
+    jobs: [],
+    total: 0,
+    partial: true,
+    status: 'expanded_no_verified_results',
+    duration_ms: Date.now() - startedAt,
+    passes_completed: [],
+    passes_failed: ['expanded_market'],
+    coverage_note: 'No additional roles could be verified by the expanded discovery stage in this run. This does not mean no matching vacancies exist; retry or broaden the search while coverage continues to improve.',
+  });
 }
