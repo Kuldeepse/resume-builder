@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { validateJobsForSearch } from '../job-trust';
+import { persistValidatedMarketRun } from '../job-market-index';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -250,6 +251,7 @@ async function runCompatibility(backendBase: string, role: string, location: str
 
 export async function GET(request: Request) {
   const startedAt = Date.now();
+  const runId = crypto.randomUUID();
   const incoming = new URL(request.url);
   const role = cleanText(incoming.searchParams.get('q'), 300);
   const location = cleanText(incoming.searchParams.get('location'), 200);
@@ -276,6 +278,36 @@ export async function GET(request: Request) {
   ];
   const partial = passesFailed.length > 0 || Boolean(dedicated?.partial) || Boolean(compatibility?.partial);
   const filteredCount = (dedicated?.filteredCount || 0) + (compatibility?.filteredCount || 0);
+  const sourceHealth = !jobs.length ? 'no_results' : partial ? 'degraded' : 'healthy';
+  const coverageConfidence = jobs.length ? (partial ? 'expanded_validated_partial' : 'expanded_validated') : 'expanded_no_validated_results';
+  const coverageNote = jobs.length
+    ? `Expanded discovery added ${jobs.length} validated role observations. ${filteredCount} candidate result${filteredCount === 1 ? ' was' : 's were'} withheld because role, location, freshness or vacancy-page evidence did not match the search. Coverage remains non-exhaustive.`
+    : filteredCount
+      ? `${filteredCount} discovered candidate result${filteredCount === 1 ? ' was' : 's were'} withheld because the search intent could not be validated. No additional trustworthy role was added in this pass.`
+      : 'No additional role could be validated by the expanded stages in this run. This is not evidence that no matching vacancies exist.';
+
+  const marketIndex = await persistValidatedMarketRun({
+    runId,
+    lane: 'expanded',
+    query: role,
+    location,
+    freshnessDays: days,
+    startedAt,
+    completedAt: Date.now(),
+    jobs,
+    rolesReceived: jobs.length + filteredCount,
+    rolesRejected: filteredCount,
+    sourceHealth,
+    sourceErrorCount: passesFailed.length,
+    coverageConfidence,
+    coverageNote,
+    metadata: {
+      passes_completed: passesCompleted,
+      passes_failed: passesFailed,
+      dedicated_status: dedicated?.status || (dedicatedResult.status === 'rejected' ? 'failed' : 'unavailable'),
+      compatibility_status: compatibility?.status || (compatibilityResult.status === 'rejected' ? 'failed' : 'unavailable'),
+    },
+  });
 
   if (jobs.length) {
     const dedicatedCount = dedicated?.jobs.length || 0;
@@ -289,8 +321,9 @@ export async function GET(request: Request) {
       passes_completed: passesCompleted,
       passes_failed: passesFailed,
       filtered_untrusted: filteredCount,
+      market_index: marketIndex,
       search_strategy: `${[dedicated?.strategy, compatibility?.strategy].filter(Boolean).join(' | ')} | deterministic trust gate before merge`,
-      coverage_note: `Expanded discovery added ${jobs.length} validated role observations. ${filteredCount} candidate result${filteredCount === 1 ? ' was' : 's were'} withheld because role, location, freshness or vacancy-page evidence did not match the search. Coverage remains non-exhaustive.`,
+      coverage_note: coverageNote,
     });
   }
 
@@ -303,8 +336,7 @@ export async function GET(request: Request) {
     passes_completed: passesCompleted,
     passes_failed: passesFailed.length ? passesFailed : ['expanded_market'],
     filtered_untrusted: filteredCount,
-    coverage_note: filteredCount
-      ? `${filteredCount} discovered candidate result${filteredCount === 1 ? ' was' : 's were'} withheld because the search intent could not be validated. No additional trustworthy role was added in this pass.`
-      : 'No additional role could be validated by the expanded stages in this run. This is not evidence that no matching vacancies exist.',
+    market_index: marketIndex,
+    coverage_note: coverageNote,
   });
 }
