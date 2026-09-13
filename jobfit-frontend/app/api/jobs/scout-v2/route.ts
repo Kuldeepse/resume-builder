@@ -18,33 +18,11 @@ type Job = {
   direct?: boolean;
 };
 
-type ScoutTelemetry = {
-  run_id?: string;
-  duration_ms?: number;
-  roles_returned?: number;
-  unique_employers?: number;
-  sources_observed?: number;
-  direct_sources_observed?: number;
-  fallback_sources_observed?: number;
-  direct_roles?: number;
-  fallback_roles?: number;
-  direct_share_percent?: number;
-  source_error_count?: number;
-  source_health?: string;
-  fallback_recommended?: boolean;
-  fallback_reasons?: string[];
-  coverage_confidence?: string;
-  coverage_note?: string;
-};
-
 type BaselinePayload = {
   jobs?: Job[];
   partial?: boolean;
   source_errors?: string[];
   search_strategy?: string;
-  fallback_observations?: unknown[];
-  fallback_worker?: Record<string, unknown>;
-  telemetry?: ScoutTelemetry;
 };
 
 type ExpandedPayload = {
@@ -164,7 +142,7 @@ function distinct(values: string[]) {
 }
 
 async function fetchBaseline(origin: string, search: string) {
-  const response = await fetch(`${origin}/api/jobs/scout?${search}`, {
+  const response = await fetch(`${origin}/api/jobs/browse?${search}`, {
     cache: 'no-store',
     signal: AbortSignal.timeout(30000),
     headers: { Accept: 'application/json' },
@@ -252,8 +230,6 @@ export async function GET(request: Request) {
     partial,
     source_errors: sourceErrorCount ? [`${sourceErrorCount} discovery component${sourceErrorCount === 1 ? '' : 's'} were unavailable or incomplete in this run.`] : [],
     search_strategy: 'parallel discovery: configured ATS/feeds + three-pass grounded employer/ATS market discovery; merged before candidate fit',
-    fallback_observations: baseline.fallback_observations || [],
-    fallback_worker: baseline.fallback_worker || { configured: false, invoked: false, status: 'not_configured' },
     expanded_discovery: {
       available: expandedResult.status === 'fulfilled',
       jobs_before_merge: expandedJobs.length,
