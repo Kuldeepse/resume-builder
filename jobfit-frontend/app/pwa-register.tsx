@@ -29,7 +29,7 @@ export default function PwaRegister() {
     let disposed = false;
 
     const refreshOnControllerChange = () => {
-      const reloadKey = 'cognitwist-sw-refresh-v5';
+      const reloadKey = 'cognitwist-sw-refresh-v6';
       if (window.sessionStorage.getItem(reloadKey)) return;
       window.sessionStorage.setItem(reloadKey, '1');
       window.location.reload();
@@ -37,7 +37,7 @@ export default function PwaRegister() {
 
     const register = async () => {
       try {
-        const registration = await navigator.serviceWorker.register('/sw.js?v=5', {
+        const registration = await navigator.serviceWorker.register('/sw.js?v=6', {
           scope: '/',
           updateViaCache: 'none',
         });
