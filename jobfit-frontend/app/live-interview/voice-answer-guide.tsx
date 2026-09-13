@@ -1,14 +1,17 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Gauge, Play, Volume2 } from 'lucide-react';
+import { Gauge, Play, Target, Volume2 } from 'lucide-react';
+import { buildExpectedInterviewResponse } from '../../lib/interview-expected-response.mjs';
 
 type InterviewType = 'hr' | 'behavioural' | 'technical';
 
 type StoredContext = {
   role?: string;
   company?: string;
+  jobDescription?: string;
   interviewType?: InterviewType;
+  candidateEvidence?: string[];
 };
 
 type TtsSettings = {
@@ -16,24 +19,23 @@ type TtsSettings = {
   rate: number;
 };
 
+type ExpectedResponse = {
+  intent: string;
+  title: string;
+  interviewer_testing: string[];
+  structure: string;
+  expected_response: string;
+  relevant_evidence: string[];
+  missing_evidence: string[];
+  evidence_safe: boolean;
+};
+
 const STORAGE_KEY = 'cognitwist-live-interview-tts';
 
-const GUIDES: Record<InterviewType, { label: string; structure: string; template: string }> = {
-  hr: {
-    label: 'HR answer pattern',
-    structure: 'Direct answer → relevant evidence → why this role/company → practical facts when asked.',
-    template: 'I am interested in this opportunity because [verified reason]. My most relevant evidence is [specific experience]. I personally [verified contribution], which led to [verified outcome].',
-  },
-  behavioural: {
-    label: 'Behavioural / STAR answer pattern',
-    structure: 'Situation 10–15% → Task 10% → Action 50–60% → Result 20–25% → learning if relevant.',
-    template: 'Situation: [verified context]. Task: I was accountable for [objective]. Action: I [2–3 specific decisions/actions]. Result: [verified metric/outcome].',
-  },
-  technical: {
-    label: 'Technical answer pattern',
-    structure: 'Context/constraints → architecture/options → decision and trade-off → controls/testing → verified outcome.',
-    template: 'Context: [platform/scale/constraint]. I evaluated [options], chose [approach] because [trade-off], validated it through [controls/tests], and achieved [verified outcome].',
-  },
+const OPENINGS: Record<InterviewType, string> = {
+  hr: 'Please introduce yourself and explain why you are interested in this role.',
+  behavioural: 'Tell me about a complex programme or project you led. What made it difficult, and what did you personally do?',
+  technical: 'Walk me through the architecture of a complex platform or transformation you delivered.',
 };
 
 function safeType(value: unknown): InterviewType {
@@ -66,6 +68,12 @@ function readSettings(): TtsSettings {
   }
 }
 
+function readCurrentQuestionFromPage() {
+  const marker = Array.from(document.querySelectorAll('p')).find((node) => node.textContent?.trim() === 'Current question');
+  const heading = marker?.parentElement?.querySelector('h2');
+  return heading?.textContent?.trim() || '';
+}
+
 export default function VoiceAnswerGuide() {
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [voiceURI, setVoiceURI] = useState('auto');
@@ -73,6 +81,9 @@ export default function VoiceAnswerGuide() {
   const [interviewType, setInterviewType] = useState<InterviewType>('behavioural');
   const [role, setRole] = useState('');
   const [company, setCompany] = useState('');
+  const [jobDescription, setJobDescription] = useState('');
+  const [candidateEvidence, setCandidateEvidence] = useState<string[]>([]);
+  const [currentQuestion, setCurrentQuestion] = useState('');
   const originalSpeakRef = useRef<((utterance: SpeechSynthesisUtterance) => void) | null>(null);
 
   useEffect(() => {
@@ -81,11 +92,27 @@ export default function VoiceAnswerGuide() {
     setRate(stored.rate);
     const context = readContext();
     const params = new URLSearchParams(window.location.search);
-    setInterviewType(safeType(params.get('type') || context.interviewType));
+    const nextType = safeType(params.get('type') || context.interviewType);
+    setInterviewType(nextType);
     setRole(String(params.get('role') || context.role || '').slice(0, 240));
     setCompany(String(context.company || '').slice(0, 240));
+    setJobDescription(String(context.jobDescription || '').slice(0, 12000));
+    setCandidateEvidence(Array.isArray(context.candidateEvidence)
+      ? context.candidateEvidence.map((item) => String(item).slice(0, 1200)).filter(Boolean).slice(0, 30)
+      : []);
+    setCurrentQuestion(readCurrentQuestionFromPage() || OPENINGS[nextType]);
 
-    if (!('speechSynthesis' in window)) return;
+    const syncQuestion = () => {
+      const visibleQuestion = readCurrentQuestionFromPage();
+      if (visibleQuestion) setCurrentQuestion((previous) => previous === visibleQuestion ? previous : visibleQuestion);
+    };
+    const observer = new MutationObserver(syncQuestion);
+    if (document.body) observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+
+    if (!('speechSynthesis' in window)) {
+      return () => observer.disconnect();
+    }
+
     const synth = window.speechSynthesis;
     const loadVoices = () => {
       const list = synth.getVoices()
@@ -115,10 +142,11 @@ export default function VoiceAnswerGuide() {
     try {
       synth.speak = wrapped;
     } catch {
-      // Some browsers expose speechSynthesis.speak as non-writable. The page still works with its default voice.
+      // Some browsers expose speechSynthesis.speak as non-writable. The page keeps its default voice in that case.
     }
 
     return () => {
+      observer.disconnect();
       synth.removeEventListener?.('voiceschanged', loadVoices);
       if (originalSpeakRef.current) {
         try { synth.speak = originalSpeakRef.current; } catch { /* no-op */ }
@@ -135,7 +163,14 @@ export default function VoiceAnswerGuide() {
   }, [voiceURI, rate]);
 
   const selectedVoice = useMemo(() => voices.find((voice) => voice.voiceURI === voiceURI), [voices, voiceURI]);
-  const guide = GUIDES[interviewType];
+  const expected = useMemo(() => buildExpectedInterviewResponse({
+    role,
+    company,
+    job_description: jobDescription,
+    interview_type: interviewType,
+    question: currentQuestion || OPENINGS[interviewType],
+    candidate_evidence: candidateEvidence,
+  }) as ExpectedResponse, [role, company, jobDescription, interviewType, currentQuestion, candidateEvidence]);
 
   const preview = () => {
     if (!('speechSynthesis' in window)) return;
@@ -147,7 +182,7 @@ export default function VoiceAnswerGuide() {
 
   return (
     <section className="mx-auto mt-4 max-w-7xl px-3 md:px-8" aria-label="Interview voice and expected answer settings">
-      <div className="grid gap-3 rounded-[1.5rem] border border-[var(--surface-border)] bg-[var(--surface)] p-4 shadow-[var(--shadow-lg)] lg:grid-cols-[1fr_1.25fr]">
+      <div className="grid gap-3 rounded-[1.5rem] border border-[var(--surface-border)] bg-[var(--surface)] p-4 shadow-[var(--shadow-lg)] lg:grid-cols-[0.8fr_1.4fr]">
         <div className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-strong)] p-4">
           <div className="flex items-center gap-2 text-xs font-black"><Volume2 className="h-4 w-4 text-[var(--accent-strong)]" /> Voice / TTS</div>
           <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
@@ -166,11 +201,18 @@ export default function VoiceAnswerGuide() {
         </div>
 
         <div className="rounded-2xl border border-[var(--surface-border)] bg-[var(--accent-soft)] p-4">
-          <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-xs font-black text-[var(--accent-strong)]">What a strong answer should contain</p><select value={interviewType} onChange={(event) => setInterviewType(safeType(event.target.value))} className="rounded-lg border border-[var(--surface-border)] bg-[var(--surface)] px-2 py-1.5 text-[10px] font-black"><option value="hr">HR</option><option value="behavioural">Behavioural</option><option value="technical">Technical</option></select></div>
-          <p className="mt-2 text-[11px] font-black">{guide.label}{role ? ` · ${role}` : ''}{company ? ` · ${company}` : ''}</p>
-          <p className="mt-2 text-xs leading-6 text-[var(--ink-soft)]">{guide.structure}</p>
-          <div className="mt-3 rounded-xl border border-[var(--surface-border)] bg-[var(--surface)] p-3 text-xs leading-6"><span className="font-black">Expected response template:</span> {guide.template}</div>
-          <p className="mt-2 text-[10px] leading-5 text-[var(--ink-soft)]">Use only facts you can verify. Bracketed fields are prompts, not claims CogniTwist should invent for you.</p>
+          <div className="flex items-start gap-3"><Target className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent-strong)]" /><div className="min-w-0 flex-1"><p className="text-xs font-black text-[var(--accent-strong)]">Expected response for the current question</p><p className="mt-1 text-sm font-black leading-6">{currentQuestion || OPENINGS[interviewType]}</p></div></div>
+          <div className="mt-3 flex flex-wrap gap-1.5">{expected.interviewer_testing.map((item) => <span key={item} className="rounded-full border border-[var(--surface-border)] bg-[var(--surface)] px-2.5 py-1 text-[9px] font-black">{item}</span>)}</div>
+          <div className="mt-3 rounded-xl border border-[var(--surface-border)] bg-[var(--surface)] p-3">
+            <p className="text-[10px] font-black uppercase tracking-wide text-[var(--ink-soft)]">Best structure</p>
+            <p className="mt-1 text-xs leading-6">{expected.structure}</p>
+          </div>
+          <div className="mt-3 rounded-xl border border-[var(--surface-border)] bg-[var(--surface)] p-3">
+            <p className="text-[10px] font-black uppercase tracking-wide text-[var(--ink-soft)]">Expected response</p>
+            <pre className="mt-2 whitespace-pre-wrap font-sans text-xs leading-6 text-[var(--foreground)]">{expected.expected_response}</pre>
+          </div>
+          {expected.relevant_evidence.length ? <div className="mt-3"><p className="text-[10px] font-black uppercase tracking-wide text-[var(--ink-soft)]">Relevant evidence already available</p><ul className="mt-2 space-y-1.5 text-[10px] leading-5 text-[var(--ink-soft)]">{expected.relevant_evidence.map((item) => <li key={item}>• {item}</li>)}</ul></div> : <p className="mt-3 text-[10px] leading-5 text-[var(--ink-soft)]">No candidate evidence was carried into this session, so the response keeps evidence fields as visible placeholders rather than inventing them.</p>}
+          <p className="mt-3 text-[10px] leading-5 text-[var(--ink-soft)]">This updates automatically when the interview coach changes the question. Bracketed fields are prompts for verified facts, not generated claims.</p>
         </div>
       </div>
     </section>
