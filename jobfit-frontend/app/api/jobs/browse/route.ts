@@ -16,6 +16,11 @@ const GREENHOUSE_BOARDS = [
   ['Speechmatics', 'speechmatics'],
   ['Capco', 'capco'],
   ['Yondr', 'yondrgroup'],
+  // Current direct-ATS regression sources discovered during market-coverage validation.
+  // These are not special-case title results: the full boards are fetched and still pass the same
+  // query/location/freshness trust gates as every other source.
+  ['VSI', 'vsi'],
+  ['Tech Holding', 'techholding'],
 ] as const;
 
 const ASHBY_BOARDS = [
