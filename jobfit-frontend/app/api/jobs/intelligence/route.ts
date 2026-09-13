@@ -122,6 +122,28 @@ function sanitiseVacancy(raw: VacancyInput) {
   };
 }
 
+export async function GET() {
+  try {
+    const fixtureVacancy = {
+      title: 'Technical Project Manager',
+      company: 'CogniTwist Health Check',
+      location: 'United Kingdom',
+      description: 'Must have experience delivering technical projects with Jira. Lead cross-functional engineering and security teams.',
+      skills: ['Jira'],
+      source: 'runtime-self-test',
+      direct: true,
+      link: 'https://example.com/jobs/health-check',
+      posted: 'Today',
+    };
+    const fixtureProfile = 'Technical Project Manager delivering technical projects with Jira. Led cross-functional engineering and security teams through production release.';
+    const assessment = analyseCandidateFit(fixtureVacancy, fixtureProfile);
+    const healthy = assessment.overall_fit >= 60 && assessment.evidence.some((item: { status?: string }) => item.status === 'confirmed');
+    return NextResponse.json({ status: healthy ? 'ok' : 'degraded', engine: 'evidence-v1' }, { status: healthy ? 200 : 503 });
+  } catch {
+    return NextResponse.json({ status: 'degraded', engine: 'evidence-v1' }, { status: 503 });
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const form = await request.formData();
