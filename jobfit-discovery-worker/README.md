@@ -71,7 +71,7 @@ DISCOVERY_WORKER_ALLOWED_HOSTS=careers.example.com,jobs.example.org
 PORT=8080
 ```
 
-`DISCOVERY_WORKER_ALLOWED_HOSTS` is strongly recommended in production. Hostnames are suffix-aware, so allowlisting `example.com` also permits `careers.example.com`.
+`DISCOVERY_WORKER_ALLOWED_HOSTS` is required. The worker refuses discovery requests until the allowlist is configured. Hostnames are suffix-aware, so allowlisting `example.com` also permits `careers.example.com`.
 
 ## Build and run
 
@@ -116,7 +116,7 @@ When a fallback trigger fires and safe direct-source seeds are available, Job Sc
 - HTTPS-only crawl seeds.
 - Embedded URL credentials are rejected.
 - Private, loopback, link-local and otherwise non-public IP destinations are rejected before crawling.
-- Optional hostname allowlist.
+- Mandatory hostname allowlist.
 - External-domain traversal is disabled.
 - Page/depth budgets are hard-limited.
 - Auth token is required for `/discover`.
