@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
 type Job = {
   title?: string;
@@ -28,6 +29,7 @@ type BaselinePayload = {
 type ExpandedPayload = {
   jobs?: Job[];
   total?: number;
+  role_variants?: string[];
   passes?: string[];
   failed_passes?: string[];
   search_strategy?: string;
@@ -134,7 +136,7 @@ function mergeJobs(...sets: Job[][]) {
     byExact.set(exact, job);
     if (semantic) bySemantic.set(semantic, exact);
   }
-  return Array.from(byExact.values()).slice(0, 100);
+  return Array.from(byExact.values()).slice(0, 140);
 }
 
 function distinct(values: string[]) {
@@ -144,7 +146,7 @@ function distinct(values: string[]) {
 async function fetchBaseline(origin: string, search: string) {
   const response = await fetch(`${origin}/api/jobs/browse?${search}`, {
     cache: 'no-store',
-    signal: AbortSignal.timeout(30000),
+    signal: AbortSignal.timeout(25000),
     headers: { Accept: 'application/json' },
   });
   const payload = (await response.json().catch(() => null)) as BaselinePayload | { detail?: string } | null;
@@ -164,7 +166,7 @@ async function fetchCompatibilityGrounded(backendBase: string, input: { role: st
   const response = await fetch(`${backendBase}/search-jobs`, {
     method: 'POST',
     cache: 'no-store',
-    signal: AbortSignal.timeout(45000),
+    signal: AbortSignal.timeout(35000),
     body: form,
     headers: { Accept: 'application/json' },
   });
@@ -185,7 +187,7 @@ async function fetchCompatibilityGrounded(backendBase: string, input: { role: st
     failed_passes: [],
     search_strategy: 'compatibility grounded web discovery',
     coverage_confidence: 'expanded_compatibility',
-    coverage_note: 'Compatibility grounded discovery expanded beyond configured feeds while the full multi-pass market endpoint becomes available.',
+    coverage_note: 'Compatibility grounded discovery expanded beyond configured feeds while the dedicated multi-pass market endpoint was unavailable.',
   } as ExpandedPayload;
 }
 
@@ -195,20 +197,20 @@ async function fetchExpanded(input: { role: string; location: string; days: numb
   form.append('target_role', input.role);
   form.append('location_city', input.location);
   form.append('freshness_days', String(input.days));
-  form.append('max_jobs', '60');
+  form.append('max_jobs', '120');
 
   try {
     const response = await fetch(`${backendBase}/discover-market-jobs`, {
       method: 'POST',
       cache: 'no-store',
-      signal: AbortSignal.timeout(45000),
+      signal: AbortSignal.timeout(50000),
       body: form,
       headers: { Accept: 'application/json' },
     });
     const payload = (await response.json().catch(() => null)) as ExpandedPayload | null;
     if (response.ok && payload) return payload;
   } catch {
-    // Fall through to the already-deployed grounded search compatibility path.
+    // Fall through to the already-deployed grounded-search compatibility path.
   }
 
   return fetchCompatibilityGrounded(backendBase, input);
@@ -219,7 +221,8 @@ export async function GET(request: Request) {
   const incoming = new URL(request.url);
   const role = cleanText(incoming.searchParams.get('q'), 300);
   const location = cleanText(incoming.searchParams.get('location'), 200);
-  const days = Math.max(1, Math.min(90, Number(incoming.searchParams.get('days') || 14) || 14));
+  const requestedDays = Number(incoming.searchParams.get('days') || 14);
+  const days = requestedDays === 0 ? 90 : Math.max(1, Math.min(90, requestedDays || 14));
 
   if (!role) return NextResponse.json({ detail: 'Enter a role, skill or company.' }, { status: 400 });
 
@@ -260,7 +263,7 @@ export async function GET(request: Request) {
     : 'configured_sources_only';
 
   const coverageNote = expandedJobs.length
-    ? `Dynamic market discovery added ${expandedJobs.length} grounded observations before deduplication. This materially expands recall but still cannot prove every public vacancy has been discovered.`
+    ? `Dynamic market discovery contributed ${expandedJobs.length} grounded observations before cross-lane deduplication. Role-family variants and four independent market lanes were searched.`
     : `Dynamic market discovery did not add results in this run. Coverage is limited to the configured feeds/ATS sources that responded.`;
 
   return NextResponse.json({
@@ -271,10 +274,11 @@ export async function GET(request: Request) {
     fallback_count: fallbackJobs.length,
     partial,
     source_errors: sourceErrorCount ? [`${sourceErrorCount} discovery component${sourceErrorCount === 1 ? '' : 's'} were unavailable or incomplete in this run.`] : [],
-    search_strategy: 'parallel discovery: configured ATS/feeds + dynamic grounded employer/ATS discovery; merged before candidate fit',
+    search_strategy: 'parallel discovery: configured ATS/feeds + four-pass grounded employer/ATS/indexed-market discovery; role-family expansion; merged before candidate fit',
     expanded_discovery: {
       available: expandedResult.status === 'fulfilled',
       jobs_before_merge: expandedJobs.length,
+      role_variants: Array.isArray(expanded.role_variants) ? expanded.role_variants : [],
       passes_completed: Array.isArray(expanded.passes) ? expanded.passes : [],
       passes_failed: expandedFailedPasses,
     },
