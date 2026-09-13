@@ -13,6 +13,30 @@ const MAX_JOBS_PER_SOURCE = 300;
 const MAX_PERSISTED_JOBS_PER_RUN = 750;
 const SUPPORTED_PROVIDERS = new Set(['greenhouse', 'ashby', 'lever']);
 
+type WorkerObservation = {
+  title?: string;
+  company?: string;
+  location?: string;
+  salary?: string;
+  posted?: string;
+  description?: string;
+  skills?: string[];
+  link?: string;
+  remote?: boolean;
+  source_name?: string;
+  source_type?: string;
+  confidence?: number;
+};
+
+type WorkerIndexPayload = {
+  observations?: WorkerObservation[];
+  candidate_pages?: unknown[];
+  pages_scanned?: number;
+  structured_jobs?: number;
+  unstructured_candidates?: number;
+  crawl_errors?: number;
+};
+
 function clean(value: unknown, limit = 4000) {
   return String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, limit);
 }
@@ -41,6 +65,10 @@ function secureTokenMatch(supplied: string, expected: string) {
 
 function providerFor(source: MarketCompanySource) {
   return clean(source.metadata?.provider, 80).toLowerCase();
+}
+
+function crawlerConfigured() {
+  return Boolean(clean(process.env.MARKET_DISCOVERY_WORKER_URL, 1200) && clean(process.env.MARKET_DISCOVERY_WORKER_TOKEN, 5000));
 }
 
 function assertSupportedSourceUrl(source: MarketCompanySource, provider: string) {
@@ -180,12 +208,55 @@ async function fetchLever(source: MarketCompanySource): Promise<IndexedMarketJob
   }).filter((job) => job.title && job.link);
 }
 
+async function fetchCrawlerSource(source: MarketCompanySource): Promise<IndexedMarketJob[]> {
+  const workerBase = clean(process.env.MARKET_DISCOVERY_WORKER_URL, 1200).replace(/\/$/, '');
+  const workerToken = clean(process.env.MARKET_DISCOVERY_WORKER_TOKEN, 5000);
+  if (!workerBase || !workerToken) throw new Error('crawler_not_configured');
+
+  const response = await fetch(`${workerBase}/index-source`, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${workerToken}`,
+    },
+    cache: 'no-store',
+    signal: AbortSignal.timeout(30000),
+    body: JSON.stringify({
+      seeds: [{ url: source.source_url, employer: source.company_name }],
+      max_pages: 20,
+      max_depth: 2,
+    }),
+  });
+  if (!response.ok) throw new Error(`crawler_http_${response.status}`);
+  const payload = (await response.json().catch(() => null)) as WorkerIndexPayload | null;
+  if (!payload) throw new Error('crawler_invalid_response');
+
+  return (Array.isArray(payload.observations) ? payload.observations : [])
+    .slice(0, MAX_JOBS_PER_SOURCE)
+    .map((item) => ({
+      title: clean(item.title, 300),
+      company: clean(item.company, 300) || source.company_name,
+      location: clean(item.location, 240) || 'Location not confirmed',
+      salary: clean(item.salary, 240) || 'Not disclosed',
+      posted: clean(item.posted, 160),
+      description: clean(item.description, 2600),
+      skills: Array.isArray(item.skills) ? item.skills.map((skill) => clean(skill, 120)).filter(Boolean).slice(0, 12) : [],
+      link: clean(item.link, 1800),
+      remote: Boolean(item.remote),
+      source: `Registry · Structured crawl · ${source.company_name}`,
+      source_type: 'employer_structured_crawl',
+      direct: true,
+    }))
+    .filter((job) => job.title && job.company && job.link);
+}
+
 async function fetchRegisteredSource(source: MarketCompanySource) {
   const provider = providerFor(source);
   if (provider === 'greenhouse') return fetchGreenhouse(source);
   if (provider === 'ashby') return fetchAshby(source);
   if (provider === 'lever') return fetchLever(source);
-  throw new Error('unsupported_provider');
+  return fetchCrawlerSource(source);
 }
 
 export async function GET(request: NextRequest) {
@@ -209,13 +280,15 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const structuredSources = registry.sources.filter((source) => SUPPORTED_PROVIDERS.has(providerFor(source)));
-  const skippedUnsupported = registry.sources.length - structuredSources.length;
-  const settled = await Promise.allSettled(structuredSources.map(async (source) => ({ source, jobs: await fetchRegisteredSource(source) })));
+  const workerReady = crawlerConfigured();
+  const runnableSources = registry.sources.filter((source) => SUPPORTED_PROVIDERS.has(providerFor(source)) || workerReady);
+  const skippedUnsupported = registry.sources.length - runnableSources.length;
+  const crawlerSources = runnableSources.filter((source) => !SUPPORTED_PROVIDERS.has(providerFor(source))).length;
+  const settled = await Promise.allSettled(runnableSources.map(async (source) => ({ source, jobs: await fetchRegisteredSource(source) })));
 
   const rawJobs: IndexedMarketJob[] = [];
   const outcomes = settled.map((result, index) => {
-    const source = structuredSources[index];
+    const source = runnableSources[index];
     if (result.status === 'fulfilled') {
       rawJobs.push(...result.value.jobs);
       return { source, ok: true, jobsObserved: result.value.jobs.length };
@@ -224,11 +297,13 @@ export async function GET(request: NextRequest) {
     return { source, ok: false, jobsObserved: 0, errorCode: clean(message, 120) };
   });
 
+  // Scheduled source indexing is profile-independent. The empty query means the trust gate validates
+  // vacancy URL/location/freshness evidence without narrowing the corpus to a candidate role.
   const trustGate = validateJobsForSearch(rawJobs, { query: '', location: 'UK', freshnessDays: 0 });
   const jobs = trustGate.accepted.slice(0, MAX_PERSISTED_JOBS_PER_RUN);
   const failedSources = outcomes.filter((outcome) => !outcome.ok).length;
   const sourceHealth = jobs.length === 0 && failedSources === 0 ? 'no_results' : failedSources ? 'degraded' : 'healthy';
-  const coverageNote = `Scheduled registry refresh checked ${structuredSources.length} structured ATS source${structuredSources.length === 1 ? '' : 's'}, validated ${jobs.length} UK vacancy observations, rejected ${trustGate.rejected.length} untrusted observations, and skipped ${skippedUnsupported} source${skippedUnsupported === 1 ? '' : 's'} awaiting crawler/browser support.`;
+  const coverageNote = `Scheduled registry refresh checked ${runnableSources.length} source${runnableSources.length === 1 ? '' : 's'} (${runnableSources.length - crawlerSources} structured ATS, ${crawlerSources} structured crawler), validated ${jobs.length} UK vacancy observations, rejected ${trustGate.rejected.length} untrusted observations, and skipped ${skippedUnsupported} custom source${skippedUnsupported === 1 ? '' : 's'} because the crawler worker was not configured.`;
 
   const persistence = await persistValidatedMarketRun({
     runId,
@@ -243,12 +318,15 @@ export async function GET(request: NextRequest) {
     rolesRejected: trustGate.rejected.length,
     sourceHealth,
     sourceErrorCount: failedSources,
-    coverageConfidence: 'registry_structured_sources',
+    coverageConfidence: crawlerSources ? 'registry_structured_plus_crawler' : 'registry_structured_sources',
     coverageNote,
     metadata: {
       sources_due: registry.sources.length,
-      structured_sources_checked: structuredSources.length,
+      sources_checked: runnableSources.length,
+      structured_ats_sources_checked: runnableSources.length - crawlerSources,
+      structured_crawler_sources_checked: crawlerSources,
       unsupported_sources_skipped: skippedUnsupported,
+      crawler_configured: workerReady,
       result_cap: MAX_PERSISTED_JOBS_PER_RUN,
     },
   });
@@ -261,9 +339,12 @@ export async function GET(request: NextRequest) {
     duration_ms: Date.now() - startedAt,
     registry_status: registry.status,
     sources_due: registry.sources.length,
-    structured_sources_checked: structuredSources.length,
+    sources_checked: runnableSources.length,
+    structured_ats_sources_checked: runnableSources.length - crawlerSources,
+    structured_crawler_sources_checked: crawlerSources,
     sources_failed: failedSources,
     unsupported_sources_skipped: skippedUnsupported,
+    crawler_configured: workerReady,
     roles_received: rawJobs.length,
     roles_validated: jobs.length,
     roles_rejected: trustGate.rejected.length,
