@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { after, NextResponse } from 'next/server';
 import { validateJobsForSearch } from '../job-trust';
 import { persistValidatedMarketRun } from '../job-market-index';
 
@@ -286,27 +286,29 @@ export async function GET(request: Request) {
       ? `${filteredCount} discovered candidate result${filteredCount === 1 ? ' was' : 's were'} withheld because the search intent could not be validated. No additional trustworthy role was added in this pass.`
       : 'No additional role could be validated by the expanded stages in this run. This is not evidence that no matching vacancies exist.';
 
-  const marketIndex = await persistValidatedMarketRun({
-    runId,
-    lane: 'expanded',
-    query: role,
-    location,
-    freshnessDays: days,
-    startedAt,
-    completedAt: Date.now(),
-    jobs,
-    rolesReceived: jobs.length + filteredCount,
-    rolesRejected: filteredCount,
-    sourceHealth,
-    sourceErrorCount: passesFailed.length,
-    coverageConfidence,
-    coverageNote,
-    metadata: {
-      passes_completed: passesCompleted,
-      passes_failed: passesFailed,
-      dedicated_status: dedicated?.status || (dedicatedResult.status === 'rejected' ? 'failed' : 'unavailable'),
-      compatibility_status: compatibility?.status || (compatibilityResult.status === 'rejected' ? 'failed' : 'unavailable'),
-    },
+  after(async () => {
+    await persistValidatedMarketRun({
+      runId,
+      lane: 'expanded',
+      query: role,
+      location,
+      freshnessDays: days,
+      startedAt,
+      completedAt: Date.now(),
+      jobs,
+      rolesReceived: jobs.length + filteredCount,
+      rolesRejected: filteredCount,
+      sourceHealth,
+      sourceErrorCount: passesFailed.length,
+      coverageConfidence,
+      coverageNote,
+      metadata: {
+        passes_completed: passesCompleted,
+        passes_failed: passesFailed,
+        dedicated_status: dedicated?.status || (dedicatedResult.status === 'rejected' ? 'failed' : 'unavailable'),
+        compatibility_status: compatibility?.status || (compatibilityResult.status === 'rejected' ? 'failed' : 'unavailable'),
+      },
+    });
   });
 
   if (jobs.length) {
@@ -321,7 +323,6 @@ export async function GET(request: Request) {
       passes_completed: passesCompleted,
       passes_failed: passesFailed,
       filtered_untrusted: filteredCount,
-      market_index: marketIndex,
       search_strategy: `${[dedicated?.strategy, compatibility?.strategy].filter(Boolean).join(' | ')} | deterministic trust gate before merge`,
       coverage_note: coverageNote,
     });
@@ -336,7 +337,6 @@ export async function GET(request: Request) {
     passes_completed: passesCompleted,
     passes_failed: passesFailed.length ? passesFailed : ['expanded_market'],
     filtered_untrusted: filteredCount,
-    market_index: marketIndex,
     coverage_note: coverageNote,
   });
 }
