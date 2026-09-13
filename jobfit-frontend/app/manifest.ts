@@ -2,10 +2,10 @@ import type { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'CogniTwist AI Career Network',
+    name: 'CogniTwist AI Career Copilot',
     short_name: 'CogniTwist AI',
-    description: 'Career intelligence, interview preparation and private professional networking.',
-    start_url: '/',
+    description: 'Your AI career team for job discovery, evidence-grounded CV tailoring and interview preparation.',
+    start_url: '/career',
     scope: '/',
     display: 'standalone',
     orientation: 'portrait-primary',
