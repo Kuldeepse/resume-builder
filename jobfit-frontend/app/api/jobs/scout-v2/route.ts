@@ -152,6 +152,43 @@ async function fetchBaseline(origin: string, search: string) {
   return (payload || {}) as BaselinePayload;
 }
 
+async function fetchCompatibilityGrounded(backendBase: string, input: { role: string; location: string }) {
+  const form = new FormData();
+  form.append('target_role', input.role);
+  form.append('location_city', input.location);
+  form.append(
+    'resume_skills',
+    'MARKET DISCOVERY ONLY. No candidate profile is supplied. Discover relevant current vacancies broadly for the requested role and location; do not use candidate evidence to narrow discovery.',
+  );
+
+  const response = await fetch(`${backendBase}/search-jobs`, {
+    method: 'POST',
+    cache: 'no-store',
+    signal: AbortSignal.timeout(45000),
+    body: form,
+    headers: { Accept: 'application/json' },
+  });
+  const payload = (await response.json().catch(() => null)) as { jobs?: Job[] } | null;
+  if (!response.ok) throw new Error('compatibility_grounded_unavailable');
+  const jobs = Array.isArray(payload?.jobs)
+    ? payload.jobs.map((job) => ({
+        ...job,
+        source: 'Grounded · Compatibility Search',
+        source_type: 'indexed_job_source',
+        direct: false,
+      }))
+    : [];
+  return {
+    jobs,
+    total: jobs.length,
+    passes: ['compatibility_grounded'],
+    failed_passes: [],
+    search_strategy: 'compatibility grounded web discovery',
+    coverage_confidence: 'expanded_compatibility',
+    coverage_note: 'Compatibility grounded discovery expanded beyond configured feeds while the full multi-pass market endpoint becomes available.',
+  } as ExpandedPayload;
+}
+
 async function fetchExpanded(input: { role: string; location: string; days: number }) {
   const backendBase = (process.env.JOBFIT_BACKEND_URL || 'https://resume-builder-backend-ph7b.onrender.com').replace(/\/$/, '');
   const form = new FormData();
@@ -160,16 +197,21 @@ async function fetchExpanded(input: { role: string; location: string; days: numb
   form.append('freshness_days', String(input.days));
   form.append('max_jobs', '60');
 
-  const response = await fetch(`${backendBase}/discover-market-jobs`, {
-    method: 'POST',
-    cache: 'no-store',
-    signal: AbortSignal.timeout(45000),
-    body: form,
-    headers: { Accept: 'application/json' },
-  });
-  const payload = (await response.json().catch(() => null)) as ExpandedPayload | null;
-  if (!response.ok) throw new Error('expanded_unavailable');
-  return payload || {};
+  try {
+    const response = await fetch(`${backendBase}/discover-market-jobs`, {
+      method: 'POST',
+      cache: 'no-store',
+      signal: AbortSignal.timeout(45000),
+      body: form,
+      headers: { Accept: 'application/json' },
+    });
+    const payload = (await response.json().catch(() => null)) as ExpandedPayload | null;
+    if (response.ok && payload) return payload;
+  } catch {
+    // Fall through to the already-deployed grounded search compatibility path.
+  }
+
+  return fetchCompatibilityGrounded(backendBase, input);
 }
 
 export async function GET(request: Request) {
@@ -229,7 +271,7 @@ export async function GET(request: Request) {
     fallback_count: fallbackJobs.length,
     partial,
     source_errors: sourceErrorCount ? [`${sourceErrorCount} discovery component${sourceErrorCount === 1 ? '' : 's'} were unavailable or incomplete in this run.`] : [],
-    search_strategy: 'parallel discovery: configured ATS/feeds + three-pass grounded employer/ATS market discovery; merged before candidate fit',
+    search_strategy: 'parallel discovery: configured ATS/feeds + dynamic grounded employer/ATS discovery; merged before candidate fit',
     expanded_discovery: {
       available: expandedResult.status === 'fulfilled',
       jobs_before_merge: expandedJobs.length,
