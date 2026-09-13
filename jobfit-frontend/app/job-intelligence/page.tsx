@@ -227,10 +227,21 @@ export default function JobIntelligencePage() {
 
   const practiceInterview = () => {
     if (!vacancy) return;
+    const candidateEvidence = result
+      ? Array.from(new Set(
+          result.assessment.evidence
+            .filter((item) => item.status === 'confirmed' || item.status === 'partial')
+            .flatMap((item) => item.candidate_evidence)
+            .map((item) => item.trim())
+            .filter(Boolean),
+        )).slice(0, 30)
+      : [];
     window.sessionStorage.setItem('cognitwist-live-interview-context', JSON.stringify({
       role: vacancy.title,
+      company: vacancy.company,
       jobDescription: downstreamJobDescription(vacancy),
       interviewType: 'behavioural',
+      candidateEvidence,
       jobIntelligence: result ? {
         overallFit: result.assessment.overall_fit,
         strengths: result.assessment.strengths,
