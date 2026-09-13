@@ -270,18 +270,36 @@ export async function GET(request: Request) {
   const compatibility = compatibilityResult.status === 'fulfilled' ? compatibilityResult.value : null;
   const jobs = mergeJobs(dedicated?.jobs || [], compatibility?.jobs || []);
   const passesCompleted = [...(dedicated?.passesCompleted || []), ...(compatibility?.passesCompleted || [])];
-  const passesFailed = [
+  const degradedSources = [
     ...(dedicated?.passesFailed || []),
     ...(compatibility?.passesFailed || []),
     ...(dedicatedResult.status === 'rejected' ? ['expanded_market'] : []),
     ...(compatibilityResult.status === 'rejected' ? ['compatibility_grounded'] : []),
   ];
-  const partial = passesFailed.length > 0 || Boolean(dedicated?.partial) || Boolean(compatibility?.partial);
   const filteredCount = (dedicated?.filteredCount || 0) + (compatibility?.filteredCount || 0);
-  const sourceHealth = !jobs.length ? 'no_results' : partial ? 'degraded' : 'healthy';
-  const coverageConfidence = jobs.length ? (partial ? 'expanded_validated_partial' : 'expanded_validated') : 'expanded_no_validated_results';
+
+  // A failed optional compatibility branch or one failed grounded pass is useful telemetry, but it
+  // must not make the whole user-visible search look broken when validated expanded jobs were still
+  // returned. We only mark the stage partial when failures materially prevent a usable result.
+  const materialFailure = jobs.length === 0 && (
+    dedicatedResult.status === 'rejected'
+    || compatibilityResult.status === 'rejected'
+    || Boolean(dedicated?.partial)
+    || Boolean(compatibility?.partial)
+    || degradedSources.length > 0
+  );
+  const partial = materialFailure;
+  const sourceHealth = !jobs.length
+    ? (materialFailure ? 'degraded' : 'no_results')
+    : (degradedSources.length ? 'degraded' : 'healthy');
+  const coverageConfidence = jobs.length
+    ? (degradedSources.length ? 'expanded_validated_degraded_sources' : 'expanded_validated')
+    : 'expanded_no_validated_results';
+  const degradedNote = degradedSources.length
+    ? ` ${degradedSources.length} optional discovery source/pass${degradedSources.length === 1 ? ' was' : 'es were'} unavailable; this is retained in telemetry and did not invalidate the returned roles.`
+    : '';
   const coverageNote = jobs.length
-    ? `Expanded discovery added ${jobs.length} validated role observations. ${filteredCount} candidate result${filteredCount === 1 ? ' was' : 's were'} withheld because role, location, freshness or vacancy-page evidence did not match the search. Coverage remains non-exhaustive.`
+    ? `Expanded discovery added ${jobs.length} validated role observations. ${filteredCount} candidate result${filteredCount === 1 ? ' was' : 's were'} withheld because role, location, freshness or vacancy-page evidence did not match the search.${degradedNote} Coverage remains non-exhaustive.`
     : filteredCount
       ? `${filteredCount} discovered candidate result${filteredCount === 1 ? ' was' : 's were'} withheld because the search intent could not be validated. No additional trustworthy role was added in this pass.`
       : 'No additional role could be validated by the expanded stages in this run. This is not evidence that no matching vacancies exist.';
@@ -299,12 +317,12 @@ export async function GET(request: Request) {
       rolesReceived: jobs.length + filteredCount,
       rolesRejected: filteredCount,
       sourceHealth,
-      sourceErrorCount: passesFailed.length,
+      sourceErrorCount: degradedSources.length,
       coverageConfidence,
       coverageNote,
       metadata: {
         passes_completed: passesCompleted,
-        passes_failed: passesFailed,
+        passes_failed: degradedSources,
         dedicated_status: dedicated?.status || (dedicatedResult.status === 'rejected' ? 'failed' : 'unavailable'),
         compatibility_status: compatibility?.status || (compatibilityResult.status === 'rejected' ? 'failed' : 'unavailable'),
       },
@@ -313,15 +331,15 @@ export async function GET(request: Request) {
 
   if (jobs.length) {
     const dedicatedCount = dedicated?.jobs.length || 0;
-    const compatibilityCount = compatibility?.jobs.length || 0;
     return NextResponse.json({
       jobs,
       total: jobs.length,
-      partial,
+      partial: false,
       status: dedicatedCount ? 'completed' : 'compatibility_completed',
       duration_ms: Date.now() - startedAt,
       passes_completed: passesCompleted,
-      passes_failed: passesFailed,
+      passes_failed: degradedSources,
+      degraded_sources: degradedSources,
       filtered_untrusted: filteredCount,
       search_strategy: `${[dedicated?.strategy, compatibility?.strategy].filter(Boolean).join(' | ')} | deterministic trust gate before merge`,
       coverage_note: coverageNote,
@@ -331,11 +349,12 @@ export async function GET(request: Request) {
   return NextResponse.json({
     jobs: [],
     total: 0,
-    partial: true,
+    partial,
     status: 'expanded_no_validated_results',
     duration_ms: Date.now() - startedAt,
     passes_completed: passesCompleted,
-    passes_failed: passesFailed.length ? passesFailed : ['expanded_market'],
+    passes_failed: degradedSources,
+    degraded_sources: degradedSources,
     filtered_untrusted: filteredCount,
     coverage_note: coverageNote,
   });
