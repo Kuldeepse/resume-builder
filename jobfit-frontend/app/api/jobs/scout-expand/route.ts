@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { validateJobsForSearch } from '../job-trust';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -42,6 +43,12 @@ type DiscoveryBranch = {
   partial: boolean;
   note: string;
   strategy: string;
+  filteredCount: number;
+};
+
+type ValidatedBatch = {
+  jobs: Job[];
+  filteredCount: number;
 };
 
 function cleanText(value: unknown, limit = 1000) {
@@ -58,21 +65,14 @@ function roleVariants(value: string) {
     if (cleaned && !variants.some((item) => item.toLowerCase() === cleaned.toLowerCase())) variants.push(cleaned);
   };
 
-  if (/\bprogram\b/i.test(base)) {
-    add(base.replace(/\bprogram\b/i, 'programme'));
-    add(base.replace(/\bprogram\b/i, 'project'));
-  } else if (/\bprogramme\b/i.test(base)) {
-    add(base.replace(/\bprogramme\b/i, 'program'));
-    add(base.replace(/\bprogramme\b/i, 'project'));
-  } else if (/\bproject\b/i.test(base)) {
-    add(base.replace(/\bproject\b/i, 'program'));
-    add(base.replace(/\bproject\b/i, 'programme'));
-  }
+  // Only expand true spelling aliases here. Program Manager and Project Manager are intentionally
+  // kept as different role families to avoid polluting a precise search with adjacent roles.
+  if (/\bprogram\b/i.test(base)) add(base.replace(/\bprogram\b/i, 'programme'));
+  else if (/\bprogramme\b/i.test(base)) add(base.replace(/\bprogramme\b/i, 'program'));
 
   if (/^tpm$/i.test(base)) {
     add('Technical Program Manager');
     add('Technical Programme Manager');
-    add('Technical Project Manager');
   }
 
   return variants.slice(0, 3);
@@ -120,11 +120,17 @@ function sanitiseJob(job: Job): Job | null {
   };
 }
 
-function sanitiseJobs(jobs: Job[] | undefined, sourceOverride?: string) {
-  return (Array.isArray(jobs) ? jobs : [])
+function sanitiseJobs(
+  jobs: Job[] | undefined,
+  context: { query: string; location: string; freshnessDays: number },
+  sourceOverride?: string,
+): ValidatedBatch {
+  const sanitised = (Array.isArray(jobs) ? jobs : [])
     .map((job) => sanitiseJob(sourceOverride ? { ...job, source: sourceOverride, source_type: 'indexed_job_source', direct: false } : job))
     .filter((job): job is Job => Boolean(job))
     .slice(0, 120);
+  const validated = validateJobsForSearch(sanitised, context);
+  return { jobs: validated.accepted, filteredCount: validated.rejected.length };
 }
 
 function mergeJobs(...sets: Job[][]) {
@@ -177,21 +183,25 @@ async function runDedicated(backendBase: string, role: string, location: string,
 
   const payload = (await response.json().catch(() => null)) as ExpandedPayload | null;
   if (!response.ok || !payload) throw new Error(`dedicated_http_${response.status}`);
-  const jobs = sanitiseJobs(payload.jobs);
+  const batch = sanitiseJobs(payload.jobs, { query: role, location, freshnessDays: days });
+  const jobs = batch.jobs;
   const failed = Array.isArray(payload.failed_passes) ? payload.failed_passes : [];
 
   return {
     jobs,
-    status: jobs.length ? 'completed' : 'completed_zero_results',
+    status: jobs.length ? 'completed' : 'completed_zero_validated_results',
     passesCompleted: Array.isArray(payload.passes) ? payload.passes : [],
     passesFailed: failed,
     partial: failed.length > 0,
-    note: cleanText(payload.coverage_note, 800) || 'Expanded employer/ATS discovery completed.',
+    note: jobs.length
+      ? `Expanded employer/ATS discovery completed and ${jobs.length} role observations passed the deterministic trust gate.`
+      : 'Expanded discovery completed, but no additional result passed deterministic role, location, freshness and vacancy-URL checks.',
     strategy: cleanText(payload.search_strategy, 500) || 'dedicated expanded market discovery',
+    filteredCount: batch.filteredCount,
   };
 }
 
-async function runCompatibilityVariant(backendBase: string, role: string, location: string): Promise<Job[]> {
+async function runCompatibilityVariant(backendBase: string, role: string, location: string, days: number): Promise<ValidatedBatch> {
   const form = new FormData();
   form.append('target_role', role);
   form.append('location_city', location);
@@ -210,32 +220,31 @@ async function runCompatibilityVariant(backendBase: string, role: string, locati
 
   const payload = (await response.json().catch(() => null)) as CompatibilityPayload | null;
   if (!response.ok || !payload) throw new Error(`compatibility_http_${response.status}`);
-  return sanitiseJobs(payload.jobs, 'Grounded · Compatibility Search');
+  return sanitiseJobs(payload.jobs, { query: role, location, freshnessDays: days }, 'Grounded · Compatibility Search');
 }
 
-async function runCompatibility(backendBase: string, role: string, location: string): Promise<DiscoveryBranch> {
+async function runCompatibility(backendBase: string, role: string, location: string, days: number): Promise<DiscoveryBranch> {
   const variants = roleVariants(role);
   const settled = await Promise.allSettled(
-    variants.map((variant) => runCompatibilityVariant(backendBase, variant, location)),
+    variants.map((variant) => runCompatibilityVariant(backendBase, variant, location, days)),
   );
 
-  const jobs = mergeJobs(
-    ...settled
-      .filter((result): result is PromiseFulfilledResult<Job[]> => result.status === 'fulfilled')
-      .map((result) => result.value),
-  );
+  const fulfilled = settled.filter((result): result is PromiseFulfilledResult<ValidatedBatch> => result.status === 'fulfilled');
+  const jobs = mergeJobs(...fulfilled.map((result) => result.value.jobs));
   const failedCount = settled.filter((result) => result.status === 'rejected').length;
+  const filteredCount = fulfilled.reduce((total, result) => total + result.value.filteredCount, 0);
 
   return {
     jobs,
-    status: jobs.length ? 'compatibility_completed' : 'compatibility_zero_results',
+    status: jobs.length ? 'compatibility_completed' : 'compatibility_zero_validated_results',
     passesCompleted: variants.filter((_, index) => settled[index]?.status === 'fulfilled').map((variant) => `compatibility:${variant}`),
     passesFailed: variants.filter((_, index) => settled[index]?.status === 'rejected').map((variant) => `compatibility:${variant}`),
     partial: failedCount > 0,
     note: jobs.length
-      ? `Compatibility discovery found ${jobs.length} grounded roles across equivalent role-title variants.`
-      : 'Compatibility discovery completed without a verified additional role.',
-    strategy: `grounded compatibility discovery across role variants: ${variants.join(' | ')}`,
+      ? `Compatibility discovery found ${jobs.length} validated roles across equivalent spelling/title aliases.`
+      : 'Compatibility discovery completed without an additional result that passed the deterministic trust gate.',
+    strategy: `grounded compatibility discovery across safe role aliases: ${variants.join(' | ')}`,
+    filteredCount,
   };
 }
 
@@ -252,7 +261,7 @@ export async function GET(request: Request) {
   const backendBase = (process.env.JOBFIT_BACKEND_URL || 'https://resume-builder-backend-ph7b.onrender.com').replace(/\/$/, '');
   const [dedicatedResult, compatibilityResult] = await Promise.allSettled([
     runDedicated(backendBase, role, location, days),
-    runCompatibility(backendBase, role, location),
+    runCompatibility(backendBase, role, location, days),
   ]);
 
   const dedicated = dedicatedResult.status === 'fulfilled' ? dedicatedResult.value : null;
@@ -266,6 +275,7 @@ export async function GET(request: Request) {
     ...(compatibilityResult.status === 'rejected' ? ['compatibility_grounded'] : []),
   ];
   const partial = passesFailed.length > 0 || Boolean(dedicated?.partial) || Boolean(compatibility?.partial);
+  const filteredCount = (dedicated?.filteredCount || 0) + (compatibility?.filteredCount || 0);
 
   if (jobs.length) {
     const dedicatedCount = dedicated?.jobs.length || 0;
@@ -278,8 +288,9 @@ export async function GET(request: Request) {
       duration_ms: Date.now() - startedAt,
       passes_completed: passesCompleted,
       passes_failed: passesFailed,
-      search_strategy: [dedicated?.strategy, compatibility?.strategy].filter(Boolean).join(' | '),
-      coverage_note: `Expanded discovery found ${jobs.length} verified role observations (${dedicatedCount} dedicated-market, ${compatibilityCount} compatibility before deduplication). Public Greenhouse, Lever and Ashby boards discovered by the dedicated lane are enumerated before results are returned.`,
+      filtered_untrusted: filteredCount,
+      search_strategy: `${[dedicated?.strategy, compatibility?.strategy].filter(Boolean).join(' | ')} | deterministic trust gate before merge`,
+      coverage_note: `Expanded discovery added ${jobs.length} validated role observations. ${filteredCount} candidate result${filteredCount === 1 ? ' was' : 's were'} withheld because role, location, freshness or vacancy-page evidence did not match the search. Coverage remains non-exhaustive.`,
     });
   }
 
@@ -287,10 +298,13 @@ export async function GET(request: Request) {
     jobs: [],
     total: 0,
     partial: true,
-    status: 'expanded_no_verified_results',
+    status: 'expanded_no_validated_results',
     duration_ms: Date.now() - startedAt,
     passes_completed: passesCompleted,
     passes_failed: passesFailed.length ? passesFailed : ['expanded_market'],
-    coverage_note: 'No additional role could be verified by the expanded stages in this run. This is not evidence that no matching vacancies exist.',
+    filtered_untrusted: filteredCount,
+    coverage_note: filteredCount
+      ? `${filteredCount} discovered candidate result${filteredCount === 1 ? ' was' : 's were'} withheld because the search intent could not be validated. No additional trustworthy role was added in this pass.`
+      : 'No additional role could be validated by the expanded stages in this run. This is not evidence that no matching vacancies exist.',
   });
 }
