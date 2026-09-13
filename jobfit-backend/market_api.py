@@ -2,8 +2,11 @@ from typing import Any
 
 from fastapi import Form, HTTPException
 
+from interview_coach import router as interview_coach_router
 from main import app, safe_text
 from market_discovery import discover_market_jobs
+
+app.include_router(interview_coach_router)
 
 
 @app.post("/discover-market-jobs/")
