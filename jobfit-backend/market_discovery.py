@@ -9,8 +9,8 @@ from urllib.parse import urlparse
 from google import genai
 
 DEFAULT_MODEL = "gemini-2.5-flash"
-MAX_PASS_JOBS = 20
-MAX_TOTAL_JOBS = 60
+MAX_PASS_JOBS = 30
+MAX_TOTAL_JOBS = 120
 
 
 def _clean(value: Any, limit: int = 3000) -> str:
@@ -48,6 +48,39 @@ def _job_key(job: dict[str, Any]) -> str:
         path = re.sub(r"[?#].*$", "", parsed.path.rstrip("/").lower())
         return f"url::{parsed.hostname or ''}{path}"
     return f"job::{norm(job.get('company'))}::{norm(job.get('title'))}::{norm(job.get('location'))}"
+
+
+def _role_variants(value: str) -> list[str]:
+    base = _clean(value, 300)
+    if not base:
+        return []
+    variants = [base]
+
+    def add(candidate: str) -> None:
+        cleaned = _clean(candidate, 300)
+        if cleaned and all(item.lower() != cleaned.lower() for item in variants):
+            variants.append(cleaned)
+
+    replacements = [
+        (r"\bprogramme\b", "program"),
+        (r"\bprogram\b", "programme"),
+        (r"\bproject\b", "program"),
+        (r"\bproject\b", "programme"),
+        (r"\btechnical programme manager\b", "technical project manager"),
+        (r"\btechnical program manager\b", "technical project manager"),
+        (r"\btechnical project manager\b", "technical program manager"),
+        (r"\bdelivery manager\b", "technical delivery manager"),
+    ]
+    for pattern, replacement in replacements:
+        if re.search(pattern, base, flags=re.I):
+            add(re.sub(pattern, replacement, base, flags=re.I))
+
+    if re.fullmatch(r"tpm", base, flags=re.I):
+        add("Technical Program Manager")
+        add("Technical Programme Manager")
+        add("Technical Project Manager")
+
+    return variants[:4]
 
 
 def _schema() -> dict[str, Any]:
@@ -97,27 +130,33 @@ def _parse_json_text(value: str) -> dict[str, Any]:
     return parsed if isinstance(parsed, dict) else {"jobs": []}
 
 
-def _query_passes(target_role: str, location: str, freshness_days: int) -> list[tuple[str, str]]:
-    role = _clean(target_role, 300)
+def _query_passes(target_role: str, location: str, freshness_days: int) -> tuple[list[str], list[tuple[str, str]]]:
+    variants = _role_variants(target_role)
     place = _clean(location, 200)
     days = max(1, min(90, int(freshness_days)))
-    return [
+    family = " OR ".join(f'\"{item}\"' for item in variants)
+
+    return variants, [
         (
             "broad_direct",
-            f'Current active "{role}" jobs in "{place}" posted within roughly the last {days} days. '
-            "Prioritise direct employer career pages and exact application pages. Search broadly across employers, not only major job boards.",
+            f"Current active jobs matching ({family}) in {place}, posted within roughly the last {days} days. "
+            "Search direct employer career sites broadly across companies and sectors, including employers that may not be indexed by major job boards. "
+            "Return exact job-detail/application pages.",
         ),
         (
-            "ats_direct",
-            f'Current active "{role}" jobs in "{place}" posted within roughly the last {days} days on ATS platforms: '
-            "Greenhouse, Lever, Workday, SmartRecruiters, Ashby, Workable, iCIMS, SuccessFactors and Oracle Recruiting. "
-            "Return exact vacancy/application pages, not generic search pages.",
+            "major_ats",
+            f"Current active jobs matching ({family}) in {place}, posted within roughly the last {days} days, across Greenhouse, Lever, Workday, SmartRecruiters, Ashby and Workable. "
+            "Return exact vacancy/application URLs and search across many employers, not a fixed company list.",
         ),
         (
-            "employer_careers",
-            f'Employer careers vacancies for "{role}" in "{place}" posted within roughly the last {days} days. '
-            "Find direct company careers/job-detail pages including employers that may not appear on LinkedIn or Indeed. "
-            "Return exact active vacancy URLs.",
+            "enterprise_ats",
+            f"Current active jobs matching ({family}) in {place}, posted within roughly the last {days} days, across iCIMS, SAP SuccessFactors, Oracle Recruiting/Oracle Cloud and employer-hosted enterprise ATS pages. "
+            "Return exact vacancy/application URLs.",
+        ),
+        (
+            "indexed_uk_market",
+            f"Current active jobs matching ({family}) in {place}, posted within roughly the last {days} days, visible through LinkedIn, Indeed, Totaljobs, Reed, CV-Library, Adzuna and other indexed UK job sources. "
+            "Use these sources to find vacancies that direct ATS searches may miss; prefer an exact direct employer or ATS URL when search results expose one.",
         ),
     ]
 
@@ -136,10 +175,12 @@ FRESHNESS WINDOW: approximately {freshness_days} days
 MAX RESULTS FOR THIS PASS: {max_jobs}
 
 Rules:
+- Maximise recall while staying relevant to the requested role family and location.
 - Search broadly and independently; do not assume one job board represents the market.
 - Prefer direct employer career pages and direct ATS job-detail/application pages.
 - Include legitimate direct employer career URLs even when the employer uses a custom careers domain.
-- Avoid generic company homepages, generic careers landing pages and job-search result pages when an exact vacancy page is available.
+- Use job boards/indexed sources as discovery leads when a direct vacancy page cannot be found.
+- Avoid generic company homepages, generic careers landing pages and generic search-result pages when an exact vacancy page is available.
 - Do not invent jobs, dates, salaries, employers or URLs.
 - Return only vacancies supported by grounded Google Search results.
 - Use the exact HTTPS vacancy/application URL when available.
@@ -198,27 +239,27 @@ Rules:
     return {"pass": pass_name, "jobs": jobs[:max_jobs]}
 
 
-def discover_market_jobs(*, target_role: str, location: str, freshness_days: int = 14, max_jobs: int = 50) -> dict[str, Any]:
+def discover_market_jobs(*, target_role: str, location: str, freshness_days: int = 14, max_jobs: int = 100) -> dict[str, Any]:
     role = _clean(target_role, 300)
     place = _clean(location, 200)
     if not role:
         return {"jobs": [], "passes": [], "errors": ["target role is required"]}
 
     days = max(1, min(90, int(freshness_days or 14)))
-    requested_max = max(1, min(MAX_TOTAL_JOBS, int(max_jobs or 50)))
-    passes = _query_passes(role, place, days)
-    per_pass = min(MAX_PASS_JOBS, max(8, (requested_max + len(passes) - 1) // len(passes) + 4))
+    requested_max = max(1, min(MAX_TOTAL_JOBS, int(max_jobs or 100)))
+    variants, passes = _query_passes(role, place, days)
+    per_pass = min(MAX_PASS_JOBS, max(12, (requested_max + len(passes) - 1) // len(passes) + 5))
 
     results: list[dict[str, Any]] = []
     errors: list[str] = []
-    workers = min(3, len(passes))
+    workers = min(4, len(passes))
     with ThreadPoolExecutor(max_workers=workers) as pool:
         future_map = {
             pool.submit(
                 _run_pass,
                 pass_name=pass_name,
                 query=query,
-                target_role=role,
+                target_role=" | ".join(variants),
                 location=place,
                 freshness_days=days,
                 max_jobs=per_pass,
@@ -244,9 +285,10 @@ def discover_market_jobs(*, target_role: str, location: str, freshness_days: int
     return {
         "jobs": jobs,
         "total": len(jobs),
+        "role_variants": variants,
         "passes": [result.get("pass") for result in results],
         "failed_passes": errors,
-        "search_strategy": "three-pass grounded market discovery: broad direct + ATS direct + employer careers; candidate profile excluded",
+        "search_strategy": "four-pass grounded market discovery: broad direct + major ATS + enterprise ATS + indexed UK market; role-family variants included; candidate profile excluded",
         "coverage_confidence": "expanded_not_exhaustive",
-        "coverage_note": "Expanded discovery materially improves recall but cannot prove complete coverage of every vacancy on the public internet.",
+        "coverage_note": "Expanded discovery searches multiple independent market lanes and equivalent role titles. No public-web search can prove literal 100% coverage because some vacancies are unindexed, authenticated, blocked from crawling or published only inside closed platforms.",
     }
