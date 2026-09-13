@@ -77,6 +77,11 @@ function containsAny(text: string, values: string[]) {
   return values.some((value) => padded.includes(` ${canonical(value)} `));
 }
 
+function hasVacancyIdentifier(parsed: URL) {
+  const identifierKeys = ['id', 'jobid', 'job_id', 'job', 'req', 'reqid', 'requisition', 'gh_jid'];
+  return identifierKeys.some((key) => clean(parsed.searchParams.get(key), 120).length > 0);
+}
+
 function isLikelyVacancyUrl(value: unknown) {
   const candidate = clean(value, 2000);
   if (!candidate) return false;
@@ -94,7 +99,7 @@ function isLikelyVacancyUrl(value: unknown) {
       '/jobs', '/careers', '/career', '/vacancies', '/vacancy', '/search', '/job-search',
       '/jobs/search', '/careers/search', '/opportunities', '/open-roles',
     ]);
-    if (genericPaths.has(path)) return false;
+    if (genericPaths.has(path) && !hasVacancyIdentifier(parsed)) return false;
     return true;
   } catch {
     return false;
@@ -122,6 +127,10 @@ function roleOrKeywordMatches(job: TrustJob, query: string) {
   if (!title || !company) return false;
   if (company.includes(queryText) || title.includes(queryText)) return true;
 
+  if (queryText === 'tpm') {
+    return includesToken(title, 'program') && includesToken(title, 'manager');
+  }
+
   const queryTokens = tokens(queryText);
   if (!queryTokens.length) return false;
 
@@ -133,9 +142,6 @@ function roleOrKeywordMatches(job: TrustJob, query: string) {
     const required = core.length <= 2 ? core.length : Math.ceil(core.length * 0.67);
     const titleHits = core.filter((token) => includesToken(title, token)).length;
     if (core.length && titleHits >= Math.max(1, required)) return true;
-
-    // Acronym-safe exception for TPM. It still requires the title to be a Program/Programme Manager role.
-    if (queryText === 'tpm' && includesToken(title, 'program') && includesToken(title, 'manager')) return true;
     return false;
   }
 
