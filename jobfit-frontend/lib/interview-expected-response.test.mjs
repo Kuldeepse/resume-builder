@@ -13,17 +13,19 @@ const base = {
   ],
 };
 
-test('risk question gets a risk-specific expected response', () => {
+test('risk question gets a risk-specific evidence-grounded response', () => {
   const result = buildExpectedInterviewResponse({ ...base, interview_type: 'behavioural', question: 'Tell me about a major dependency or risk that threatened delivery.' });
   assert.equal(result.intent, 'risk');
-  assert.match(result.expected_response, /what was at risk/i);
-  assert.match(result.expected_response, /verified/i);
+  assert.equal(result.basis, 'verified_evidence');
+  assert.match(result.structure, /risk|impact|controls/i);
+  assert.match(result.expected_response, /verified example|factual STAR core/i);
 });
 
 test('architecture question gets technical architecture structure', () => {
   const result = buildExpectedInterviewResponse({ ...base, interview_type: 'technical', question: 'Walk me through the architecture of a complex platform you delivered.' });
   assert.equal(result.intent, 'architecture');
-  assert.match(result.expected_response, /components|integrations|data flows/i);
+  assert.match(result.structure, /architecture|data flow|dependencies/i);
+  assert.match(result.expected_response, /platform context|components|dependencies/i);
 });
 
 test('available candidate evidence is surfaced without inventing metrics', () => {
@@ -33,8 +35,14 @@ test('available candidate evidence is surfaced without inventing metrics', () =>
   assert.ok(!/\b99%\b/.test(result.expected_response));
 });
 
-test('missing candidate evidence stays as a placeholder', () => {
+test('missing candidate evidence returns a complete illustrative model answer, not empty STAR placeholders', () => {
   const result = buildExpectedInterviewResponse({ role: 'Product Manager', interview_type: 'behavioural', question: 'Tell me about a stakeholder disagreement.', candidate_evidence: [] });
-  assert.match(result.expected_response, /\[Choose one verified example/i);
+  assert.equal(result.basis, 'illustrative_model');
+  assert.match(result.expected_response, /Illustrative model answer/i);
+  assert.match(result.expected_response, /stakeholder|decision|disagreed/i);
+  assert.doesNotMatch(result.expected_response, /\[Choose one verified example/i);
+  assert.doesNotMatch(result.expected_response, /Task:\s*\[/i);
+  assert.doesNotMatch(result.expected_response, /Action:\s*\[/i);
+  assert.doesNotMatch(result.expected_response, /Result:\s*\[/i);
   assert.equal(result.evidence_safe, true);
 });
