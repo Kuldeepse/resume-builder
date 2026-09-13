@@ -2,6 +2,7 @@ import { after, NextResponse } from 'next/server';
 import { GET as runBrowse } from '../browse/route';
 import { validateJobsForSearch } from '../job-trust';
 import { persistValidatedMarketRun } from '../job-market-index';
+import { queryMarketIndex } from '../job-market-query';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -18,6 +19,7 @@ type Job = {
   link?: string;
   remote?: boolean;
   source?: string;
+  source_type?: string;
   direct?: boolean;
 };
 
@@ -169,9 +171,21 @@ export async function GET(request: Request) {
   const requestedDays = Number(incoming.searchParams.get('days') || 0);
   const freshnessDays = Number.isFinite(requestedDays) ? Math.max(0, Math.min(90, requestedDays)) : 0;
   const variants = roleVariants(query);
-  const browse = await runFastConfiguredSearch(request, variants);
-  const rawJobs = Array.isArray(browse.jobs) ? browse.jobs : [];
+
+  const [browse, marketIndex] = await Promise.all([
+    runFastConfiguredSearch(request, variants),
+    queryMarketIndex({ query, location, freshnessDays, limit: 120 }),
+  ]);
+
+  const configuredRawJobs = Array.isArray(browse.jobs) ? browse.jobs : [];
+  const indexedRawJobs = Array.isArray(marketIndex.jobs) ? marketIndex.jobs as Job[] : [];
+  const combined = mergePayloads([
+    browse,
+    indexedRawJobs.length ? { jobs: indexedRawJobs, search_strategy: 'persistent validated market index' } : {},
+  ], variants);
+  const rawJobs = Array.isArray(combined.jobs) ? combined.jobs : [];
   const trustGate = validateJobsForSearch(rawJobs, { query, location, freshnessDays });
+  const configuredTrustGate = validateJobsForSearch(configuredRawJobs, { query, location, freshnessDays });
   const jobs = trustGate.accepted;
   const directJobs = jobs.filter((job) => job.direct === true);
   const fallbackJobs = jobs.filter((job) => job.direct !== true);
@@ -182,15 +196,17 @@ export async function GET(request: Request) {
   const sourceErrorCount = Array.isArray(browse.source_errors) ? browse.source_errors.length : 0;
   const partial = Boolean(browse.partial) || sourceErrorCount > 0;
   const sourceHealth = !jobs.length ? 'no_results' : partial ? 'degraded' : 'healthy';
-  const coverageConfidence = 'configured_sources_validated';
-  const coverageNote = `Fast configured-source results passed deterministic role, location, freshness and vacancy-URL checks. ${trustGate.rejected.length} candidate result${trustGate.rejected.length === 1 ? ' was' : 's were'} withheld because the search intent could not be validated. Market coverage is not exhaustive.`;
+  const coverageConfidence = indexedRawJobs.length ? 'configured_plus_index_validated' : 'configured_sources_validated';
+  const coverageNote = `Fast results passed deterministic role, location, freshness and vacancy-URL checks. ${configuredTrustGate.rejected.length} configured-source candidate result${configuredTrustGate.rejected.length === 1 ? ' was' : 's were'} withheld. The persistent market index contributed ${indexedRawJobs.length} recent validated observation${indexedRawJobs.length === 1 ? '' : 's'} before deduplication. Market coverage is not exhaustive.`;
 
   const fallbackReasons: string[] = [];
-  if (!jobs.length) fallbackReasons.push('The fast source pass has not produced a validated role yet; expanded employer/ATS discovery is continuing automatically.');
+  if (!jobs.length) fallbackReasons.push('The fast sources and persistent market index have not produced a validated role yet; expanded employer/ATS discovery is continuing automatically.');
   if (partial) fallbackReasons.push('At least one configured discovery source was incomplete or exceeded the fast-response budget.');
   if (jobs.length > 0 && directJobs.length === 0) fallbackReasons.push('No direct employer/ATS vacancies were returned yet.');
   if (jobs.length > 0 && employers.length <= 1) fallbackReasons.push('Employer diversity is narrow; expanded discovery is required.');
 
+  // Only fresh configured-source observations are written. Market-index readbacks are deliberately
+  // excluded to avoid self-reinforcing provenance loops.
   after(async () => {
     await persistValidatedMarketRun({
       runId,
@@ -200,9 +216,9 @@ export async function GET(request: Request) {
       freshnessDays,
       startedAt,
       completedAt: Date.now(),
-      jobs,
-      rolesReceived: rawJobs.length,
-      rolesRejected: trustGate.rejected.length,
+      jobs: configuredTrustGate.accepted,
+      rolesReceived: configuredRawJobs.length,
+      rolesRejected: configuredTrustGate.rejected.length,
       sourceHealth,
       sourceErrorCount,
       coverageConfidence,
@@ -210,7 +226,9 @@ export async function GET(request: Request) {
       metadata: {
         query_variants: variants,
         sources_observed: sources,
-        search_strategy: cleanText(browse.search_strategy, 500),
+        search_strategy: cleanText(combined.search_strategy, 500),
+        market_index_status: marketIndex.status,
+        market_index_candidates: indexedRawJobs.length,
       },
     });
   });
@@ -225,7 +243,7 @@ export async function GET(request: Request) {
     source_errors: sourceErrorCount
       ? [`${sourceErrorCount} configured discovery component${sourceErrorCount === 1 ? '' : 's'} were incomplete for the fast pass.`]
       : [],
-    search_strategy: `${cleanText(browse.search_strategy, 500)}; deterministic query/location/freshness trust gate`,
+    search_strategy: `${cleanText(combined.search_strategy, 500)}; deterministic query/location/freshness trust gate`,
     query_variants: variants,
     telemetry: {
       run_id: runId,
@@ -246,7 +264,9 @@ export async function GET(request: Request) {
         : ['Expanded employer/ATS discovery is running separately to improve market recall.'],
       coverage_confidence: coverageConfidence,
       coverage_note: coverageNote,
-      configured_lane_roles: jobs.length,
+      configured_lane_roles: configuredTrustGate.accepted.length,
+      indexed_lane_roles: indexedRawJobs.length,
+      market_index_status: marketIndex.status,
       expanded_lane_roles: 0,
       filtered_untrusted_roles: trustGate.rejected.length,
     },
