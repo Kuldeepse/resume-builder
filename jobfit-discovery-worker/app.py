@@ -70,7 +70,7 @@ def _allowed_hosts() -> set[str]:
 def _host_allowed(hostname: str) -> bool:
     allowed = _allowed_hosts()
     if not allowed:
-        return True
+        return False
     return any(hostname == host or hostname.endswith(f".{host}") for host in allowed)
 
 
@@ -121,6 +121,8 @@ def _require_worker_token(authorization: str | None) -> None:
     expected = (os.getenv("DISCOVERY_WORKER_TOKEN") or "").strip()
     if not expected:
         raise HTTPException(status_code=503, detail="Discovery worker authentication is not configured.")
+    if not _allowed_hosts():
+        raise HTTPException(status_code=503, detail="Discovery worker host allowlist is not configured.")
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Authentication required.")
     supplied = authorization.removeprefix("Bearer ").strip()
@@ -180,12 +182,14 @@ def _observation_id(url: str) -> str:
 
 @app.get("/health")
 async def health() -> dict[str, object]:
+    auth_configured = bool((os.getenv("DISCOVERY_WORKER_TOKEN") or "").strip())
+    allowed_hosts_configured = bool(_allowed_hosts())
     return {
-        "ok": True,
+        "ok": auth_configured and allowed_hosts_configured,
         "service": "cognitwist-market-discovery-worker",
         "engine": "crawl4ai",
-        "allowed_hosts_configured": bool(_allowed_hosts()),
-        "auth_configured": bool((os.getenv("DISCOVERY_WORKER_TOKEN") or "").strip()),
+        "allowed_hosts_configured": allowed_hosts_configured,
+        "auth_configured": auth_configured,
     }
 
 
