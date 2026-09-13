@@ -129,6 +129,7 @@ function mapJob(job: JoboJob): IndexedMarketJob | null {
     source: `Bootstrap benchmark · Jobo · ${source}`,
     source_type: 'ats',
     direct: true,
+    external_job_id: clean(job.id, 300) || undefined,
   };
 }
 
