@@ -35,8 +35,8 @@ const techDisplayFont = Space_Grotesk({
   variable: "--font-cognitwist-tech-display",
 });
 
-const siteTitle = "CogniTwist AI - Career Intelligence and Trusted Connections";
-const siteDescription = "Build stronger applications, prepare for interviews, discover jobs, and connect through the private CogniTwist AI Career Network.";
+const siteTitle = "CogniTwist AI - Your AI Career Team";
+const siteDescription = "Discover better opportunities, analyse fit, tailor evidence-grounded CVs and prepare for interviews with one connected AI career workspace.";
 const siteUrl = "https://cognitwistai.duckdns.org";
 const socialImageUrl = `${siteUrl}/cognitwist-ai-share-v2`;
 
@@ -62,11 +62,12 @@ export const metadata: Metadata = {
     telephone: false,
   },
   keywords: [
+    "AI career copilot",
     "AI resume builder",
-    "career network",
-    "job referrals UK",
-    "interview preparation",
     "job search platform",
+    "interview preparation",
+    "job referrals UK",
+    "career network",
     "CogniTwist AI",
   ],
   authors: [{ name: "Kuldeep Sharma" }],
@@ -106,7 +107,7 @@ export const metadata: Metadata = {
         url: socialImageUrl,
         width: 1200,
         height: 630,
-        alt: "CogniTwist AI — Career Intelligence and Trusted Connections",
+        alt: "CogniTwist AI - Your AI Career Team",
       },
     ],
   },
@@ -126,11 +127,11 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <CareerStudioHandoff />
         <header className="sticky top-0 z-50 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] md:px-8 md:pt-4">
           <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 rounded-[1.5rem] border border-[var(--surface-border)] bg-[var(--surface)] px-3 py-3 shadow-[var(--shadow-xl)] backdrop-blur-2xl md:rounded-[2rem] md:px-6">
-            <Link href="/" className="flex min-w-0 items-center gap-3 font-black text-slate-950">
+            <Link href="/career" className="flex min-w-0 items-center gap-3 font-black text-slate-950">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,var(--accent)_0%,var(--highlight)_100%)] text-xs text-white shadow-lg shadow-teal-900/20 md:h-11 md:w-11">CT</span>
               <span className="flex min-w-0 flex-col leading-none">
                 <span className="truncate text-xs tracking-[0.04em] text-[var(--ink-soft)] md:text-sm">CogniTwist AI</span>
-                <span className="mt-1 truncate font-[var(--font-cognitwist-display)] text-sm tracking-[-0.02em] md:text-lg">Career Network</span>
+                <span className="mt-1 truncate font-[var(--font-cognitwist-display)] text-sm tracking-[-0.02em] md:text-lg">Career Copilot</span>
               </span>
             </Link>
             <SiteNav />
