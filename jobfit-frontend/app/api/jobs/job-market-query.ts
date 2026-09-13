@@ -10,6 +10,29 @@ function clean(value: unknown, limit = 4000) {
   return String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, limit);
 }
 
+function safeIndexQuery(value: string) {
+  const base = clean(value, 300);
+  if (!base) return '';
+  const variants = [base];
+  const add = (candidate: string) => {
+    const cleaned = clean(candidate, 300);
+    if (cleaned && !variants.some((item) => item.toLowerCase() === cleaned.toLowerCase())) variants.push(cleaned);
+  };
+
+  // Program/programme are spelling aliases. Project remains a separate role family.
+  if (/\bprogram\b/i.test(base)) add(base.replace(/\bprogram\b/i, 'programme'));
+  else if (/\bprogramme\b/i.test(base)) add(base.replace(/\bprogramme\b/i, 'program'));
+
+  if (/^tpm$/i.test(base)) {
+    add('Technical Program Manager');
+    add('Technical Programme Manager');
+  }
+
+  return variants.length === 1
+    ? variants[0]
+    : variants.map((variant) => `\"${variant.replace(/\"/g, '')}\"`).join(' OR ');
+}
+
 export async function queryMarketIndex(input: {
   query: string;
   location?: string;
@@ -28,7 +51,7 @@ export async function queryMarketIndex(input: {
         contentType: 'application/json',
       }),
       body: JSON.stringify({
-        p_query: clean(input.query, 300),
+        p_query: safeIndexQuery(input.query),
         p_location: clean(input.location, 200) || null,
         p_freshness_days: Number.isFinite(Number(input.freshnessDays)) ? Math.max(0, Math.min(90, Number(input.freshnessDays))) : 14,
         p_limit: Math.max(1, Math.min(200, Number(input.limit) || 100)),
