@@ -2,11 +2,17 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BriefcaseBusiness, Home, Mic2, Network, Search, ShieldCheck, Sparkles } from 'lucide-react';
+import { Bot, BriefcaseBusiness, FileText, Mic2, Network, Search, ShieldCheck } from 'lucide-react';
 import ThemeToggle from './theme-toggle';
 
 const items = [
-  { href: '/', label: 'Studio', desktopLabel: 'Career Studio', icon: Home, match: (pathname: string) => pathname === '/' },
+  {
+    href: '/career',
+    label: 'Home',
+    desktopLabel: 'Career Copilot',
+    icon: Bot,
+    match: (pathname: string) => pathname === '/career',
+  },
   {
     href: '/jobs',
     label: 'Jobs',
@@ -15,11 +21,11 @@ const items = [
     match: (pathname: string) => pathname === '/jobs' || pathname.startsWith('/jobs/'),
   },
   {
-    href: '/job-intelligence',
-    label: 'Fit',
-    desktopLabel: 'Job Intelligence',
-    icon: Sparkles,
-    match: (pathname: string) => pathname.startsWith('/job-intelligence'),
+    href: '/studio',
+    label: 'Studio',
+    desktopLabel: 'Career Studio',
+    icon: FileText,
+    match: (pathname: string) => pathname === '/studio',
   },
   {
     href: '/live-interview',
@@ -28,8 +34,20 @@ const items = [
     icon: Mic2,
     match: (pathname: string) => pathname.startsWith('/live-interview'),
   },
-  { href: '/career-network', label: 'Network', desktopLabel: 'Career Network', icon: Network, match: (pathname: string) => pathname.startsWith('/career-network') },
-  { href: '/privacy', label: 'Privacy', desktopLabel: 'Privacy', icon: ShieldCheck, match: (pathname: string) => pathname.startsWith('/privacy') },
+  {
+    href: '/career-network',
+    label: 'Network',
+    desktopLabel: 'Career Network',
+    icon: Network,
+    match: (pathname: string) => pathname.startsWith('/career-network'),
+  },
+  {
+    href: '/privacy',
+    label: 'Privacy',
+    desktopLabel: 'Privacy',
+    icon: ShieldCheck,
+    match: (pathname: string) => pathname.startsWith('/privacy'),
+  },
   {
     href: '/admin/career-network',
     label: 'Admin',
