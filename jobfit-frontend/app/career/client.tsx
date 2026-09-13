@@ -309,9 +309,16 @@ export default function CareerCopilotClient() {
 
   const analyseFit = (job: Job) => {
     window.sessionStorage.setItem('cognitwist-job-intelligence-prefill', JSON.stringify({
-      targetRole: job.title,
-      location: job.location || 'UK',
-      jobDescription: jobDescription(job),
+      version: 2,
+      selectedAt: new Date().toISOString(),
+      vacancy: {
+        ...job,
+        handoff_version: 'v2',
+      },
+      discovery: {
+        runId: result?.telemetry.run_id || '',
+        coverageConfidence: result?.telemetry.coverage_confidence || '',
+      },
     }));
     window.location.href = '/job-intelligence';
   };
