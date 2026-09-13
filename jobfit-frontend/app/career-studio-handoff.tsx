@@ -16,7 +16,7 @@ export default function CareerStudioHandoff() {
   const pathname = usePathname();
 
   useEffect(() => {
-    if (pathname !== '/') return;
+    if (pathname !== '/studio' && pathname !== '/') return;
 
     let context: { targetRole?: string; jobDescription?: string } | null = null;
     try {
