@@ -1,130 +1,181 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
+import { useEffect, useRef, useState } from 'react';
 import {
   AlertTriangle,
+  ArrowLeft,
   ArrowRight,
-  Bookmark,
-  BookmarkCheck,
   BriefcaseBusiness,
   CheckCircle2,
+  CircleHelp,
   ExternalLink,
   FileText,
-  Filter,
   MapPin,
+  Mic2,
   RefreshCw,
-  Search,
   ShieldCheck,
   Sparkles,
   Target,
   Upload,
-  UserCheck,
   X,
+  XCircle,
 } from 'lucide-react';
+import { parseLegacyScoutPrefill } from '../../lib/job-intelligence-core.mjs';
 
-type JobMatch = {
+type Vacancy = {
   title: string;
   company: string;
   location: string;
-  salary: string;
+  salary?: string;
   posted?: string;
-  description?: string;
+  description: string;
   skills: string[];
-  link: string;
-  match_score: number;
-  matched_requirements: string[];
-  missing_requirements: string[];
-  recommendation: 'Apply' | 'Apply after tailoring' | 'Review carefully';
-};
-
-type JobResults = {
-  jobs: JobMatch[];
-  best_match_summary?: string;
-  search_mode?: string;
+  link?: string;
+  remote?: boolean;
   source?: string;
+  direct?: boolean;
+  handoff_version?: string;
 };
 
-type RecommendationFilter = 'all' | JobMatch['recommendation'];
+type EvidenceStatus = 'confirmed' | 'partial' | 'gap' | 'unknown';
+type EvidenceItem = {
+  requirement: string;
+  category: 'must_have' | 'preferred' | 'responsibility' | 'signal';
+  source: string;
+  status: EvidenceStatus;
+  candidate_evidence: string[];
+  rationale: string;
+  overlap_terms: string[];
+};
 
-const SAVED_KEY = 'cognitwist-job-intelligence-saved';
+type Dimension = {
+  key: string;
+  label: string;
+  weight: number;
+  score: number;
+  detail: string;
+};
 
-function jobKey(job: JobMatch) {
-  return `${job.company}::${job.title}::${job.location}::${job.link}`;
+type IntelligenceResult = {
+  engine: string;
+  vacancy: Vacancy;
+  vacancy_confidence: {
+    score: number;
+    level: 'high' | 'medium' | 'low';
+    valid_url: boolean;
+    freshness: 'fresh' | 'aging' | 'stale' | 'unknown';
+    notes: string[];
+  };
+  assessment: {
+    overall_fit: number;
+    fit_label: string;
+    recommendation: 'Apply' | 'Apply after tailoring' | 'Review carefully';
+    confidence: 'high' | 'medium' | 'low';
+    dimensions: Dimension[];
+    evidence: EvidenceItem[];
+    strengths: string[];
+    partials: string[];
+    gaps: string[];
+    unknowns: string[];
+    summary: string;
+  };
+  safeguards: {
+    exact_selected_vacancy: boolean;
+    independent_market_search: boolean;
+    freshness_excluded_from_candidate_fit: boolean;
+    unknown_kept_separate_from_gap: boolean;
+  };
+};
+
+const panelClass = 'rounded-[1.75rem] border border-[var(--surface-border)] bg-[var(--surface)] shadow-[var(--shadow-xl)]';
+const inputClass = 'w-full rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-strong)] px-4 py-3 text-sm text-[var(--foreground)] outline-none placeholder:text-[var(--ink-soft)] focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent-soft)]';
+
+function safeVacancy(raw: unknown): Vacancy | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const item = raw as Partial<Vacancy>;
+  if (!item.title || !item.description) return null;
+  return {
+    title: String(item.title).slice(0, 240),
+    company: String(item.company || 'Selected employer').slice(0, 240),
+    location: String(item.location || 'Location not confirmed').slice(0, 240),
+    salary: String(item.salary || '').slice(0, 240),
+    posted: String(item.posted || '').slice(0, 160),
+    description: String(item.description).slice(0, 12000),
+    skills: Array.isArray(item.skills) ? item.skills.map((value) => String(value).slice(0, 120)).filter(Boolean).slice(0, 20) : [],
+    link: String(item.link || '').slice(0, 1600),
+    remote: Boolean(item.remote),
+    source: String(item.source || 'Job Scout verified selection').slice(0, 160),
+    direct: Boolean(item.direct),
+    handoff_version: String(item.handoff_version || 'v2').slice(0, 40),
+  };
 }
 
-function scoreLabel(score: number) {
-  if (score >= 90) return 'Excellent fit';
-  if (score >= 80) return 'Strong fit';
-  if (score >= 70) return 'Worth applying';
-  if (score >= 60) return 'Apply selectively';
-  return 'Low priority';
+function readScoutVacancy(): Vacancy | null {
+  try {
+    const raw = window.sessionStorage.getItem('cognitwist-job-intelligence-prefill');
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    const current = safeVacancy(parsed?.vacancy);
+    if (current) return current;
+    return safeVacancy(parseLegacyScoutPrefill(parsed));
+  } catch {
+    return null;
+  }
 }
 
-function recommendationTone(recommendation: JobMatch['recommendation']) {
-  if (recommendation === 'Apply') return 'border-emerald-200 bg-emerald-50 text-emerald-900';
-  if (recommendation === 'Apply after tailoring') return 'border-amber-200 bg-amber-50 text-amber-900';
-  return 'border-slate-200 bg-slate-50 text-slate-700';
+function downstreamJobDescription(vacancy: Vacancy) {
+  return [
+    `${vacancy.title} at ${vacancy.company}`,
+    vacancy.location ? `Location: ${vacancy.location}` : '',
+    vacancy.source ? `Source: ${vacancy.source}` : '',
+    vacancy.description,
+    vacancy.skills.length ? `Role signals: ${vacancy.skills.join(', ')}` : '',
+  ].filter(Boolean).join('\n\n');
+}
+
+function evidenceTone(status: EvidenceStatus) {
+  if (status === 'confirmed') return 'border-emerald-300 bg-emerald-50 text-emerald-950';
+  if (status === 'partial') return 'border-amber-300 bg-amber-50 text-amber-950';
+  if (status === 'gap') return 'border-rose-300 bg-rose-50 text-rose-950';
+  return 'border-slate-300 bg-slate-50 text-slate-800';
+}
+
+function EvidenceIcon({ status }: { status: EvidenceStatus }) {
+  if (status === 'confirmed') return <CheckCircle2 className="h-4 w-4" />;
+  if (status === 'gap') return <XCircle className="h-4 w-4" />;
+  if (status === 'partial') return <AlertTriangle className="h-4 w-4" />;
+  return <CircleHelp className="h-4 w-4" />;
+}
+
+function confidenceTone(level: 'high' | 'medium' | 'low') {
+  if (level === 'high') return 'border-emerald-300 bg-emerald-50 text-emerald-950';
+  if (level === 'medium') return 'border-amber-300 bg-amber-50 text-amber-950';
+  return 'border-slate-300 bg-slate-50 text-slate-800';
 }
 
 export default function JobIntelligencePage() {
-  const [targetRole, setTargetRole] = useState('');
-  const [location, setLocation] = useState('UK');
+  const [vacancy, setVacancy] = useState<Vacancy | null>(null);
   const [profileText, setProfileText] = useState('');
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
-  const [searchStatus, setSearchStatus] = useState('');
   const [error, setError] = useState('');
-  const [results, setResults] = useState<JobResults | null>(null);
-  const [selectedKey, setSelectedKey] = useState('');
-  const [minimumFit, setMinimumFit] = useState(0);
-  const [recommendationFilter, setRecommendationFilter] = useState<RecommendationFilter>('all');
-  const [saved, setSaved] = useState<string[]>(() => {
-    if (typeof window === 'undefined') return [];
-    try {
-      const parsed = JSON.parse(window.localStorage.getItem(SAVED_KEY) || '[]');
-      return Array.isArray(parsed) ? parsed.filter((item) => typeof item === 'string') : [];
-    } catch {
-      return [];
-    }
-  });
-  const [showSavedOnly, setShowSavedOnly] = useState(false);
+  const [result, setResult] = useState<IntelligenceResult | null>(null);
   const controllerRef = useRef<AbortController | null>(null);
 
-  const persistSaved = (next: string[]) => {
-    setSaved(next);
-    window.localStorage.setItem(SAVED_KEY, JSON.stringify(next));
-  };
+  useEffect(() => {
+    setVacancy(readScoutVacancy());
+  }, []);
 
-  const toggleSaved = (job: JobMatch) => {
-    const key = jobKey(job);
-    persistSaved(saved.includes(key) ? saved.filter((item) => item !== key) : [...saved, key]);
-  };
+  const cancelAnalysis = () => controllerRef.current?.abort();
 
-  const filteredJobs = useMemo(() => {
-    return [...(results?.jobs || [])]
-      .sort((a, b) => b.match_score - a.match_score)
-      .filter((job) => {
-        if (job.match_score < minimumFit) return false;
-        if (recommendationFilter !== 'all' && job.recommendation !== recommendationFilter) return false;
-        if (showSavedOnly && !saved.includes(jobKey(job))) return false;
-        return true;
-      });
-  }, [results, minimumFit, recommendationFilter, showSavedOnly, saved]);
-
-  const selectedJob = useMemo(() => {
-    if (!filteredJobs.length) return null;
-    return filteredJobs.find((job) => jobKey(job) === selectedKey) || filteredJobs[0];
-  }, [filteredJobs, selectedKey]);
-
-  const cancelSearch = () => controllerRef.current?.abort();
-
-  const handleSearch = async () => {
-    if (!targetRole.trim() || !location.trim()) {
-      setError('Enter a target role and location.');
+  const analyse = async () => {
+    if (!vacancy) {
+      setError('Select a vacancy in Job Scout before running Job Intelligence.');
       return;
     }
-    if (!resumeFile && !profileText.trim()) {
-      setError('Upload a DOCX CV or paste a short career profile so CogniTwist can score each job.');
+    if (!profileText.trim() && !resumeFile) {
+      setError('Upload a DOCX CV or paste a career summary so CogniTwist can map evidence to this vacancy.');
       return;
     }
 
@@ -133,100 +184,161 @@ export default function JobIntelligencePage() {
     controllerRef.current = controller;
     setLoading(true);
     setError('');
-    setSelectedKey('');
-    setSearchStatus('Loading current vacancies and calculating your CogniTwist fit score…');
+    setResult(null);
 
-    const formData = new FormData();
-    formData.append('target_role', targetRole.trim());
-    formData.append('location_city', location.trim());
-    formData.append('resume_skills', profileText.trim());
-    if (resumeFile) formData.append('resume_file', resumeFile);
-
-    const statusTimer = window.setTimeout(() => {
-      setSearchStatus('Still working — current vacancies are being ranked against your CV. You can keep waiting or cancel.');
-    }, 12000);
+    const form = new FormData();
+    form.append('vacancy_json', JSON.stringify(vacancy));
+    form.append('resume_skills', profileText.trim());
+    if (resumeFile) form.append('resume_file', resumeFile);
 
     try {
-      const response = await fetch('/api/jobs/search', { method: 'POST', body: formData, signal: controller.signal });
+      const response = await fetch('/api/jobs/intelligence', { method: 'POST', body: form, signal: controller.signal });
       const data = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(data?.detail || `Job search failed (${response.status}).`);
-      const next = data as JobResults;
-      next.jobs = (next.jobs || []).sort((a, b) => b.match_score - a.match_score);
-      setResults(next);
-      if (next.jobs[0]) setSelectedKey(jobKey(next.jobs[0]));
-      setSearchStatus('');
+      if (!response.ok) throw new Error(data?.detail || `Job Intelligence failed (${response.status}).`);
+      setResult(data as IntelligenceResult);
+      window.setTimeout(() => document.getElementById('intelligence-result')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
     } catch (requestError) {
       if (requestError instanceof DOMException && requestError.name === 'AbortError') {
-        setError('Search cancelled. Your CV and search criteria are still available.');
+        setError('Analysis cancelled. Your selected vacancy and candidate evidence are still available.');
       } else {
-        setError(requestError instanceof Error ? requestError.message : 'Job search failed. Please try again.');
+        setError(requestError instanceof Error ? requestError.message : 'Job Intelligence could not complete this analysis.');
       }
-      setSearchStatus('');
     } finally {
-      window.clearTimeout(statusTimer);
       if (controllerRef.current === controller) controllerRef.current = null;
       setLoading(false);
     }
   };
 
-  const openInStudio = (job: JobMatch) => {
+  const tailorCv = () => {
+    if (!vacancy) return;
     window.sessionStorage.setItem('cognitwist-career-studio-context', JSON.stringify({
-      targetRole: job.title,
-      jobDescription: [`${job.title} at ${job.company}`, job.location ? `Location: ${job.location}` : '', job.description || '', job.skills?.length ? `Role signals: ${job.skills.join(', ')}` : ''].filter(Boolean).join('\n\n'),
+      targetRole: vacancy.title,
+      jobDescription: downstreamJobDescription(vacancy),
+      jobIntelligence: result ? {
+        overallFit: result.assessment.overall_fit,
+        recommendation: result.assessment.recommendation,
+        strengths: result.assessment.strengths,
+        gaps: result.assessment.gaps,
+        partials: result.assessment.partials,
+      } : undefined,
     }));
-    window.location.href = '/';
+    window.location.href = '/studio';
   };
 
-  const openInterview = (job: JobMatch) => {
-    const description = [job.description || '', job.skills?.length ? `Role signals: ${job.skills.join(', ')}` : ''].filter(Boolean).join('\n\n');
-    window.sessionStorage.setItem('cognitwist-live-interview-context', JSON.stringify({ role: job.title, jobDescription: description, interviewType: 'behavioural' }));
-    window.location.href = `/live-interview?role=${encodeURIComponent(job.title)}&type=behavioural`;
+  const practiceInterview = () => {
+    if (!vacancy) return;
+    window.sessionStorage.setItem('cognitwist-live-interview-context', JSON.stringify({
+      role: vacancy.title,
+      jobDescription: downstreamJobDescription(vacancy),
+      interviewType: 'behavioural',
+      jobIntelligence: result ? {
+        overallFit: result.assessment.overall_fit,
+        strengths: result.assessment.strengths,
+        gaps: result.assessment.gaps,
+        partials: result.assessment.partials,
+      } : undefined,
+    }));
+    window.location.href = `/live-interview?role=${encodeURIComponent(vacancy.title)}&type=behavioural`;
   };
-
-  const inputClass = 'w-full rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-strong)] px-4 py-3 text-sm text-[var(--foreground)] outline-none placeholder:text-[var(--ink-soft)] focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent-soft)]';
-  const panelClass = 'rounded-[1.75rem] border border-[var(--surface-border)] bg-[var(--surface)] shadow-[var(--shadow-xl)]';
 
   return (
     <main className="min-h-screen px-3 pb-28 pt-6 text-[var(--foreground)] md:px-8 md:pb-12 md:pt-10">
       <div className="mx-auto max-w-7xl space-y-6">
         <section className="relative overflow-hidden rounded-[2.2rem] border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-xl)] md:p-9">
+          <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-[var(--accent-soft)] blur-3xl" />
           <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl">
               <div className="inline-flex items-center gap-2 rounded-full border border-[var(--surface-border)] bg-[var(--accent-soft)] px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-[var(--accent-strong)]"><BriefcaseBusiness className="h-3.5 w-3.5" /> Job Intelligence</div>
-              <h1 className="mt-4 text-3xl font-black tracking-tight md:text-5xl">Know which jobs deserve your time.</h1>
-              <p className="mt-3 max-w-2xl text-sm leading-7 text-[var(--ink-soft)] md:text-base">Rank current vacancies against your CV, see evidence behind every score, and continue into tailoring or interview practice.</p>
-              <a href="/jobs" className="mt-4 inline-flex items-center gap-2 rounded-full border border-[var(--surface-border)] bg-[var(--surface-strong)] px-4 py-2 text-xs font-black">Browse jobs without a CV <ArrowRight className="h-4 w-4" /></a>
+              <h1 className="mt-4 text-3xl font-black tracking-tight md:text-5xl">Should you pursue this exact vacancy?</h1>
+              <p className="mt-3 max-w-2xl text-sm leading-7 text-[var(--ink-soft)] md:text-base">Job Intelligence analyses the vacancy selected in Job Scout. It does not run another market search. Candidate fit is based on evidence; vacancy freshness and source confidence are shown separately.</p>
             </div>
+            <Link href="/career" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-strong)] px-4 text-xs font-black"><ArrowLeft className="h-4 w-4" /> Back to Job Scout</Link>
           </div>
         </section>
 
-        <section className={`${panelClass} p-5 md:p-7`}>
-          <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-            <label className="text-xs font-black">Target role<input className={`${inputClass} mt-2`} value={targetRole} onChange={(event) => setTargetRole(event.target.value)} placeholder="e.g. Product Manager" /></label>
-            <label className="text-xs font-black">Location<input className={`${inputClass} mt-2`} value={location} onChange={(event) => setLocation(event.target.value)} placeholder="e.g. UK / London / Remote" /></label>
-          </div>
-          <div className="mt-4 grid gap-4 lg:grid-cols-2">
-            <div className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-strong)] p-4">
-              <input id="intelligence-cv" type="file" accept=".pdf,.docx" className="hidden" onChange={(event) => setResumeFile(event.target.files?.[0] || null)} />
-              <label htmlFor="intelligence-cv" className="flex min-h-24 cursor-pointer items-center justify-center gap-3 rounded-xl border-2 border-dashed border-[var(--surface-border)] px-4 text-center text-xs font-black hover:border-[var(--accent)] hover:bg-[var(--accent-soft)]"><Upload className="h-5 w-5 text-[var(--accent-strong)]" />{resumeFile ? resumeFile.name : 'Upload CV (DOCX recommended)'}</label>
+        {!vacancy ? (
+          <section className={`${panelClass} p-6 md:p-9`}>
+            <div className="mx-auto max-w-2xl text-center">
+              <Target className="mx-auto h-10 w-10 text-[var(--accent-strong)]" />
+              <h2 className="mt-4 text-2xl font-black">Select a vacancy first</h2>
+              <p className="mt-3 text-sm leading-7 text-[var(--ink-soft)]">Job Intelligence no longer performs a second independent job search. Choose a validated role in Job Scout and click <strong>Analyse</strong> so the exact vacancy context is carried here.</p>
+              <Link href="/career" className="mt-6 inline-flex min-h-12 items-center gap-2 rounded-2xl bg-[var(--accent)] px-5 text-sm font-black text-white">Open Job Scout <ArrowRight className="h-4 w-4" /></Link>
             </div>
-            <label className="text-xs font-black">Or paste a career summary<textarea className={`${inputClass} mt-2 min-h-24 resize-y text-xs leading-6`} value={profileText} onChange={(event) => setProfileText(event.target.value)} placeholder="Experience, core skills, seniority, certifications…" /></label>
-          </div>
-          {error && <div role="alert" className="mt-4 rounded-2xl border border-rose-300 bg-rose-50 p-4 text-sm font-semibold text-rose-900">{error}</div>}
-          {loading && searchStatus && <div className="mt-4 flex items-start justify-between gap-3 rounded-2xl border border-[var(--surface-border)] bg-[var(--accent-soft)] p-4 text-xs font-bold text-[var(--accent-strong)]"><div className="flex items-start gap-3"><RefreshCw className="mt-0.5 h-4 w-4 shrink-0 animate-spin" /><span>{searchStatus}</span></div><button type="button" onClick={cancelSearch} className="flex shrink-0 items-center gap-1 rounded-lg border border-[var(--surface-border)] bg-[var(--surface)] px-2.5 py-1.5 text-[10px] font-black"><X className="h-3.5 w-3.5" /> Cancel</button></div>}
-          <button type="button" onClick={handleSearch} disabled={loading} className="mt-5 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(135deg,var(--accent),var(--highlight))] px-5 text-sm font-black text-white shadow-[var(--shadow-xl)] disabled:opacity-55">{loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}{loading ? 'Finding and scoring jobs…' : 'Find and rank matching jobs'}</button>
-        </section>
-
-        {results && <>
-          <div className="flex items-start gap-3 rounded-2xl border border-[var(--surface-border)] bg-[var(--accent-soft)] p-4 text-xs leading-6"><Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent-strong)]" /><div>{results.best_match_summary || 'Search completed.'}{results.source ? <div className="mt-1 text-[10px] font-black uppercase tracking-wide">Source: {results.source}</div> : null}</div></div>
-          <section className="grid gap-6 xl:grid-cols-[0.82fr_1.18fr]">
-            <div className="space-y-4">
-              <div className={`${panelClass} p-4`}><div className="flex flex-wrap items-center gap-3"><div className="flex items-center gap-2 text-xs font-black"><Filter className="h-4 w-4" /> Filters</div><select value={minimumFit} onChange={(event) => setMinimumFit(Number(event.target.value))} className="rounded-xl border border-[var(--surface-border)] bg-[var(--surface-strong)] px-3 py-2 text-xs font-bold"><option value={0}>Any fit</option><option value={60}>60%+</option><option value={70}>70%+</option><option value={80}>80%+</option><option value={90}>90%+</option></select><select value={recommendationFilter} onChange={(event) => setRecommendationFilter(event.target.value as RecommendationFilter)} className="rounded-xl border border-[var(--surface-border)] bg-[var(--surface-strong)] px-3 py-2 text-xs font-bold"><option value="all">All recommendations</option><option value="Apply">Apply</option><option value="Apply after tailoring">Apply after tailoring</option><option value="Review carefully">Review carefully</option></select><button type="button" onClick={() => setShowSavedOnly((value) => !value)} className={`rounded-xl border px-3 py-2 text-xs font-black ${showSavedOnly ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent-strong)]' : 'border-[var(--surface-border)]'}`}>Saved ({saved.length})</button></div></div>
-              <div className="space-y-3">{filteredJobs.length ? filteredJobs.map((job) => { const key = jobKey(job); const active = selectedJob ? jobKey(selectedJob) === key : false; const isSaved = saved.includes(key); return <button key={key} type="button" onClick={() => setSelectedKey(key)} className={`w-full rounded-2xl border p-4 text-left transition ${active ? 'border-[var(--accent)] bg-[var(--accent-soft)] shadow-[var(--shadow-lg)]' : 'border-[var(--surface-border)] bg-[var(--surface)] hover:border-[var(--accent)]'}`}><div className="flex items-start justify-between gap-4"><div className="min-w-0"><p className="text-[10px] font-black uppercase tracking-wide text-[var(--accent-strong)]">{job.company}</p><h2 className="mt-1 text-sm font-black md:text-base">{job.title}</h2><p className="mt-2 flex items-center gap-1 text-[11px] text-[var(--ink-soft)]"><MapPin className="h-3.5 w-3.5" /> {job.location || 'Location not stated'}</p><p className="mt-1 text-[11px] text-[var(--ink-soft)]">{job.salary || 'Salary not disclosed'} {job.posted ? `• ${job.posted}` : ''}</p></div><div className="shrink-0 text-center"><div className="flex h-14 w-14 items-center justify-center rounded-full border-4 border-[var(--accent)] bg-[var(--surface-strong)] text-base font-black">{job.match_score}%</div><p className="mt-1 text-[9px] font-black text-[var(--accent-strong)]">{scoreLabel(job.match_score)}</p></div></div><div className="mt-3 flex items-center justify-between gap-3"><span className={`rounded-full border px-2.5 py-1 text-[9px] font-black ${recommendationTone(job.recommendation)}`}>{job.recommendation}</span>{isSaved ? <BookmarkCheck className="h-4 w-4 text-[var(--accent-strong)]" /> : <ArrowRight className="h-4 w-4 text-[var(--ink-soft)]" />}</div></button>; }) : <div className={`${panelClass} p-6 text-center text-sm text-[var(--ink-soft)]`}>No jobs match the current filters/search.</div>}</div>
-            </div>
-            <div className="xl:sticky xl:top-28 xl:self-start">{selectedJob ? <article className={`${panelClass} overflow-hidden`}><div className="border-b border-[var(--surface-border)] p-5 md:p-6"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-[10px] font-black uppercase tracking-wide text-[var(--accent-strong)]">{selectedJob.company}</p><h2 className="mt-1 text-2xl font-black">{selectedJob.title}</h2><p className="mt-2 text-xs text-[var(--ink-soft)]">{selectedJob.location} {selectedJob.posted ? `• ${selectedJob.posted}` : ''}</p><p className="mt-1 text-xs font-bold">{selectedJob.salary || 'Salary not disclosed'}</p></div><div className="flex gap-2"><button type="button" onClick={() => toggleSaved(selectedJob)} className="flex items-center gap-2 rounded-xl border border-[var(--surface-border)] px-3 py-2.5 text-xs font-black">{saved.includes(jobKey(selectedJob)) ? <BookmarkCheck className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />} Save</button>{selectedJob.link?.startsWith('http') && <a href={selectedJob.link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 rounded-xl bg-[var(--accent)] px-4 py-2.5 text-xs font-black text-white">Open <ExternalLink className="h-4 w-4" /></a>}</div></div></div><div className="space-y-5 p-5 md:p-6"><div className="grid gap-4 md:grid-cols-[0.34fr_0.66fr]"><div className="flex flex-col items-center justify-center rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-strong)] p-5 text-center"><Target className="h-5 w-5 text-[var(--accent-strong)]" /><div className="mt-2 text-5xl font-black">{selectedJob.match_score}%</div><div className="mt-1 text-xs font-black text-[var(--accent-strong)]">{scoreLabel(selectedJob.match_score)}</div><p className="mt-2 text-[10px] leading-5 text-[var(--ink-soft)]">Deterministic CogniTwist CV-to-job fit score.</p></div><div className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-strong)] p-5"><p className="text-xs font-black">Should you apply?</p><div className={`mt-3 inline-flex rounded-full border px-3 py-1.5 text-xs font-black ${recommendationTone(selectedJob.recommendation)}`}>{selectedJob.recommendation}</div><p className="mt-4 text-xs leading-6 text-[var(--ink-soft)]">Score combines role alignment, CV evidence overlap, location and freshness. Review the job page before applying.</p></div></div>{selectedJob.description && <div><h3 className="text-sm font-black">Role overview</h3><p className="mt-2 text-xs leading-7 text-[var(--ink-soft)]">{selectedJob.description}</p></div>}<div className="grid gap-4 md:grid-cols-2"><div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-950"><div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4" /><h3 className="text-xs font-black">Why this job fits</h3></div><ul className="mt-3 space-y-2 text-[11px] leading-5">{selectedJob.matched_requirements?.length ? selectedJob.matched_requirements.map((item) => <li key={item}>• {item}</li>) : <li>No strong evidence matches identified.</li>}</ul></div><div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-950"><div className="flex items-center gap-2"><AlertTriangle className="h-4 w-4" /><h3 className="text-xs font-black">Potential gaps</h3></div><ul className="mt-3 space-y-2 text-[11px] leading-5">{selectedJob.missing_requirements?.length ? selectedJob.missing_requirements.map((item) => <li key={item}>• {item}</li>) : <li>No material job signals missing from the profile.</li>}</ul></div></div>{selectedJob.skills?.length ? <div><h3 className="text-sm font-black">Role signals</h3><div className="mt-3 flex flex-wrap gap-2">{selectedJob.skills.map((skill) => <span key={skill} className="rounded-full border border-[var(--surface-border)] bg-[var(--accent-soft)] px-3 py-1.5 text-[10px] font-black text-[var(--accent-strong)]">{skill}</span>)}</div></div> : null}<div className="grid gap-3 sm:grid-cols-3"><button type="button" onClick={() => openInStudio(selectedJob)} className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[var(--accent)] px-4 text-xs font-black text-white"><FileText className="h-4 w-4" /> Tailor CV</button><button type="button" onClick={() => openInterview(selectedJob)} className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-[var(--surface-border)] px-4 text-xs font-black"><UserCheck className="h-4 w-4" /> Interview prep</button>{selectedJob.link?.startsWith('http') ? <a href={selectedJob.link} target="_blank" rel="noopener noreferrer" className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-[var(--surface-border)] px-4 text-xs font-black"><ExternalLink className="h-4 w-4" /> View job</a> : <div className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-[var(--surface-border)] px-4 text-xs text-[var(--ink-soft)]"><ShieldCheck className="h-4 w-4" /> Link unavailable</div>}</div></div></article> : null}</div>
           </section>
-        </>}
+        ) : (
+          <>
+            <section className={`${panelClass} overflow-hidden`}>
+              <div className="border-b border-[var(--surface-border)] p-5 md:p-7">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--accent-strong)]">Selected vacancy</p>
+                    <h2 className="mt-2 text-2xl font-black md:text-3xl">{vacancy.title}</h2>
+                    <p className="mt-1 text-sm font-bold text-[var(--ink-soft)]">{vacancy.company}</p>
+                    <div className="mt-3 flex flex-wrap gap-2 text-[10px] font-black">
+                      <span className="inline-flex items-center gap-1 rounded-full border border-[var(--surface-border)] px-3 py-1.5"><MapPin className="h-3.5 w-3.5" /> {vacancy.location}</span>
+                      {vacancy.posted ? <span className="rounded-full border border-[var(--surface-border)] px-3 py-1.5">{vacancy.posted}</span> : null}
+                      {vacancy.source ? <span className="rounded-full border border-[var(--surface-border)] px-3 py-1.5">{vacancy.source}</span> : null}
+                      {vacancy.direct ? <span className="rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-emerald-950">Direct source</span> : null}
+                    </div>
+                  </div>
+                  {vacancy.link ? <a href={vacancy.link} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-[var(--surface-border)] px-4 text-xs font-black">Open vacancy <ExternalLink className="h-4 w-4" /></a> : null}
+                </div>
+              </div>
+              <div className="p-5 md:p-7">
+                <p className="text-xs leading-6 text-[var(--ink-soft)]">{vacancy.description}</p>
+                {vacancy.skills.length ? <div className="mt-4 flex flex-wrap gap-2">{vacancy.skills.map((skill) => <span key={skill} className="rounded-full border border-[var(--surface-border)] bg-[var(--surface-strong)] px-3 py-1.5 text-[10px] font-black">{skill}</span>)}</div> : null}
+              </div>
+            </section>
+
+            <section className={`${panelClass} p-5 md:p-7`}>
+              <div className="flex items-start gap-3"><ShieldCheck className="mt-0.5 h-5 w-5 text-[var(--accent-strong)]" /><div><h2 className="text-lg font-black">Candidate evidence</h2><p className="mt-1 text-xs leading-6 text-[var(--ink-soft)]">Upload a DOCX CV or paste a career summary. Job Intelligence maps only explicit evidence and keeps unknowns separate from gaps.</p></div></div>
+              <div className="mt-5 grid gap-4 lg:grid-cols-2">
+                <div className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-strong)] p-4">
+                  <input id="intelligence-cv" type="file" accept=".docx" className="hidden" onChange={(event) => setResumeFile(event.target.files?.[0] || null)} />
+                  <label htmlFor="intelligence-cv" className="flex min-h-28 cursor-pointer items-center justify-center gap-3 rounded-xl border-2 border-dashed border-[var(--surface-border)] px-4 text-center text-xs font-black hover:border-[var(--accent)] hover:bg-[var(--accent-soft)]"><Upload className="h-5 w-5 text-[var(--accent-strong)]" />{resumeFile ? resumeFile.name : 'Upload CV · DOCX · max 5 MB'}</label>
+                </div>
+                <label className="text-xs font-black">Or paste a career summary<textarea className={`${inputClass} mt-2 min-h-28 resize-y text-xs leading-6`} value={profileText} onChange={(event) => setProfileText(event.target.value)} placeholder="Titles, responsibilities, technologies, industries, certifications and measurable achievements…" /></label>
+              </div>
+              {error ? <div role="alert" className="mt-4 rounded-2xl border border-rose-300 bg-rose-50 p-4 text-sm font-semibold text-rose-950"><AlertTriangle className="mr-2 inline h-4 w-4" />{error}</div> : null}
+              {loading ? <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-[var(--surface-border)] bg-[var(--accent-soft)] p-4 text-xs font-bold"><div className="flex items-center gap-3"><RefreshCw className="h-4 w-4 animate-spin text-[var(--accent-strong)]" />Mapping vacancy requirements to candidate evidence…</div><button type="button" onClick={cancelAnalysis} className="inline-flex items-center gap-1 rounded-lg border border-[var(--surface-border)] bg-[var(--surface)] px-2.5 py-1.5 text-[10px] font-black"><X className="h-3.5 w-3.5" /> Cancel</button></div> : null}
+              <button type="button" onClick={analyse} disabled={loading} className="mt-5 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(135deg,var(--accent),var(--highlight))] px-5 text-sm font-black text-white shadow-[var(--shadow-xl)] disabled:opacity-55">{loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}{loading ? 'Analysing evidence…' : 'Analyse this vacancy'}</button>
+            </section>
+          </>
+        )}
+
+        {result ? (
+          <section id="intelligence-result" className="scroll-mt-28 space-y-6">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <div className={`${panelClass} p-5`}><p className="text-[10px] font-black uppercase tracking-wide text-[var(--ink-soft)]">Candidate fit</p><p className="mt-2 text-4xl font-black">{result.assessment.overall_fit}%</p><p className="mt-1 text-xs font-black text-[var(--accent-strong)]">{result.assessment.fit_label}</p></div>
+              <div className={`${panelClass} p-5`}><p className="text-[10px] font-black uppercase tracking-wide text-[var(--ink-soft)]">Recommendation</p><p className="mt-3 text-lg font-black">{result.assessment.recommendation}</p><p className="mt-2 text-xs leading-5 text-[var(--ink-soft)]">{result.assessment.summary}</p></div>
+              <div className={`${panelClass} p-5`}><p className="text-[10px] font-black uppercase tracking-wide text-[var(--ink-soft)]">Evidence confidence</p><span className={`mt-3 inline-flex rounded-full border px-3 py-1.5 text-xs font-black ${confidenceTone(result.assessment.confidence)}`}>{result.assessment.confidence}</span><p className="mt-3 text-[11px] leading-5 text-[var(--ink-soft)]">Confidence reflects how much explicit candidate evidence was available, not model certainty.</p></div>
+              <div className={`${panelClass} p-5`}><p className="text-[10px] font-black uppercase tracking-wide text-[var(--ink-soft)]">Vacancy confidence</p><p className="mt-2 text-3xl font-black">{result.vacancy_confidence.score}%</p><span className={`mt-2 inline-flex rounded-full border px-3 py-1 text-[10px] font-black ${confidenceTone(result.vacancy_confidence.level)}`}>{result.vacancy_confidence.level} · {result.vacancy_confidence.freshness}</span></div>
+            </div>
+
+            <section className={`${panelClass} p-5 md:p-7`}>
+              <div className="flex items-start gap-3"><Target className="mt-0.5 h-5 w-5 text-[var(--accent-strong)]" /><div><h2 className="text-lg font-black">Fit dimensions</h2><p className="mt-1 text-xs leading-6 text-[var(--ink-soft)]">Posting age and source freshness are intentionally excluded from candidate fit.</p></div></div>
+              <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">{result.assessment.dimensions.map((dimension) => <div key={dimension.key} className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-strong)] p-4"><div className="flex items-center justify-between gap-3"><p className="text-xs font-black">{dimension.label}</p><span className="text-lg font-black">{dimension.score}%</span></div><div className="mt-3 h-2 overflow-hidden rounded-full bg-[var(--surface-border)]"><div className="h-full rounded-full bg-[var(--accent)]" style={{ width: `${dimension.score}%` }} /></div><p className="mt-3 text-[10px] leading-5 text-[var(--ink-soft)]">{dimension.detail}</p></div>)}</div>
+            </section>
+
+            <section className={`${panelClass} p-5 md:p-7`}>
+              <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-lg font-black">Requirement-by-requirement evidence</h2><p className="mt-1 text-xs leading-6 text-[var(--ink-soft)]">Confirmed, partial, gap and unknown are deliberately separate states.</p></div><span className="rounded-full border border-[var(--surface-border)] bg-[var(--surface-strong)] px-3 py-1.5 text-[10px] font-black">{result.assessment.evidence.length} signals assessed</span></div>
+              <div className="mt-5 space-y-3">{result.assessment.evidence.length ? result.assessment.evidence.map((item, index) => <article key={`${item.requirement}-${index}`} className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-strong)] p-4"><div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><p className="text-[9px] font-black uppercase tracking-wide text-[var(--ink-soft)]">{item.category.replace(/_/g, ' ')}</p><h3 className="mt-1 text-sm font-black leading-6">{item.requirement}</h3></div><span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[10px] font-black ${evidenceTone(item.status)}`}><EvidenceIcon status={item.status} /> {item.status}</span></div><p className="mt-3 text-[11px] leading-5 text-[var(--ink-soft)]">{item.rationale}</p>{item.candidate_evidence.length ? <div className="mt-3 rounded-xl border border-[var(--surface-border)] bg-[var(--surface)] p-3"><p className="text-[9px] font-black uppercase tracking-wide text-[var(--accent-strong)]">Candidate evidence</p>{item.candidate_evidence.map((evidence) => <p key={evidence} className="mt-2 text-[11px] leading-5">“{evidence}”</p>)}</div> : null}</article>) : <p className="text-sm text-[var(--ink-soft)]">The vacancy description did not expose enough structured requirement signals for a reliable evidence matrix.</p>}</div>
+            </section>
+
+            {result.vacancy_confidence.notes.length ? <section className={`${panelClass} p-5 md:p-7`}><div className="flex items-start gap-3"><CircleHelp className="mt-0.5 h-5 w-5 text-[var(--accent-strong)]" /><div><h2 className="text-lg font-black">Vacancy-confidence notes</h2><ul className="mt-3 space-y-2 text-xs leading-6 text-[var(--ink-soft)]">{result.vacancy_confidence.notes.map((note) => <li key={note}>• {note}</li>)}</ul></div></div></section> : null}
+
+            <section className={`${panelClass} p-5 md:p-7`}>
+              <h2 className="text-lg font-black">Continue with the same vacancy context</h2>
+              <p className="mt-1 text-xs leading-6 text-[var(--ink-soft)]">No second search is performed. The selected vacancy and evidence summary move into the next workflow.</p>
+              <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <button type="button" onClick={tailorCv} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[var(--accent)] px-4 text-xs font-black text-white"><FileText className="h-4 w-4" /> Tailor CV</button>
+                <button type="button" onClick={practiceInterview} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-strong)] px-4 text-xs font-black"><Mic2 className="h-4 w-4" /> Practise interview</button>
+                {result.vacancy.link ? <a href={result.vacancy.link} target="_blank" rel="noreferrer" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-strong)] px-4 text-xs font-black">Open vacancy <ExternalLink className="h-4 w-4" /></a> : <Link href="/career" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-strong)] px-4 text-xs font-black">Return to Job Scout <ArrowLeft className="h-4 w-4" /></Link>}
+                <Link href="/career" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-strong)] px-4 text-xs font-black">Find another role <ArrowRight className="h-4 w-4" /></Link>
+              </div>
+            </section>
+          </section>
+        ) : null}
       </div>
     </main>
   );
