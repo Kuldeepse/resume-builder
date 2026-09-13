@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { GET as runBrowse } from '../browse/route';
+import { validateJobsForSearch } from '../job-trust';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -53,21 +54,14 @@ function roleVariants(value: string) {
     if (cleaned && !variants.some((item) => item.toLowerCase() === cleaned.toLowerCase())) variants.push(cleaned);
   };
 
-  if (/\bprogram\b/i.test(base)) {
-    add(base.replace(/\bprogram\b/i, 'programme'));
-    add(base.replace(/\bprogram\b/i, 'project'));
-  } else if (/\bprogramme\b/i.test(base)) {
-    add(base.replace(/\bprogramme\b/i, 'program'));
-    add(base.replace(/\bprogramme\b/i, 'project'));
-  } else if (/\bproject\b/i.test(base)) {
-    add(base.replace(/\bproject\b/i, 'program'));
-    add(base.replace(/\bproject\b/i, 'programme'));
-  }
+  // Program/programme is a spelling variant. Project is a different role family and must not be
+  // introduced automatically because it lowers precision for users searching Program Manager roles.
+  if (/\bprogram\b/i.test(base)) add(base.replace(/\bprogram\b/i, 'programme'));
+  else if (/\bprogramme\b/i.test(base)) add(base.replace(/\bprogramme\b/i, 'program'));
 
   if (/^tpm$/i.test(base)) {
     add('Technical Program Manager');
     add('Technical Programme Manager');
-    add('Technical Project Manager');
   }
 
   return variants.slice(0, 3);
@@ -168,9 +162,15 @@ async function runFastConfiguredSearch(request: Request, variants: string[]): Pr
 export async function GET(request: Request) {
   const startedAt = Date.now();
   const incoming = new URL(request.url);
-  const variants = roleVariants(incoming.searchParams.get('q') || '');
+  const query = cleanText(incoming.searchParams.get('q') || '', 160);
+  const location = cleanText(incoming.searchParams.get('location') || '', 120);
+  const requestedDays = Number(incoming.searchParams.get('days') || 0);
+  const freshnessDays = Number.isFinite(requestedDays) ? Math.max(0, Math.min(90, requestedDays)) : 0;
+  const variants = roleVariants(query);
   const browse = await runFastConfiguredSearch(request, variants);
-  const jobs = Array.isArray(browse.jobs) ? browse.jobs : [];
+  const rawJobs = Array.isArray(browse.jobs) ? browse.jobs : [];
+  const trustGate = validateJobsForSearch(rawJobs, { query, location, freshnessDays });
+  const jobs = trustGate.accepted;
   const directJobs = jobs.filter((job) => job.direct === true);
   const fallbackJobs = jobs.filter((job) => job.direct !== true);
   const sources = unique(jobs.map((job) => cleanText(job.source, 160)));
@@ -181,7 +181,7 @@ export async function GET(request: Request) {
   const partial = Boolean(browse.partial) || sourceErrorCount > 0;
 
   const fallbackReasons: string[] = [];
-  if (!jobs.length) fallbackReasons.push('The fast source pass has not produced a verified role yet; expanded employer/ATS discovery is continuing automatically.');
+  if (!jobs.length) fallbackReasons.push('The fast source pass has not produced a validated role yet; expanded employer/ATS discovery is continuing automatically.');
   if (partial) fallbackReasons.push('At least one configured discovery source was incomplete or exceeded the fast-response budget.');
   if (jobs.length > 0 && directJobs.length === 0) fallbackReasons.push('No direct employer/ATS vacancies were returned yet.');
   if (jobs.length > 0 && employers.length <= 1) fallbackReasons.push('Employer diversity is narrow; expanded discovery is required.');
@@ -196,7 +196,7 @@ export async function GET(request: Request) {
     source_errors: sourceErrorCount
       ? [`${sourceErrorCount} configured discovery component${sourceErrorCount === 1 ? '' : 's'} were incomplete for the fast pass.`]
       : [],
-    search_strategy: cleanText(browse.search_strategy, 500),
+    search_strategy: `${cleanText(browse.search_strategy, 500)}; deterministic query/location/freshness trust gate`,
     query_variants: variants,
     telemetry: {
       run_id: crypto.randomUUID(),
@@ -215,10 +215,11 @@ export async function GET(request: Request) {
       fallback_reasons: fallbackReasons.length
         ? fallbackReasons
         : ['Expanded employer/ATS discovery is running separately to improve market recall.'],
-      coverage_confidence: 'configured_sources_only',
-      coverage_note: 'Fast configured-source results are returned within a bounded response window. Expanded employer/ATS discovery runs as a separate request so a slow deep search cannot fail the whole Job Scout run.',
+      coverage_confidence: 'configured_sources_validated',
+      coverage_note: `Fast configured-source results passed deterministic role, location, freshness and vacancy-URL checks. ${trustGate.rejected.length} candidate result${trustGate.rejected.length === 1 ? ' was' : 's were'} withheld because the search intent could not be validated. Market coverage is not exhaustive.`,
       configured_lane_roles: jobs.length,
       expanded_lane_roles: 0,
+      filtered_untrusted_roles: trustGate.rejected.length,
     },
   });
 }
