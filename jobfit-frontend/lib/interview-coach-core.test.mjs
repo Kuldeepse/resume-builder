@@ -17,14 +17,29 @@ test('rejects empty answers before coaching', () => {
   assert.match(validateCoachInput(input), /fuller answer/i);
 });
 
-test('keeps missing metrics as a visible placeholder instead of inventing one', () => {
+test('weak answer returns a complete question-specific model response, not STAR placeholders', () => {
   const result = buildFallbackCoachTurn({
     ...base,
-    answer: 'During a platform migration I owned the delivery risk. I coordinated architecture and security teams and introduced a rollback gate before release.',
+    answer: 'I have done this only, thanks.',
   });
   assert.equal(result.mode, 'fallback');
-  assert.match(result.assessment.revised_answer, /\[add a verified metric or outcome\]/i);
-  assert.ok(!/\b\d+%\b/.test(result.assessment.revised_answer));
+  assert.match(result.assessment.revised_answer, /Illustrative model answer/i);
+  assert.match(result.assessment.revised_answer, /critical dependency|delivery/i);
+  assert.doesNotMatch(result.assessment.revised_answer, /Task:\s*\[/i);
+  assert.doesNotMatch(result.assessment.revised_answer, /Action:\s*\[/i);
+  assert.doesNotMatch(result.assessment.revised_answer, /Result:\s*\[/i);
+});
+
+test('candidate evidence is used in the expected response when available', () => {
+  const evidence = 'I led a remediation plan across security and architecture teams and recovered the release in 3 weeks with zero critical incidents.';
+  const result = buildFallbackCoachTurn({
+    ...base,
+    answer: 'I managed a major delivery risk.',
+    candidate_evidence: [evidence],
+  });
+  assert.equal(result.assessment.response_basis, 'verified_evidence');
+  assert.match(result.assessment.revised_answer, /remediation plan/i);
+  assert.match(result.assessment.revised_answer, /3 weeks/i);
 });
 
 test('recognises personal action and a supplied metric as explicit evidence', () => {
