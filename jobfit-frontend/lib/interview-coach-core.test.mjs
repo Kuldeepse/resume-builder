@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { buildFallbackCoachTurn, normaliseCoachInput, validateCoachInput } from './interview-coach-core.mjs';
+import { buildFallbackCoachTurn, normaliseCoachInput, validateCoachInput } from './interview-coach-runtime.mjs';
 
 const base = {
   role: 'Technical Project Manager',
