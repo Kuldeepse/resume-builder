@@ -31,6 +31,16 @@ class InterviewCoachTurnRequest(BaseModel):
     history: list[InterviewHistoryTurn] = Field(default_factory=list, max_length=MAX_HISTORY)
 
 
+class ExpectedResponseRequest(BaseModel):
+    role: str = Field(min_length=1, max_length=240)
+    company: str = Field(default="", max_length=240)
+    job_description: str = Field(default="", max_length=12000)
+    interview_type: Literal["hr", "behavioural", "technical"] = "behavioural"
+    question: str = Field(min_length=1, max_length=900)
+    candidate_evidence: list[str] = Field(default_factory=list, max_length=30)
+    history: list[InterviewHistoryTurn] = Field(default_factory=list, max_length=MAX_HISTORY)
+
+
 class CoachDimension(BaseModel):
     key: str = Field(min_length=1, max_length=60)
     label: str = Field(min_length=1, max_length=100)
@@ -54,6 +64,16 @@ class ModelCoachOutput(BaseModel):
     next_question: str = Field(min_length=1, max_length=700)
     coaching_message: str = Field(min_length=1, max_length=900)
     revised_answer: str = Field(min_length=1, max_length=6000)
+
+
+class ModelExpectedResponse(BaseModel):
+    intent_summary: str = Field(min_length=1, max_length=500)
+    interviewer_testing: list[str] = Field(min_length=2, max_length=6)
+    structure: str = Field(min_length=1, max_length=900)
+    expected_response: str = Field(min_length=1, max_length=6000)
+    relevant_evidence: list[str] = Field(default_factory=list, max_length=5)
+    evidence_gaps: list[str] = Field(default_factory=list, max_length=5)
+    response_basis: Literal["verified_evidence", "illustrative_model"]
 
 
 SYSTEM_INSTRUCTION = """
@@ -89,6 +109,34 @@ relevance, motivation/fit, credibility, communication, and readiness/expectation
 """.strip()
 
 
+EXPECTED_RESPONSE_SYSTEM_INSTRUCTION = """
+You are CogniTwist Interview Coach generating PRE-ANSWER guidance for MOCK INTERVIEW PRACTICE.
+
+Generate an expected response for the EXACT interview question supplied. The response must materially
+change when the question changes. Do not reuse a generic STAR answer across different questions.
+
+REQUIRED BEHAVIOUR:
+- First infer the exact interviewer intent from the wording of current_question.
+- Use the target role and job description to decide which requirement or competency the question is testing.
+- Use candidate_evidence only when it is genuinely relevant to this exact question.
+- If relevant verified candidate evidence exists, build the expected response around that evidence.
+- If no relevant evidence exists, return an ILLUSTRATIVE MODEL ANSWER that demonstrates the right content
+  and reasoning for this exact question. Clearly keep it generic and do not present invented details as the
+  candidate's history.
+- The expected_response must answer the exact question itself, not merely explain STAR or provide blanks.
+- Avoid empty templates such as "Situation: [..] Task: [..] Action: [..] Result: [..]".
+- Never invent candidate-specific employers, metrics, dates, technologies or achievements.
+- Do not copy an earlier expected response if the current question asks something different.
+- For technical questions, address the specific technical subject in the question (for example architecture,
+  resilience, security, observability, deployment, APIs, mobile, cloud, identity, data, etc.).
+- For behavioural questions, address the specific competency or event in the question (for example conflict,
+  dependency, failure, prioritisation, ambiguity, stakeholder influence, change, pace, quality, etc.).
+- For HR questions, directly answer the specific motivation, fit, availability, compensation or career question.
+- Keep the answer suitable for a senior professional and normally 120-260 words.
+- This is practice guidance, not covert assistance during a live employer assessment.
+""".strip()
+
+
 def _clean_list(values: list[str], item_limit: int = 1200, limit: int = 30) -> list[str]:
     result: list[str] = []
     for value in values[:limit]:
@@ -98,15 +146,18 @@ def _clean_list(values: list[str], item_limit: int = 1200, limit: int = 30) -> l
     return result
 
 
-def _payload(request: InterviewCoachTurnRequest) -> dict:
-    history = [
+def _history_payload(history: list[InterviewHistoryTurn]) -> list[dict]:
+    return [
         {
             "question": turn.question.strip()[:900],
             "answer": turn.answer.strip()[:6000],
             "score": turn.score,
         }
-        for turn in request.history[-MAX_HISTORY:]
+        for turn in history[-MAX_HISTORY:]
     ]
+
+
+def _payload(request: InterviewCoachTurnRequest) -> dict:
     return {
         "role": request.role.strip()[:240],
         "company": request.company.strip()[:240],
@@ -115,7 +166,19 @@ def _payload(request: InterviewCoachTurnRequest) -> dict:
         "current_question": request.question.strip()[:900],
         "current_answer": request.answer.strip()[:6000],
         "candidate_evidence": _clean_list(request.candidate_evidence),
-        "history": history,
+        "history": _history_payload(request.history),
+    }
+
+
+def _expected_payload(request: ExpectedResponseRequest) -> dict:
+    return {
+        "role": request.role.strip()[:240],
+        "company": request.company.strip()[:240],
+        "job_description": request.job_description.strip()[:12000],
+        "interview_type": request.interview_type,
+        "current_question": request.question.strip()[:900],
+        "candidate_evidence": _clean_list(request.candidate_evidence),
+        "history": _history_payload(request.history),
     }
 
 
@@ -140,7 +203,57 @@ async def interview_coach_health() -> dict:
         "model": os.getenv("INTERVIEW_COACH_MODEL", DEFAULT_MODEL),
         "adaptive": True,
         "structured_output": True,
-        "version": "agent-v1",
+        "expected_response": True,
+        "version": "agent-v2",
+    }
+
+
+@router.post("/expected")
+async def interview_expected_response(request: ExpectedResponseRequest) -> dict:
+    if not (os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")):
+        raise HTTPException(status_code=503, detail="Interview coach AI provider is not configured.")
+
+    prompt = (
+        "Generate pre-answer guidance for this exact mock-interview question. "
+        "Return only the structured response requested by the schema.\n\n"
+        + json.dumps(_expected_payload(request), ensure_ascii=False)
+    )
+
+    try:
+        client = genai.Client()
+        model = os.getenv("INTERVIEW_COACH_MODEL", DEFAULT_MODEL)
+        response = client.models.generate_content(
+            model=model,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                system_instruction=EXPECTED_RESPONSE_SYSTEM_INSTRUCTION,
+                response_mime_type="application/json",
+                response_schema=ModelExpectedResponse,
+                temperature=0.35,
+                max_output_tokens=2500,
+            ),
+        )
+        parsed = ModelExpectedResponse.model_validate_json(response.text or "{}")
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail="Expected response generation is temporarily unavailable.") from exc
+
+    return {
+        "mode": "ai",
+        "agent": {
+            "provider": "google-genai",
+            "model": os.getenv("INTERVIEW_COACH_MODEL", DEFAULT_MODEL),
+            "version": "expected-v1",
+            "adaptive": True,
+            "evidence_guard": True,
+        },
+        "question": request.question.strip()[:900],
+        "intent_summary": parsed.intent_summary.strip()[:500],
+        "interviewer_testing": _clean_list(parsed.interviewer_testing, 240, 6),
+        "structure": parsed.structure.strip()[:900],
+        "expected_response": parsed.expected_response.strip()[:6000],
+        "relevant_evidence": _clean_list(parsed.relevant_evidence, 1200, 5),
+        "evidence_gaps": _clean_list(parsed.evidence_gaps, 800, 5),
+        "response_basis": parsed.response_basis,
     }
 
 
@@ -181,7 +294,7 @@ async def interview_coach_turn(request: InterviewCoachTurnRequest) -> dict:
         "agent": {
             "provider": "google-genai",
             "model": os.getenv("INTERVIEW_COACH_MODEL", DEFAULT_MODEL),
-            "version": "agent-v1",
+            "version": "agent-v2",
             "adaptive": True,
             "evidence_guard": True,
         },
