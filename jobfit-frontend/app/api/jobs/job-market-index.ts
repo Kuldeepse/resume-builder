@@ -14,6 +14,7 @@ export type IndexedMarketJob = {
   source?: string;
   source_type?: string;
   direct?: boolean;
+  external_job_id?: string;
 };
 
 export type MarketRunPersistenceInput = {
@@ -139,6 +140,30 @@ function inferSourceName(job: IndexedMarketJob) {
   return clean(job.source, 160) || inferSourceType(job);
 }
 
+function companyIdentityKey(company: unknown) {
+  const normalized = normalize(company);
+  return normalized ? `company:${hash(normalized, 32)}` : '';
+}
+
+function vacancyFingerprint(job: IndexedMarketJob) {
+  const link = canonicalUrl(job.link).toLowerCase();
+  const employer = normalize(job.company);
+  const title = normalize(job.title);
+  const location = normalizeLocation(job.location) || 'location not confirmed';
+  // Do not collapse independent requisitions just because employer/title/location match.
+  // Source URLs/requisition URLs remain distinct canonical records. Cross-source semantic
+  // clustering is intentionally a later, reversible search/ranking concern.
+  return hash(`${employer}|${title}|${location}|${link}`, 48);
+}
+
+function observationIdentity(job: IndexedMarketJob) {
+  const link = canonicalUrl(job.link).toLowerCase();
+  const sourceType = inferSourceType(job);
+  const sourceName = inferSourceName(job).toLowerCase();
+  const externalId = clean(job.external_job_id, 300).toLowerCase();
+  return hash(`${sourceType}|${sourceName}|${externalId || link}`, 48);
+}
+
 async function postRows(
   baseUrl: string,
   serviceKey: string,
@@ -201,7 +226,7 @@ export async function persistValidatedMarketRun(input: MarketRunPersistenceInput
       const canonicalName = clean(job.company, 300);
       const normalizedName = normalize(canonicalName);
       if (!normalizedName) continue;
-      const identityKey = `company:${hash(normalizedName, 32)}`;
+      const identityKey = companyIdentityKey(canonicalName);
       const existing = employerGroups.get(identityKey);
       employerGroups.set(identityKey, {
         identityKey,
@@ -258,24 +283,16 @@ export async function persistValidatedMarketRun(input: MarketRunPersistenceInput
     const discoveryRunId = String(runRows[0]?.id || '');
 
     const canonicalCandidates = new Map<string, SupabaseRow>();
-    const jobFingerprintByObservation = new Map<string, string>();
-
     for (const job of jobs) {
       const employerCanonical = clean(job.company, 300);
-      const employerNormalized = normalize(employerCanonical);
-      const titleCanonical = normalize(job.title);
-      const locationCanonical = normalizeLocation(job.location) || 'location not confirmed';
-      const fingerprint = hash(`${employerNormalized}|${titleCanonical}|${locationCanonical}`, 48);
-      const companyIdentity = `company:${hash(employerNormalized, 32)}`;
+      const fingerprint = vacancyFingerprint(job);
+      const companyIdentity = companyIdentityKey(employerCanonical);
       const link = canonicalUrl(job.link);
       const sourceType = inferSourceType(job);
       const sourceName = inferSourceName(job);
-      const observationKey = hash(`${sourceType}|${sourceName.toLowerCase()}|${link.toLowerCase()}`, 48);
-      jobFingerprintByObservation.set(observationKey, fingerprint);
 
       const existing = canonicalCandidates.get(fingerprint);
-      const shouldReplace = !existing || Boolean(job.direct);
-      if (!shouldReplace) continue;
+      if (existing && !job.direct) continue;
 
       canonicalCandidates.set(fingerprint, {
         fingerprint,
@@ -297,6 +314,7 @@ export async function persistValidatedMarketRun(input: MarketRunPersistenceInput
         metadata: {
           persisted_from: input.lane,
           direct: Boolean(job.direct),
+          requisition_identity: clean(job.external_job_id, 300) || null,
           skills: Array.isArray(job.skills) ? job.skills.map((item) => clean(item, 120)).filter(Boolean).slice(0, 12) : [],
         },
       });
@@ -318,18 +336,15 @@ export async function persistValidatedMarketRun(input: MarketRunPersistenceInput
     const observationRows: SupabaseRow[] = [];
     for (const job of jobs) {
       const employerCanonical = clean(job.company, 300);
-      const employerNormalized = normalize(employerCanonical);
-      const titleCanonical = normalize(job.title);
-      const locationCanonical = normalizeLocation(job.location) || 'location not confirmed';
-      const fingerprint = hash(`${employerNormalized}|${titleCanonical}|${locationCanonical}`, 48);
+      const fingerprint = vacancyFingerprint(job);
       const canonicalJobId = canonicalIdByFingerprint.get(fingerprint);
       if (!canonicalJobId) continue;
 
       const link = canonicalUrl(job.link);
       const sourceType = inferSourceType(job);
       const sourceName = inferSourceName(job);
-      const observationKey = hash(`${sourceType}|${sourceName.toLowerCase()}|${link.toLowerCase()}`, 48);
-      const companyIdentity = `company:${hash(employerNormalized, 32)}`;
+      const observationKey = observationIdentity(job);
+      const companyIdentity = companyIdentityKey(employerCanonical);
 
       observationRows.push({
         observation_key: observationKey,
@@ -339,7 +354,7 @@ export async function persistValidatedMarketRun(input: MarketRunPersistenceInput
         source_type: sourceType,
         source_name: sourceName,
         source_url: link,
-        external_job_id: hash(link.toLowerCase(), 32),
+        external_job_id: clean(job.external_job_id, 300) || hash(link.toLowerCase(), 32),
         employer_raw: employerCanonical,
         employer_canonical: employerCanonical,
         title_raw: clean(job.title, 300),
