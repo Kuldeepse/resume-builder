@@ -1,5 +1,5 @@
-const CACHE_NAME = 'cognitwist-public-v5';
-const SAFE_ASSETS = ['/', '/live-interview', '/privacy', '/icon.svg', '/manifest.webmanifest'];
+const CACHE_NAME = 'cognitwist-public-v6';
+const SAFE_ASSETS = ['/career', '/studio', '/live-interview', '/privacy', '/icon.svg', '/manifest.webmanifest'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(SAFE_ASSETS)));
@@ -43,6 +43,6 @@ self.addEventListener('fetch', (event) => {
         caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
         return response;
       })
-      .catch(() => caches.match(request).then((cached) => cached || caches.match('/'))),
+      .catch(() => caches.match(request).then((cached) => cached || caches.match('/career'))),
   );
 });
