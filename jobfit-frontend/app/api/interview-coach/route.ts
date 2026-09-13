@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { buildFallbackCoachTurn, normaliseCoachInput, validateCoachInput } from '../../../lib/interview-coach-core.mjs';
+import { buildFallbackCoachTurn, normaliseCoachInput, validateCoachInput } from '../../../lib/interview-coach-runtime.mjs';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
