@@ -43,28 +43,30 @@ function normalizeEmployer(value: unknown) {
     .trim();
 }
 
+function degradedBaseline(reason: string): BrowsePayload {
+  return {
+    jobs: [],
+    partial: true,
+    source_errors: [reason],
+    search_strategy: 'configured-source lane degraded; expanded employer/ATS discovery should continue independently',
+  };
+}
+
 export async function GET(request: Request) {
   const startedAt = Date.now();
 
-  let response: Response;
-  try {
-    response = await runBrowse(request);
-  } catch {
-    return NextResponse.json(
-      { detail: 'Job Scout configured sources are temporarily unavailable.' },
-      { status: 502 },
-    );
-  }
+  const browsePromise = runBrowse(request)
+    .then(async (response) => {
+      if (!response.ok) return degradedBaseline('configured_lane_unavailable');
+      return (await response.json().catch(() => degradedBaseline('configured_lane_invalid_response'))) as BrowsePayload;
+    })
+    .catch(() => degradedBaseline('configured_lane_unavailable'));
 
-  const payload = (await response.json().catch(() => null)) as BrowsePayload | { detail?: string } | null;
-  if (!response.ok) {
-    return NextResponse.json(
-      { detail: 'Job Scout configured sources are temporarily unavailable.' },
-      { status: response.status >= 400 && response.status < 600 ? response.status : 502 },
-    );
-  }
+  const timeoutPromise = new Promise<BrowsePayload>((resolve) => {
+    setTimeout(() => resolve(degradedBaseline('configured_lane_soft_timeout')), 12000);
+  });
 
-  const browse = (payload || {}) as BrowsePayload;
+  const browse = await Promise.race([browsePromise, timeoutPromise]);
   const jobs = Array.isArray(browse.jobs) ? browse.jobs : [];
   const directJobs = jobs.filter((job) => job.direct === true);
   const fallbackJobs = jobs.filter((job) => job.direct !== true);
@@ -77,7 +79,7 @@ export async function GET(request: Request) {
 
   const fallbackReasons: string[] = [];
   if (!jobs.length) fallbackReasons.push('No jobs were returned from the configured source lane.');
-  if (partial) fallbackReasons.push('At least one configured discovery source was incomplete.');
+  if (partial) fallbackReasons.push('At least one configured discovery source was incomplete or exceeded the fast-response budget.');
   if (jobs.length > 0 && directJobs.length === 0) fallbackReasons.push('No direct employer/ATS vacancies were returned yet.');
   if (jobs.length > 0 && employers.length <= 1) fallbackReasons.push('Employer diversity is narrow; expanded discovery is required.');
 
@@ -89,7 +91,7 @@ export async function GET(request: Request) {
     fallback_count: fallbackJobs.length,
     partial,
     source_errors: sourceErrorCount
-      ? [`${sourceErrorCount} configured source${sourceErrorCount === 1 ? '' : 's'} were unavailable or incomplete.`]
+      ? [`${sourceErrorCount} configured discovery component${sourceErrorCount === 1 ? '' : 's'} were incomplete for the fast pass.`]
       : [],
     search_strategy: cleanText(browse.search_strategy, 500),
     telemetry: {
@@ -110,7 +112,7 @@ export async function GET(request: Request) {
         ? fallbackReasons
         : ['Expanded employer/ATS discovery is running separately to improve market recall.'],
       coverage_confidence: 'configured_sources_only',
-      coverage_note: 'Configured-source results are ready. CogniTwist expands employer and ATS coverage in a separate non-blocking pass so a slow discovery provider cannot fail the whole search.',
+      coverage_note: 'Fast configured-source results are returned within a bounded response window. CogniTwist then expands employer and ATS coverage separately, so a slow provider cannot fail the whole search.',
       configured_lane_roles: jobs.length,
       expanded_lane_roles: 0,
     },
