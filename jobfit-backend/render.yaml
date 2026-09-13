@@ -3,7 +3,7 @@ services:
     name: resume-builder-backend
     runtime: python
     buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    startCommand: uvicorn market_api:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: GEMINI_API_KEY
         sync: false # This prompts Render to securely ask you for the key once, then locks it down
