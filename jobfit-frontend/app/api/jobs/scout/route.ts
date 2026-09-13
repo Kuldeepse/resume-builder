@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { after, NextResponse } from 'next/server';
 import { GET as runBrowse } from '../browse/route';
 import { validateJobsForSearch } from '../job-trust';
 import { persistValidatedMarketRun } from '../job-market-index';
@@ -191,26 +191,28 @@ export async function GET(request: Request) {
   if (jobs.length > 0 && directJobs.length === 0) fallbackReasons.push('No direct employer/ATS vacancies were returned yet.');
   if (jobs.length > 0 && employers.length <= 1) fallbackReasons.push('Employer diversity is narrow; expanded discovery is required.');
 
-  const marketIndex = await persistValidatedMarketRun({
-    runId,
-    lane: 'configured',
-    query,
-    location,
-    freshnessDays,
-    startedAt,
-    completedAt: Date.now(),
-    jobs,
-    rolesReceived: rawJobs.length,
-    rolesRejected: trustGate.rejected.length,
-    sourceHealth,
-    sourceErrorCount,
-    coverageConfidence,
-    coverageNote,
-    metadata: {
-      query_variants: variants,
-      sources_observed: sources,
-      search_strategy: cleanText(browse.search_strategy, 500),
-    },
+  after(async () => {
+    await persistValidatedMarketRun({
+      runId,
+      lane: 'configured',
+      query,
+      location,
+      freshnessDays,
+      startedAt,
+      completedAt: Date.now(),
+      jobs,
+      rolesReceived: rawJobs.length,
+      rolesRejected: trustGate.rejected.length,
+      sourceHealth,
+      sourceErrorCount,
+      coverageConfidence,
+      coverageNote,
+      metadata: {
+        query_variants: variants,
+        sources_observed: sources,
+        search_strategy: cleanText(browse.search_strategy, 500),
+      },
+    });
   });
 
   return NextResponse.json({
@@ -225,7 +227,6 @@ export async function GET(request: Request) {
       : [],
     search_strategy: `${cleanText(browse.search_strategy, 500)}; deterministic query/location/freshness trust gate`,
     query_variants: variants,
-    market_index: marketIndex,
     telemetry: {
       run_id: runId,
       duration_ms: Date.now() - startedAt,
@@ -248,7 +249,6 @@ export async function GET(request: Request) {
       configured_lane_roles: jobs.length,
       expanded_lane_roles: 0,
       filtered_untrusted_roles: trustGate.rejected.length,
-      market_index_status: marketIndex.status,
     },
   });
 }
