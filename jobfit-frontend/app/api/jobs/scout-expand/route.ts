@@ -34,8 +34,48 @@ type CompatibilityPayload = {
   search_mode?: string;
 };
 
+type DiscoveryBranch = {
+  jobs: Job[];
+  status: string;
+  passesCompleted: string[];
+  passesFailed: string[];
+  partial: boolean;
+  note: string;
+  strategy: string;
+};
+
 function cleanText(value: unknown, limit = 1000) {
   return String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, limit);
+}
+
+function roleVariants(value: string) {
+  const base = cleanText(value, 300);
+  if (!base) return [];
+
+  const variants = [base];
+  const add = (candidate: string) => {
+    const cleaned = cleanText(candidate, 300);
+    if (cleaned && !variants.some((item) => item.toLowerCase() === cleaned.toLowerCase())) variants.push(cleaned);
+  };
+
+  if (/\bprogram\b/i.test(base)) {
+    add(base.replace(/\bprogram\b/i, 'programme'));
+    add(base.replace(/\bprogram\b/i, 'project'));
+  } else if (/\bprogramme\b/i.test(base)) {
+    add(base.replace(/\bprogramme\b/i, 'program'));
+    add(base.replace(/\bprogramme\b/i, 'project'));
+  } else if (/\bproject\b/i.test(base)) {
+    add(base.replace(/\bproject\b/i, 'program'));
+    add(base.replace(/\bproject\b/i, 'programme'));
+  }
+
+  if (/^tpm$/i.test(base)) {
+    add('Technical Program Manager');
+    add('Technical Programme Manager');
+    add('Technical Project Manager');
+  }
+
+  return variants.slice(0, 3);
 }
 
 function canonicalUrl(value: unknown) {
@@ -52,6 +92,11 @@ function canonicalUrl(value: unknown) {
   } catch {
     return '';
   }
+}
+
+function semanticKey(job: Job) {
+  const norm = (value: unknown) => cleanText(value, 300).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  return `${norm(job.company)}::${norm(job.title)}::${norm(job.location).replace(/\b(remote|hybrid|united kingdom|uk)\b/g, '').trim()}`;
 }
 
 function sanitiseJob(job: Job): Job | null {
@@ -82,7 +127,71 @@ function sanitiseJobs(jobs: Job[] | undefined, sourceOverride?: string) {
     .slice(0, 60);
 }
 
-async function runCompatibilityGrounded(backendBase: string, role: string, location: string) {
+function mergeJobs(...sets: Job[][]) {
+  const byUrl = new Map<string, Job>();
+  const bySemantic = new Map<string, string>();
+
+  for (const job of sets.flat()) {
+    const url = canonicalUrl(job.link);
+    if (!url) continue;
+    const exactKey = url.toLowerCase();
+    const semantic = semanticKey(job);
+    const existing = byUrl.get(exactKey);
+    if (existing) {
+      if (job.direct && !existing.direct) byUrl.set(exactKey, job);
+      continue;
+    }
+
+    const semanticUrl = semantic ? bySemantic.get(semantic) : undefined;
+    if (semanticUrl) {
+      const prior = byUrl.get(semanticUrl);
+      if (prior && job.direct && !prior.direct) {
+        byUrl.delete(semanticUrl);
+        byUrl.set(exactKey, job);
+        bySemantic.set(semantic, exactKey);
+      }
+      continue;
+    }
+
+    byUrl.set(exactKey, job);
+    if (semantic) bySemantic.set(semantic, exactKey);
+  }
+
+  return Array.from(byUrl.values()).slice(0, 90);
+}
+
+async function runDedicated(backendBase: string, role: string, location: string, days: number): Promise<DiscoveryBranch> {
+  const form = new FormData();
+  form.append('target_role', role);
+  form.append('location_city', location);
+  form.append('freshness_days', String(days));
+  form.append('max_jobs', '60');
+
+  const response = await fetch(`${backendBase}/discover-market-jobs`, {
+    method: 'POST',
+    cache: 'no-store',
+    signal: AbortSignal.timeout(18000),
+    body: form,
+    headers: { Accept: 'application/json' },
+  });
+
+  const payload = (await response.json().catch(() => null)) as ExpandedPayload | null;
+  if (!response.ok || !payload) throw new Error(`dedicated_http_${response.status}`);
+  const jobs = sanitiseJobs(payload.jobs);
+  const failed = Array.isArray(payload.failed_passes) ? payload.failed_passes : [];
+
+  return {
+    jobs,
+    status: jobs.length ? 'completed' : 'completed_zero_results',
+    passesCompleted: Array.isArray(payload.passes) ? payload.passes : [],
+    passesFailed: failed,
+    partial: failed.length > 0,
+    note: cleanText(payload.coverage_note, 800) || 'Expanded employer/ATS discovery completed.',
+    strategy: cleanText(payload.search_strategy, 500) || 'dedicated expanded market discovery',
+  };
+}
+
+async function runCompatibilityVariant(backendBase: string, role: string, location: string): Promise<Job[]> {
   const form = new FormData();
   form.append('target_role', role);
   form.append('location_city', location);
@@ -94,14 +203,40 @@ async function runCompatibilityGrounded(backendBase: string, role: string, locat
   const response = await fetch(`${backendBase}/search-jobs`, {
     method: 'POST',
     cache: 'no-store',
-    signal: AbortSignal.timeout(12000),
+    signal: AbortSignal.timeout(16000),
     body: form,
     headers: { Accept: 'application/json' },
   });
 
   const payload = (await response.json().catch(() => null)) as CompatibilityPayload | null;
-  if (!response.ok || !payload) throw new Error('compatibility_unavailable');
+  if (!response.ok || !payload) throw new Error(`compatibility_http_${response.status}`);
   return sanitiseJobs(payload.jobs, 'Grounded · Compatibility Search');
+}
+
+async function runCompatibility(backendBase: string, role: string, location: string): Promise<DiscoveryBranch> {
+  const variants = roleVariants(role);
+  const settled = await Promise.allSettled(
+    variants.map((variant) => runCompatibilityVariant(backendBase, variant, location)),
+  );
+
+  const jobs = mergeJobs(
+    ...settled
+      .filter((result): result is PromiseFulfilledResult<Job[]> => result.status === 'fulfilled')
+      .map((result) => result.value),
+  );
+  const failedCount = settled.filter((result) => result.status === 'rejected').length;
+
+  return {
+    jobs,
+    status: jobs.length ? 'compatibility_completed' : 'compatibility_zero_results',
+    passesCompleted: variants.filter((_, index) => settled[index]?.status === 'fulfilled').map((variant) => `compatibility:${variant}`),
+    passesFailed: variants.filter((_, index) => settled[index]?.status === 'rejected').map((variant) => `compatibility:${variant}`),
+    partial: failedCount > 0,
+    note: jobs.length
+      ? `Compatibility discovery found ${jobs.length} grounded roles across equivalent role-title variants.`
+      : 'Compatibility discovery completed without a verified additional role.',
+    strategy: `grounded compatibility discovery across role variants: ${variants.join(' | ')}`,
+  };
 }
 
 export async function GET(request: Request) {
@@ -114,64 +249,37 @@ export async function GET(request: Request) {
   if (!role) return NextResponse.json({ detail: 'Enter a role, skill or company.' }, { status: 400 });
 
   const backendBase = (process.env.JOBFIT_BACKEND_URL || 'https://resume-builder-backend-ph7b.onrender.com').replace(/\/$/, '');
-  const form = new FormData();
-  form.append('target_role', role);
-  form.append('location_city', location);
-  form.append('freshness_days', String(days));
-  form.append('max_jobs', '60');
+  const [dedicatedResult, compatibilityResult] = await Promise.allSettled([
+    runDedicated(backendBase, role, location, days),
+    runCompatibility(backendBase, role, location),
+  ]);
 
-  let dedicatedStatus = 'not_attempted';
+  const dedicated = dedicatedResult.status === 'fulfilled' ? dedicatedResult.value : null;
+  const compatibility = compatibilityResult.status === 'fulfilled' ? compatibilityResult.value : null;
+  const jobs = mergeJobs(dedicated?.jobs || [], compatibility?.jobs || []);
+  const passesCompleted = [...(dedicated?.passesCompleted || []), ...(compatibility?.passesCompleted || [])];
+  const passesFailed = [
+    ...(dedicated?.passesFailed || []),
+    ...(compatibility?.passesFailed || []),
+    ...(dedicatedResult.status === 'rejected' ? ['expanded_market'] : []),
+    ...(compatibilityResult.status === 'rejected' ? ['compatibility_grounded'] : []),
+  ];
+  const partial = passesFailed.length > 0 || Boolean(dedicated?.partial) || Boolean(compatibility?.partial);
 
-  try {
-    const response = await fetch(`${backendBase}/discover-market-jobs`, {
-      method: 'POST',
-      cache: 'no-store',
-      signal: AbortSignal.timeout(15000),
-      body: form,
-      headers: { Accept: 'application/json' },
+  if (jobs.length) {
+    const dedicatedCount = dedicated?.jobs.length || 0;
+    const compatibilityCount = compatibility?.jobs.length || 0;
+    return NextResponse.json({
+      jobs,
+      total: jobs.length,
+      partial,
+      status: dedicatedCount ? 'completed' : 'compatibility_completed',
+      duration_ms: Date.now() - startedAt,
+      passes_completed: passesCompleted,
+      passes_failed: passesFailed,
+      search_strategy: [dedicated?.strategy, compatibility?.strategy].filter(Boolean).join(' | '),
+      coverage_note: `Expanded discovery found ${jobs.length} verified role observations (${dedicatedCount} dedicated-market, ${compatibilityCount} compatibility before deduplication). Equivalent program/programme/project manager titles are searched as one role family.`,
     });
-
-    const payload = (await response.json().catch(() => null)) as ExpandedPayload | null;
-    dedicatedStatus = response.ok && payload ? 'completed' : `http_${response.status}`;
-
-    if (response.ok && payload) {
-      const jobs = sanitiseJobs(payload.jobs);
-      if (jobs.length) {
-        return NextResponse.json({
-          jobs,
-          total: jobs.length,
-          partial: Array.isArray(payload.failed_passes) && payload.failed_passes.length > 0,
-          status: 'completed',
-          duration_ms: Date.now() - startedAt,
-          passes_completed: Array.isArray(payload.passes) ? payload.passes : [],
-          passes_failed: Array.isArray(payload.failed_passes) ? payload.failed_passes : [],
-          search_strategy: cleanText(payload.search_strategy, 500),
-          coverage_note: cleanText(payload.coverage_note, 800) || 'Expanded employer/ATS discovery completed.',
-        });
-      }
-      dedicatedStatus = 'completed_zero_results';
-    }
-  } catch {
-    dedicatedStatus = 'timeout_or_unavailable';
-  }
-
-  try {
-    const compatibilityJobs = await runCompatibilityGrounded(backendBase, role, location);
-    if (compatibilityJobs.length) {
-      return NextResponse.json({
-        jobs: compatibilityJobs,
-        total: compatibilityJobs.length,
-        partial: true,
-        status: 'compatibility_completed',
-        duration_ms: Date.now() - startedAt,
-        passes_completed: ['compatibility_grounded'],
-        passes_failed: dedicatedStatus === 'completed_zero_results' ? [] : ['expanded_market'],
-        search_strategy: 'grounded compatibility market discovery after dedicated expanded lane was unavailable or returned no verified roles',
-        coverage_note: `Expanded fallback found ${compatibilityJobs.length} grounded roles. Wider market coverage is still being improved and should not be treated as exhaustive.`,
-      });
-    }
-  } catch {
-    // Return a safe empty result below. The fast configured lane remains independent.
   }
 
   return NextResponse.json({
@@ -180,8 +288,8 @@ export async function GET(request: Request) {
     partial: true,
     status: 'expanded_no_verified_results',
     duration_ms: Date.now() - startedAt,
-    passes_completed: [],
-    passes_failed: ['expanded_market'],
-    coverage_note: 'No additional roles could be verified by the expanded discovery stage in this run. This does not mean no matching vacancies exist; retry or broaden the search while coverage continues to improve.',
+    passes_completed: passesCompleted,
+    passes_failed: passesFailed.length ? passesFailed : ['expanded_market'],
+    coverage_note: 'No additional role could be verified by the expanded stages in this run. This is not evidence that no matching vacancies exist; the system searched equivalent program/programme/project manager titles before returning this state.',
   });
 }
