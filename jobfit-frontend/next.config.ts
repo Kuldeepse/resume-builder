@@ -37,6 +37,15 @@ const nextConfig: NextConfig = {
     root: __dirname,
   },
   poweredByHeader: false,
+  async redirects() {
+    return [
+      {
+        source: "/",
+        destination: "/career",
+        permanent: false,
+      },
+    ];
+  },
   async headers() {
     return [
       {
