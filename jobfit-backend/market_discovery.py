@@ -78,6 +78,13 @@ def _job_key(job: dict[str, Any]) -> str:
 
 
 def _role_variants(value: str) -> list[str]:
+    """Return only aliases that preserve the requested role family.
+
+    Program/programme is a spelling variant. Project Manager is a distinct role family and must
+    never be introduced automatically for Program Manager searches, or vice versa. Broadening
+    across those families wastes retrieval budget and then gets rejected by the downstream trust
+    gate, which can create false zero-result searches.
+    """
     base = _clean(value, 300)
     if not base:
         return []
@@ -88,26 +95,19 @@ def _role_variants(value: str) -> list[str]:
         if cleaned and all(item.lower() != cleaned.lower() for item in variants):
             variants.append(cleaned)
 
-    replacements = [
-        (r"\bprogramme\b", "program"),
-        (r"\bprogram\b", "programme"),
-        (r"\bproject\b", "program"),
-        (r"\bproject\b", "programme"),
-        (r"\btechnical programme manager\b", "technical project manager"),
-        (r"\btechnical program manager\b", "technical project manager"),
-        (r"\btechnical project manager\b", "technical program manager"),
-        (r"\bdelivery manager\b", "technical delivery manager"),
-    ]
-    for pattern, replacement in replacements:
-        if re.search(pattern, base, flags=re.I):
-            add(re.sub(pattern, replacement, base, flags=re.I))
+    if re.search(r"\bprogramme\b", base, flags=re.I):
+        add(re.sub(r"\bprogramme\b", "program", base, flags=re.I))
+    elif re.search(r"\bprogram\b", base, flags=re.I):
+        add(re.sub(r"\bprogram\b", "programme", base, flags=re.I))
 
     if re.fullmatch(r"tpm", base, flags=re.I):
         add("Technical Program Manager")
         add("Technical Programme Manager")
-        add("Technical Project Manager")
 
-    return variants[:4]
+    if re.search(r"\bdelivery manager\b", base, flags=re.I) and not re.search(r"\btechnical delivery manager\b", base, flags=re.I):
+        add(re.sub(r"\bdelivery manager\b", "technical delivery manager", base, flags=re.I))
+
+    return variants[:3]
 
 
 def _schema() -> dict[str, Any]:
@@ -193,6 +193,7 @@ MAX RESULTS FOR THIS PASS: {max_jobs}
 
 Rules:
 - Maximise recall while staying relevant to the requested intent and location.
+- Treat the requested role family as a hard retrieval constraint. Do not substitute Project Manager for Program Manager, or Program Manager for Project Manager.
 - Search broadly and independently; do not assume one job board represents the market.
 - Prefer direct employer career pages and direct ATS job-detail/application pages.
 - Include legitimate direct employer career URLs even when the employer uses a custom careers domain.
@@ -555,7 +556,7 @@ def discover_market_jobs(*, target_role: str, location: str, freshness_days: int
         "failed_passes": errors,
         "ats_boards_expanded": board_passes,
         "ats_board_jobs_before_dedupe": len(board_jobs),
-        "search_strategy": "four-pass grounded market discovery + public Greenhouse/Lever/Ashby board expansion; role-family variants included; candidate profile excluded",
+        "search_strategy": "four-pass grounded market discovery + public Greenhouse/Lever/Ashby board expansion; exact role-family aliases only; candidate profile excluded",
         "coverage_confidence": "expanded_not_exhaustive",
-        "coverage_note": "CogniTwist now searches multiple independent market lanes and enumerates public Greenhouse, Lever and Ashby boards discovered during search. Literal 100% internet coverage cannot be guaranteed because some vacancies are unindexed, authenticated, blocked or published only inside closed platforms.",
+        "coverage_note": "CogniTwist searches multiple independent market lanes and enumerates public Greenhouse, Lever and Ashby boards discovered during search. Role-family substitutions that would later be rejected are not introduced into retrieval. Literal 100% internet coverage cannot be guaranteed because some vacancies are unindexed, authenticated, blocked or published only inside closed platforms.",
     }
