@@ -1,0 +1,40 @@
+name: Backend Regression
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'jobfit-backend/**'
+      - '.github/workflows/backend-regression.yml'
+  pull_request:
+    paths:
+      - 'jobfit-backend/**'
+      - '.github/workflows/backend-regression.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  compile-and-import:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: jobfit-backend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Compile backend modules
+        run: python -m compileall -q .
+      - name: Validate dependency manifest
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          req = Path('requirements.txt')
+          if not req.exists() or not req.read_text().strip():
+              raise SystemExit('requirements.txt is missing or empty')
+          print('backend manifest ok')
+          PY
