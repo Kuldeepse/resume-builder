@@ -72,4 +72,34 @@ test('technical coaching always returns five bounded dimensions summing to total
   assert.equal(result.assessment.dimensions.length, 5);
   assert.ok(result.assessment.dimensions.every((item) => item.score >= 0 && item.score <= 20));
   assert.equal(result.assessment.total, result.assessment.dimensions.reduce((sum, item) => sum + item.score, 0));
+  assert.ok(result.assessment.dimensions.some((item) => /options considered|decision criteria|downside mitigation/i.test(item.label)));
+});
+
+test('risk and prioritisation questions use materially different fallback rubrics', () => {
+  const answer = 'I assessed the impact, compared the options, aligned stakeholders and delivered the agreed plan in 3 weeks.';
+  const risk = buildFallbackCoachTurn({
+    ...base,
+    question: 'Tell me about a major dependency or risk that threatened delivery.',
+    answer,
+  });
+  const priority = buildFallbackCoachTurn({
+    ...base,
+    question: 'How did you prioritise competing stakeholder requests with a tight deadline and limited resources?',
+    answer,
+  });
+  const riskLabels = risk.assessment.dimensions.map((item) => item.label).join('|');
+  const priorityLabels = priority.assessment.dimensions.map((item) => item.label).join('|');
+  assert.notEqual(riskLabels, priorityLabels);
+  assert.match(riskLabels, /Risk and impact diagnosis|Recovery and control/i);
+  assert.match(priorityLabels, /Competing-demand|Prioritisation criteria|Trade-off quality/i);
+});
+
+test('quality defect question scores release decision and remediation rather than generic STAR only', () => {
+  const result = buildFallbackCoachTurn({
+    ...base,
+    question: 'What would you do if a significant software bug was found the day before release?',
+    answer: 'I would assess severity and customer impact, make the go/no-go decision with engineering, validate the remediation and keep rollback ready.',
+  });
+  const labels = result.assessment.dimensions.map((item) => item.label).join('|');
+  assert.match(labels, /Defect severity|Release decision|Remediation/i);
 });
