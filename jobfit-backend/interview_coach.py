@@ -98,14 +98,22 @@ COACHING BEHAVIOUR:
 - The next_question should test an important competency not yet demonstrated, using the job description
   when one is available.
 - Keep feedback direct, constructive and suitable for a senior professional.
+- If the supplied role context asks for a particular interview language, respond in that language.
 - This is practice coaching, not covert assistance during a live employer interview.
 
-SCORING:
-Return exactly five dimensions, each scored 0-20. Choose labels appropriate to interview_type.
-For behavioural interviews cover relevance, STAR/structure, personal ownership, evidence/outcomes,
-and judgement/stakeholder leadership. For technical interviews cover relevance, technical depth,
-design/trade-offs, controls/operational readiness, and evidence/outcomes. For HR interviews cover
-relevance, motivation/fit, credibility, communication, and readiness/expectations.
+EXACT-QUESTION SCORING:
+- Return exactly five dimensions, each scored 0-20.
+- Infer the exact intent of current_question first, then create dimension keys, labels and rationales that
+  measure what THIS QUESTION is testing. Do not reuse one generic five-dimension rubric across unrelated questions.
+- Keep one dimension for direct question relevance/intent coverage, but make the other four question-specific.
+- Examples only: a delivery-risk question can score risk diagnosis, personal ownership, recovery/control decisions,
+  stakeholder alignment and verified recovery outcome. A prioritisation question can score competing-demand framing,
+  prioritisation criteria, trade-off quality, stakeholder alignment and outcome. An architecture question can score
+  architecture clarity, dependencies/integrations, security/NFRs, decision trade-offs and operational outcome.
+- HR questions should similarly vary: motivation questions should score specificity/company-role understanding and
+  evidence of fit; practical questions should score directness, accuracy and realistic expectations instead.
+- Dimension labels must therefore materially change when current_question changes materially.
+- Scores and rationales must be based on the submitted answer and available evidence only.
 """.strip()
 
 
@@ -132,6 +140,7 @@ REQUIRED BEHAVIOUR:
 - For behavioural questions, address the specific competency or event in the question (for example conflict,
   dependency, failure, prioritisation, ambiguity, stakeholder influence, change, pace, quality, etc.).
 - For HR questions, directly answer the specific motivation, fit, availability, compensation or career question.
+- If the supplied role context asks for a particular interview language, respond in that language.
 - Keep the answer suitable for a senior professional and normally 120-260 words.
 - This is practice guidance, not covert assistance during a live employer assessment.
 """.strip()
@@ -204,7 +213,8 @@ async def interview_coach_health() -> dict:
         "adaptive": True,
         "structured_output": True,
         "expected_response": True,
-        "version": "agent-v2",
+        "exact_question_rubric": True,
+        "version": "agent-v3",
     }
 
 
@@ -242,7 +252,7 @@ async def interview_expected_response(request: ExpectedResponseRequest) -> dict:
         "agent": {
             "provider": "google-genai",
             "model": os.getenv("INTERVIEW_COACH_MODEL", DEFAULT_MODEL),
-            "version": "expected-v1",
+            "version": "expected-v2",
             "adaptive": True,
             "evidence_guard": True,
         },
@@ -263,7 +273,8 @@ async def interview_coach_turn(request: InterviewCoachTurnRequest) -> dict:
         raise HTTPException(status_code=503, detail="Interview coach AI provider is not configured.")
 
     prompt = (
-        "Assess this mock-interview turn. Return only the structured response requested by the schema.\n\n"
+        "Assess this mock-interview turn. Build the five-dimension scoring rubric from the exact current question, "
+        "then return only the structured response requested by the schema.\n\n"
         + json.dumps(_payload(request), ensure_ascii=False)
     )
 
@@ -294,9 +305,10 @@ async def interview_coach_turn(request: InterviewCoachTurnRequest) -> dict:
         "agent": {
             "provider": "google-genai",
             "model": os.getenv("INTERVIEW_COACH_MODEL", DEFAULT_MODEL),
-            "version": "agent-v2",
+            "version": "agent-v3",
             "adaptive": True,
             "evidence_guard": True,
+            "exact_question_rubric": True,
         },
         "assessment": {
             "question": request.question.strip()[:900],
