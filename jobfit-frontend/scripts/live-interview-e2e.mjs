@@ -17,7 +17,7 @@ async function waitForServer() {
   let lastError;
   for (let attempt = 0; attempt < 60; attempt += 1) {
     try {
-      const response = await fetch(`${base}/live-interview`, { redirect: 'manual' });
+      const response = await fetch(`${base}/live-interview`, { redirect: 'manual', signal: AbortSignal.timeout(3000) });
       if (response.ok) return response;
       lastError = new Error(`Live Interview returned ${response.status}`);
     } catch (error) {
@@ -28,7 +28,7 @@ async function waitForServer() {
   throw lastError || new Error('Live Interview server did not become ready.');
 }
 
-const server = spawn('npm', ['run', 'start', '--', '-p', String(port)], {
+const server = spawn(process.execPath, ['./node_modules/next/dist/bin/next', 'start', '-p', String(port)], {
   stdio: ['ignore', 'pipe', 'pipe'],
   env: {
     ...process.env,
@@ -49,7 +49,7 @@ try {
   const page = await pageResponse.text();
   assert.match(page, /Interview Coach|Live Interview|Configure the simulation/i, 'Live Interview page did not render expected UI text.');
 
-  const healthResponse = await fetch(`${base}/api/interview-coach`, { cache: 'no-store' });
+  const healthResponse = await fetch(`${base}/api/interview-coach`, { cache: 'no-store', signal: AbortSignal.timeout(10000) });
   assert.equal(healthResponse.status, 200, 'Interview coach health proxy should remain available even when adaptive backend is unavailable.');
   const health = await json(healthResponse);
   assert.equal(health.fallback_available, true);
@@ -75,6 +75,7 @@ try {
 
   const turnResponse = await fetch(`${base}/api/interview-coach`, {
     method: 'POST',
+    signal: AbortSignal.timeout(10000),
     headers: {
       'Content-Type': 'application/json',
       Cookie: `cognitwist_interview_memory=${memoryCookie}`,
@@ -104,6 +105,7 @@ try {
 
   const expectedResponse = await fetch(`${base}/api/interview-coach/expected`, {
     method: 'POST',
+    signal: AbortSignal.timeout(10000),
     headers: {
       'Content-Type': 'application/json',
       Cookie: `cognitwist_interview_memory=${memoryCookie}`,
@@ -139,5 +141,11 @@ try {
     new Promise((resolve) => server.once('exit', resolve)),
     sleep(2500),
   ]);
-  if (!server.killed) server.kill('SIGKILL');
+  if (server.exitCode == null) {
+    server.kill('SIGKILL');
+    await Promise.race([
+      new Promise((resolve) => server.once('exit', resolve)),
+      sleep(1000),
+    ]);
+  }
 }
