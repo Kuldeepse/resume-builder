@@ -24,6 +24,8 @@ import { buildExpectedInterviewResponse } from '../../lib/interview-expected-res
 import {
   analyseInterviewDelivery,
   buildInterviewSessionReport,
+  buildMicroDrills,
+  buildProgressInsights,
   buildTargetedRetry,
   combineInterviewReadiness,
 } from '../../lib/interview-performance.mjs';
@@ -32,7 +34,7 @@ type InterviewState = 'setup' | 'active' | 'complete';
 type CoachState = 'ready' | 'speaking' | 'listening' | 'thinking';
 type InterviewType = 'hr' | 'behavioural' | 'technical';
 type PracticeMode = 'learn' | 'practice' | 'assessment';
-type Demeanour = 'supportive' | 'neutral' | 'challenging' | 'executive' | 'technical';
+type Demeanour = 'supportive' | 'recruiter' | 'neutral' | 'challenging' | 'skeptical' | 'time_pressured' | 'executive' | 'architect' | 'product' | 'risk' | 'technical';
 type CoachMode = 'ai' | 'fallback';
 type EvidenceStatus = 'confirmed' | 'partial' | 'unsupported' | 'unknown';
 
@@ -115,6 +117,12 @@ type ProgressSession = {
   contentAverage: number;
   deliveryAverage: number;
   readinessAverage: number;
+  evidenceScore?: number;
+  structureScore?: number | null;
+  technicalDepthScore?: number | null;
+  communicationScore?: number;
+  contentDimensions?: Array<{ key: string; label: string; score: number }>;
+  deliveryDimensions?: Array<{ key: string; label: string; score: number }>;
 };
 
 type SpeechRecognitionResultLike = { 0: { transcript: string }; isFinal?: boolean };
@@ -181,16 +189,38 @@ const MODES: Record<PracticeMode, { label: string; description: string }> = {
 };
 
 const DEMEANOURS: Record<Demeanour, { label: string; description: string }> = {
-  supportive: { label: 'Supportive', description: 'Calm and encouraging.' },
-  neutral: { label: 'Neutral', description: 'Balanced hiring-manager style.' },
-  challenging: { label: 'Challenging', description: 'Pushes for evidence and precision.' },
-  executive: { label: 'Executive', description: 'Concise, outcome and trade-off focused.' },
-  technical: { label: 'Technical', description: 'Probes architecture, controls and decisions.' },
+  supportive: { label: 'Supportive coach', description: 'Calm, encouraging and gives space to structure.' },
+  recruiter: { label: 'Recruiter', description: 'Motivation, credibility, fit and practical readiness.' },
+  neutral: { label: 'Hiring manager', description: 'Balanced evidence-led hiring-manager style.' },
+  challenging: { label: 'Challenging director', description: 'Pushes for precision, ownership and evidence.' },
+  skeptical: { label: 'Skeptical interviewer', description: 'Questions assumptions and asks for proof.' },
+  time_pressured: { label: 'Time-pressured interviewer', description: 'Requires concise answers and rapid decisions.' },
+  executive: { label: 'Executive', description: 'Outcome, business impact and trade-off focused.' },
+  architect: { label: 'Principal architect', description: 'Architecture, dependencies, NFRs and technical decisions.' },
+  product: { label: 'Product leader', description: 'Users, prioritisation, outcomes and product judgement.' },
+  risk: { label: 'Risk & controls', description: 'Governance, controls, assurance and residual risk.' },
+  technical: { label: 'Technical interviewer', description: 'Probes implementation context, controls and decisions.' },
 };
+
+const PANEL: Array<{ label: string; demeanour: Demeanour }> = [
+  { label: 'Hiring Manager', demeanour: 'neutral' },
+  { label: 'Principal Architect', demeanour: 'architect' },
+  { label: 'Product Director', demeanour: 'product' },
+  { label: 'Risk Lead', demeanour: 'risk' },
+];
+
+const LANGUAGES = [
+  { code: 'en-GB', label: 'English · UK' },
+  { code: 'en-US', label: 'English · US' },
+  { code: 'hi-IN', label: 'Hindi · India' },
+  { code: 'es-ES', label: 'Spanish · Spain' },
+  { code: 'fr-FR', label: 'French · France' },
+  { code: 'de-DE', label: 'German · Germany' },
+];
 
 const panelClass = 'rounded-[1.75rem] border border-[var(--surface-border)] bg-[var(--surface)] shadow-[var(--shadow-xl)]';
 const inputClass = 'w-full rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-strong)] px-4 py-3 text-sm text-[var(--foreground)] outline-none placeholder:text-[var(--ink-soft)] focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent-soft)]';
-const PROGRESS_KEY = 'cognitwist-interview-progress-v1';
+const PROGRESS_KEY = 'cognitwist-interview-progress-v2';
 const TTS_KEY = 'cognitwist-live-interview-tts';
 
 function safeInterviewType(value: unknown): InterviewType {
@@ -217,8 +247,10 @@ function readStoredContext(): StoredContext {
 
 function readProgress(): ProgressSession[] {
   try {
-    const parsed: unknown = JSON.parse(window.localStorage.getItem(PROGRESS_KEY) || '[]');
-    return Array.isArray(parsed) ? (parsed as ProgressSession[]).slice(0, 20) : [];
+    const v2: unknown = JSON.parse(window.localStorage.getItem(PROGRESS_KEY) || '[]');
+    if (Array.isArray(v2) && v2.length) return (v2 as ProgressSession[]).slice(0, 50);
+    const legacy: unknown = JSON.parse(window.localStorage.getItem('cognitwist-interview-progress-v1') || '[]');
+    return Array.isArray(legacy) ? (legacy as ProgressSession[]).slice(0, 50) : [];
   } catch { return []; }
 }
 
@@ -233,8 +265,14 @@ function styleQuestion(question: string, demeanour: Demeanour) {
   const clean = question.trim();
   if (!clean) return clean;
   if (demeanour === 'challenging') return `I want a precise, evidenced answer. ${clean}`;
-  if (demeanour === 'executive') return `Keep this concise and outcome-focused. ${clean}`;
-  if (demeanour === 'technical') return `Be technically specific about your decisions and controls. ${clean}`;
+  if (demeanour === 'skeptical') return `Do not give me a generic answer; prove your contribution. ${clean}`;
+  if (demeanour === 'time_pressured') return `You have about 90 seconds. Be concise. ${clean}`;
+  if (demeanour === 'executive') return `Keep this outcome and business-impact focused. ${clean}`;
+  if (demeanour === 'architect') return `Be explicit about architecture, dependencies and technical decisions. ${clean}`;
+  if (demeanour === 'product') return `Connect your answer to users, prioritisation and measurable outcomes. ${clean}`;
+  if (demeanour === 'risk') return `Explain the control, assurance and residual-risk decision. ${clean}`;
+  if (demeanour === 'technical') return `Be technically specific about your decisions and validation. ${clean}`;
+  if (demeanour === 'recruiter') return `Keep your answer credible, relevant and specific to this opportunity. ${clean}`;
   if (demeanour === 'supportive') return `Take a moment to structure your answer. ${clean}`;
   return clean;
 }
@@ -273,10 +311,16 @@ export default function LiveInterviewV3() {
   const [interviewType, setInterviewType] = useState<InterviewType>('behavioural');
   const [practiceMode, setPracticeMode] = useState<PracticeMode>('learn');
   const [demeanour, setDemeanour] = useState<Demeanour>('neutral');
+  const [panelMode, setPanelMode] = useState(false);
   const [role, setRole] = useState('Technical Programme Manager');
   const [company, setCompany] = useState('');
   const [jobDescription, setJobDescription] = useState('');
   const [candidateEvidence, setCandidateEvidence] = useState<string[]>([]);
+  const [focusAreas, setFocusAreas] = useState('');
+  const [targetQuestions, setTargetQuestions] = useState(6);
+  const [targetMinutes, setTargetMinutes] = useState(30);
+  const [language, setLanguage] = useState('en-GB');
+  const [adaptiveSpeechRate, setAdaptiveSpeechRate] = useState(true);
   const [currentQuestion, setCurrentQuestion] = useState(INTERVIEW_TYPES.behavioural.opening);
   const [questionDraft, setQuestionDraft] = useState('');
   const [answer, setAnswer] = useState('');
@@ -314,15 +358,29 @@ export default function LiveInterviewV3() {
   const storedRecordingUrlsRef = useRef<string[]>([]);
   const expectedAbortRef = useRef<AbortController | null>(null);
   const sessionSavedRef = useRef(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const config = INTERVIEW_TYPES[interviewType];
   const latest = history[history.length - 1];
+  const activePersona = panelMode ? PANEL[history.length % PANEL.length] : { label: DEMEANOURS[demeanour].label, demeanour };
+  const languageLabel = LANGUAGES.find((item) => item.code === language)?.label || language;
+  const filteredVoices = useMemo(() => {
+    const prefix = language.split('-')[0].toLowerCase();
+    const matching = voices.filter((voice) => voice.lang?.toLowerCase().startsWith(prefix));
+    return matching.length ? matching : voices;
+  }, [voices, language]);
+
   const report = useMemo(() => buildInterviewSessionReport(history.map((item) => ({
     question: item.question,
     content_score: item.total,
     delivery_score: item.delivery.score,
     readiness_score: item.readiness,
+    content_dimensions: item.dimensions,
+    delivery_dimensions: item.delivery.dimensions,
+    evidence_findings: item.evidence_findings,
   }))), [history]);
+  const progressInsights = useMemo(() => buildProgressInsights(progress, role), [progress, role]);
+  const microDrills = useMemo(() => latest ? buildMicroDrills({ question: latest.question, retry_targets: latest.retry_targets }) : [], [latest]);
 
   useEffect(() => {
     setSpeechSupported(Boolean(window.SpeechRecognition || window.webkitSpeechRecognition));
@@ -346,8 +404,10 @@ export default function LiveInterviewV3() {
     }
 
     try {
-      const stored = JSON.parse(window.localStorage.getItem(TTS_KEY) || '{}') as { voiceURI?: string; rate?: number };
+      const stored = JSON.parse(window.localStorage.getItem(TTS_KEY) || '{}') as { voiceURI?: string; rate?: number; language?: string; adaptive?: boolean };
       setVoiceURI(stored.voiceURI || 'auto');
+      if (typeof stored.language === 'string' && LANGUAGES.some((item) => item.code === stored.language)) setLanguage(stored.language);
+      if (typeof stored.adaptive === 'boolean') setAdaptiveSpeechRate(stored.adaptive);
       const rate = Number(stored.rate);
       if (Number.isFinite(rate)) setSpeechRate(Math.max(0.7, Math.min(1.3, rate)));
     } catch { /* local storage can be unavailable */ }
@@ -356,17 +416,15 @@ export default function LiveInterviewV3() {
   useEffect(() => {
     if (!('speechSynthesis' in window)) return undefined;
     const synth = window.speechSynthesis;
-    const loadVoices = () => setVoices(synth.getVoices()
-      .filter((voice) => voice.lang?.toLowerCase().startsWith('en'))
-      .sort((a, b) => `${a.lang}-${a.name}`.localeCompare(`${b.lang}-${b.name}`)));
+    const loadVoices = () => setVoices(synth.getVoices().sort((a, b) => `${a.lang}-${a.name}`.localeCompare(`${b.lang}-${b.name}`)));
     loadVoices();
     synth.addEventListener?.('voiceschanged', loadVoices);
     return () => synth.removeEventListener?.('voiceschanged', loadVoices);
   }, []);
 
   useEffect(() => {
-    try { window.localStorage.setItem(TTS_KEY, JSON.stringify({ voiceURI, rate: speechRate })); } catch { /* no-op */ }
-  }, [voiceURI, speechRate]);
+    try { window.localStorage.setItem(TTS_KEY, JSON.stringify({ voiceURI, rate: speechRate, language, adaptive: adaptiveSpeechRate })); } catch { /* no-op */ }
+  }, [voiceURI, speechRate, language, adaptiveSpeechRate]);
 
   useEffect(() => {
     if (sessionState !== 'active') return undefined;
@@ -393,7 +451,8 @@ export default function LiveInterviewV3() {
       return undefined;
     }
     const question = currentQuestion.trim();
-    const fallback = fallbackExpected(role, company, jobDescription, interviewType, question, candidateEvidence);
+    const context = `${jobDescription.trim()}\n\nPractice focus: ${focusAreas || 'role-relevant competencies'}. Interview language: ${languageLabel}. Return guidance in this language.`.trim();
+    const fallback = fallbackExpected(role, company, context, interviewType, question, candidateEvidence);
     setExpected(fallback);
     setExpectedLoading(true);
     expectedAbortRef.current?.abort();
@@ -410,10 +469,11 @@ export default function LiveInterviewV3() {
           body: JSON.stringify({
             role: role.trim(),
             company: company.trim(),
-            job_description: jobDescription.trim(),
+            job_description: context,
             interview_type: interviewType,
             question,
             candidate_evidence: candidateEvidence,
+            history: history.map((item) => ({ question: item.question, answer: item.answer, score: item.total })).slice(-8),
           }),
         });
         const data = await response.json().catch(() => null) as ExpectedResponse | null;
@@ -432,7 +492,7 @@ export default function LiveInterviewV3() {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [sessionState, practiceMode, role, company, jobDescription, interviewType, currentQuestion, candidateEvidence]);
+  }, [sessionState, practiceMode, role, company, jobDescription, focusAreas, languageLabel, interviewType, currentQuestion, candidateEvidence, history]);
 
   const speak = useCallback((text: string) => {
     if (!voiceEnabled || !('speechSynthesis' in window)) {
@@ -443,19 +503,22 @@ export default function LiveInterviewV3() {
     synth.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     const available = synth.getVoices();
+    const prefix = language.split('-')[0].toLowerCase();
     const selected = voiceURI === 'auto'
-      ? available.find((voice) => voice.lang === 'en-GB') || available.find((voice) => voice.lang?.toLowerCase().startsWith('en'))
+      ? available.find((voice) => voice.lang === language) || available.find((voice) => voice.lang?.toLowerCase().startsWith(prefix))
       : available.find((voice) => voice.voiceURI === voiceURI);
     if (selected) {
       utterance.voice = selected;
       utterance.lang = selected.lang;
+    } else {
+      utterance.lang = language;
     }
     utterance.rate = speechRate;
     utterance.onstart = () => setCoachState('speaking');
     utterance.onend = () => setCoachState('ready');
     utterance.onerror = () => setCoachState('ready');
     synth.speak(utterance);
-  }, [voiceEnabled, voiceURI, speechRate]);
+  }, [voiceEnabled, voiceURI, speechRate, language]);
 
   const stopRecognition = useCallback(() => {
     try { recognitionRef.current?.stop(); } catch { /* no-op */ }
@@ -517,7 +580,7 @@ export default function LiveInterviewV3() {
     const recognition = new Recognition();
     recognition.continuous = true;
     recognition.interimResults = true;
-    recognition.lang = 'en-GB';
+    recognition.lang = language;
     recognitionRef.current = recognition;
     baseAnswerRef.current = answer.trim();
     transcriptSegmentsRef.current = [];
@@ -577,7 +640,8 @@ export default function LiveInterviewV3() {
     stopRecognition();
     void stopRecorder();
     clearUnsubmittedRecording();
-    const next = applyStyle ? styleQuestion(clean, demeanour) : clean;
+    const persona = panelMode ? PANEL[history.length % PANEL.length] : { label: DEMEANOURS[demeanour].label, demeanour };
+    const next = applyStyle ? styleQuestion(clean, persona.demeanour) : clean;
     setCurrentQuestion(next);
     setQuestionDraft('');
     setAnswer('');
@@ -586,7 +650,7 @@ export default function LiveInterviewV3() {
     answerStartedAtRef.current = null;
     speechStartedAtRef.current = null;
     transcriptSegmentsRef.current = [];
-    setNotice('Question ready. Answer naturally; content and delivery are assessed separately.');
+    setNotice(`Question ready · ${persona.label}. Content and delivery are assessed separately.`);
     window.setTimeout(() => speak(next), 80);
   };
 
@@ -595,7 +659,8 @@ export default function LiveInterviewV3() {
       setError('Enter the exact target role before starting practice.');
       return;
     }
-    const opening = styleQuestion(INTERVIEW_TYPES[interviewType].opening, demeanour);
+    const persona = panelMode ? PANEL[0] : { label: DEMEANOURS[demeanour].label, demeanour };
+    const opening = styleQuestion(INTERVIEW_TYPES[interviewType].opening, persona.demeanour);
     setHistory([]);
     sessionSavedRef.current = false;
     setElapsed(0);
@@ -603,7 +668,7 @@ export default function LiveInterviewV3() {
     setAnswer('');
     setError('');
     setGuidanceRevealed(false);
-    setNotice(`${MODES[practiceMode].label} mode started. Content and delivery are scored independently.`);
+    setNotice(`${MODES[practiceMode].label} mode started · ${targetQuestions} questions / ${targetMinutes} minutes target.`);
     setSessionState('active');
     window.setTimeout(() => speak(`Welcome to your ${INTERVIEW_TYPES[interviewType].label.toLowerCase()} practice for the ${role.trim()} role. ${opening}`), 120);
   };
@@ -618,7 +683,7 @@ export default function LiveInterviewV3() {
     setAnalysing(true);
     setCoachState('thinking');
     setError('');
-    setNotice('Analysing content evidence and communication delivery…');
+    setNotice('Analysing exact-question content, evidence and communication delivery…');
 
     const endedAt = performance.now();
     const startedAt = answerStartedAtRef.current || endedAt;
@@ -626,21 +691,17 @@ export default function LiveInterviewV3() {
     const segments = [...transcriptSegmentsRef.current];
     const source = speechStartedAtRef.current ? 'speech' : 'typed';
     const recordingPromise = stopRecorder();
-    const delivery = analyseInterviewDelivery({
-      text: answer.trim(),
-      duration_sec: durationSec,
-      source,
-      segments,
-    }) as DeliveryAnalytics;
+    const delivery = analyseInterviewDelivery({ text: answer.trim(), duration_sec: durationSec, source, segments }) as DeliveryAnalytics;
 
     try {
+      const persona = panelMode ? PANEL[history.length % PANEL.length] : { label: DEMEANOURS[demeanour].label, demeanour };
       const response = await fetch('/api/interview-coach', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           role: role.trim(),
           company: company.trim(),
-          job_description: `${jobDescription.trim()}\n\nInterviewer simulation style: ${DEMEANOURS[demeanour].label}. ${DEMEANOURS[demeanour].description}`.trim(),
+          job_description: `${jobDescription.trim()}\n\nInterview simulation: ${persona.label}. ${DEMEANOURS[persona.demeanour].description}\nPractice focus: ${focusAreas || 'role-relevant competencies'}.\nInterview language: ${languageLabel}. Return coaching in this language.`.trim(),
           interview_type: interviewType,
           question: currentQuestion,
           answer: answer.trim(),
@@ -675,7 +736,12 @@ export default function LiveInterviewV3() {
       };
       setHistory((items) => [...items, item]);
       setGuidanceRevealed(practiceMode !== 'assessment');
-      setNotice(`${data.mode === 'ai' ? 'Adaptive AI' : 'Fallback'} coaching complete · Content ${item.total}/100 · Delivery ${delivery.score}/100 · Readiness ${readiness}/100.`);
+      if (adaptiveSpeechRate && source === 'speech' && delivery.wpm > 0) {
+        const matched = Math.max(0.85, Math.min(1.15, 1 + (delivery.wpm - 145) / 450));
+        setSpeechRate(Math.round(matched * 20) / 20);
+      }
+      const completed = history.length + 1;
+      setNotice(`${data.mode === 'ai' ? 'Adaptive AI' : 'Fallback'} coaching complete · Content ${item.total}/100 · Delivery ${delivery.score}/100 · Readiness ${readiness}/100.${completed >= targetQuestions ? ' Target question count reached.' : ''}`);
       speak(`${item.coaching_message} ${item.follow_up}`);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : 'Interview coaching could not complete this turn.');
@@ -695,13 +761,19 @@ export default function LiveInterviewV3() {
       company: company.trim(),
       interviewType,
       practiceMode,
-      demeanour,
+      demeanour: panelMode ? 'neutral' : demeanour,
       turns: report.turns,
       contentAverage: report.content_average,
       deliveryAverage: report.delivery_average,
       readinessAverage: report.readiness_average,
+      evidenceScore: report.evidence_score,
+      structureScore: report.structure_score,
+      technicalDepthScore: report.technical_depth_score,
+      communicationScore: report.communication_score,
+      contentDimensions: report.content_dimensions,
+      deliveryDimensions: report.delivery_dimensions,
     };
-    const next = [summary, ...readProgress()].slice(0, 20);
+    const next = [summary, ...readProgress()].slice(0, 50);
     try { window.localStorage.setItem(PROGRESS_KEY, JSON.stringify(next)); } catch { /* no-op */ }
     setProgress(next);
     sessionSavedRef.current = true;
@@ -745,12 +817,47 @@ export default function LiveInterviewV3() {
     setAnswer(value);
   };
 
-  const showGuidance = practiceMode === 'learn'
-    || (practiceMode === 'practice' && guidanceRevealed)
-    || sessionState === 'complete';
-  const statusLabel = coachState === 'speaking' ? 'Speaking'
-    : coachState === 'listening' ? 'Listening'
-      : coachState === 'thinking' ? 'Analysing' : 'Ready';
+  const seekRecording = (atMs: number) => {
+    if (!audioRef.current) return;
+    audioRef.current.currentTime = Math.max(0, atMs / 1000);
+    void audioRef.current.play().catch(() => undefined);
+  };
+
+  const exportSession = () => {
+    const payload = {
+      version: 1,
+      exported_at: new Date().toISOString(),
+      role,
+      company,
+      interview_type: interviewType,
+      practice_mode: practiceMode,
+      panel_mode: panelMode,
+      language,
+      focus_areas: focusAreas,
+      report,
+      turns: history.map((item) => ({
+        question: item.question,
+        answer: item.answer,
+        content_score: item.total,
+        delivery_score: item.delivery.score,
+        readiness_score: item.readiness,
+        dimensions: item.dimensions,
+        delivery: item.delivery,
+        evidence_findings: item.evidence_findings,
+        retry_targets: item.retry_targets,
+      })),
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `cognitwist-interview-${Date.now()}.json`;
+    anchor.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  const showGuidance = practiceMode === 'learn' || (practiceMode === 'practice' && guidanceRevealed) || sessionState === 'complete';
+  const statusLabel = coachState === 'speaking' ? 'Speaking' : coachState === 'listening' ? 'Listening' : coachState === 'thinking' ? 'Analysing' : 'Ready';
 
   return (
     <main className="min-h-screen px-3 pb-28 pt-6 text-[var(--foreground)] md:px-8 md:pb-12 md:pt-10">
@@ -759,11 +866,11 @@ export default function LiveInterviewV3() {
           <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-[var(--accent-soft)] blur-3xl" />
           <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-4xl">
-              <div className="inline-flex items-center gap-2 rounded-full border border-[var(--surface-border)] bg-[var(--accent-soft)] px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-[var(--accent-strong)]"><BrainCircuit className="h-3.5 w-3.5" /> Interview Coach v3 · Performance Intelligence</div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-[var(--surface-border)] bg-[var(--accent-soft)] px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-[var(--accent-strong)]"><BrainCircuit className="h-3.5 w-3.5" /> Interview Coach v3.1 · Performance Intelligence</div>
               <h1 className="mt-4 text-3xl font-black tracking-tight md:text-5xl">Content intelligence + communication performance.</h1>
-              <p className="mt-3 max-w-3xl text-sm leading-7 text-[var(--ink-soft)] md:text-base">Practise against the exact vacancy and your evidence while CogniTwist separately measures answer quality, pace, filler words, repetition, ownership and fluency.</p>
+              <p className="mt-3 max-w-3xl text-sm leading-7 text-[var(--ink-soft)] md:text-base">Practise against the exact vacancy and verified evidence while CogniTwist separately measures answer quality, pace, fillers, repetition, ownership, fluency and progress.</p>
             </div>
-            <div className="flex items-center gap-2 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-strong)] px-4 py-3 text-xs font-black"><Clock3 className="h-4 w-4 text-[var(--accent-strong)]" /> {formatTime(elapsed)}</div>
+            <div className="flex items-center gap-2 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-strong)] px-4 py-3 text-xs font-black"><Clock3 className="h-4 w-4 text-[var(--accent-strong)]" /> {formatTime(elapsed)} / {targetMinutes}:00</div>
           </div>
         </section>
 
@@ -773,11 +880,13 @@ export default function LiveInterviewV3() {
             <div className="mt-6 space-y-6">
               <fieldset><legend className="text-xs font-black">Coaching mode</legend><div className="mt-2 grid gap-2 md:grid-cols-3">{(Object.keys(MODES) as PracticeMode[]).map((mode) => <button key={mode} type="button" onClick={() => setPracticeMode(mode)} className={`rounded-2xl border p-4 text-left ${practiceMode === mode ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-[var(--surface-border)] bg-[var(--surface-strong)]'}`}><strong className="text-xs">{MODES[mode].label}</strong><span className="mt-1 block text-[10px] leading-4 text-[var(--ink-soft)]">{MODES[mode].description}</span></button>)}</div></fieldset>
               <fieldset><legend className="text-xs font-black">Interview stage</legend><div className="mt-2 grid gap-2 md:grid-cols-3">{(Object.keys(INTERVIEW_TYPES) as InterviewType[]).map((type) => <button key={type} type="button" onClick={() => { setInterviewType(type); setCurrentQuestion(INTERVIEW_TYPES[type].opening); }} className={`rounded-2xl border p-4 text-left ${interviewType === type ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-[var(--surface-border)] bg-[var(--surface-strong)]'}`}><strong className="text-xs">{INTERVIEW_TYPES[type].label}</strong><span className="mt-1 block text-[10px] leading-4 text-[var(--ink-soft)]">{INTERVIEW_TYPES[type].description}</span></button>)}</div></fieldset>
-              <fieldset><legend className="text-xs font-black">Interviewer demeanour</legend><div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">{(Object.keys(DEMEANOURS) as Demeanour[]).map((style) => <button key={style} type="button" onClick={() => setDemeanour(style)} className={`rounded-2xl border p-3 text-left ${demeanour === style ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-[var(--surface-border)] bg-[var(--surface-strong)]'}`}><strong className="text-[11px]">{DEMEANOURS[style].label}</strong><span className="mt-1 block text-[9px] leading-4 text-[var(--ink-soft)]">{DEMEANOURS[style].description}</span></button>)}</div></fieldset>
+              <fieldset><legend className="text-xs font-black">Interviewer / panel</legend><div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-4"><button type="button" onClick={() => setPanelMode(true)} className={`rounded-2xl border p-3 text-left ${panelMode ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-[var(--surface-border)] bg-[var(--surface-strong)]'}`}><strong className="text-[11px]">4-person panel</strong><span className="mt-1 block text-[9px] leading-4 text-[var(--ink-soft)]">Hiring Manager → Architect → Product → Risk</span></button>{(Object.keys(DEMEANOURS) as Demeanour[]).map((style) => <button key={style} type="button" onClick={() => { setPanelMode(false); setDemeanour(style); }} className={`rounded-2xl border p-3 text-left ${!panelMode && demeanour === style ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-[var(--surface-border)] bg-[var(--surface-strong)]'}`}><strong className="text-[11px]">{DEMEANOURS[style].label}</strong><span className="mt-1 block text-[9px] leading-4 text-[var(--ink-soft)]">{DEMEANOURS[style].description}</span></button>)}</div></fieldset>
               <div className="grid gap-4 md:grid-cols-2"><label className="text-xs font-black">Target role<input value={role} onChange={(event) => setRole(event.target.value)} className={`${inputClass} mt-2`} /></label><label className="text-xs font-black">Company<input value={company} onChange={(event) => setCompany(event.target.value)} className={`${inputClass} mt-2`} /></label></div>
               <label className="text-xs font-black">Job description / role context<textarea value={jobDescription} onChange={(event) => setJobDescription(event.target.value)} rows={5} className={`${inputClass} mt-2 resize-y text-xs leading-6`} /></label>
-              <div className="grid gap-4 lg:grid-cols-[1fr_220px]"><label className="text-xs font-black">Coach voice<select value={voiceURI} onChange={(event) => setVoiceURI(event.target.value)} className={`${inputClass} mt-2`}><option value="auto">Auto · best English voice</option>{voices.map((voice) => <option key={`${voice.voiceURI}-${voice.lang}`} value={voice.voiceURI}>{voice.name} · {voice.lang}</option>)}</select></label><label className="text-xs font-black"><span className="flex justify-between"><span>Speech speed</span><span>{speechRate.toFixed(2)}×</span></span><input className="mt-4 w-full" type="range" min="0.7" max="1.3" step="0.05" value={speechRate} onChange={(event) => setSpeechRate(Number(event.target.value))} /></label></div>
-              {progress.length > 0 && <div className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-strong)] p-4"><div className="flex items-center gap-2"><History className="h-4 w-4 text-[var(--accent-strong)]" /><p className="text-xs font-black">Recent progress</p></div><div className="mt-3 grid gap-2 md:grid-cols-3">{progress.slice(0, 3).map((item) => <div key={item.id} className="rounded-xl border border-[var(--surface-border)] bg-[var(--surface)] p-3"><div className="flex justify-between gap-3"><p className="text-[10px] font-black">{item.role}</p><span className="text-xs font-black">{item.readinessAverage}</span></div><p className="mt-1 text-[9px] text-[var(--ink-soft)]">{new Date(item.at).toLocaleDateString()} · C {item.contentAverage} / D {item.deliveryAverage}</p></div>)}</div></div>}
+              <label className="text-xs font-black">Focus areas<input value={focusAreas} onChange={(event) => setFocusAreas(event.target.value)} placeholder="e.g. stakeholder conflict, architecture, release readiness" className={`${inputClass} mt-2`} /></label>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><label className="text-xs font-black">Questions<input type="number" min={1} max={20} value={targetQuestions} onChange={(event) => setTargetQuestions(Math.max(1, Math.min(20, Number(event.target.value) || 1)))} className={`${inputClass} mt-2`} /></label><label className="text-xs font-black">Minutes<input type="number" min={5} max={120} value={targetMinutes} onChange={(event) => setTargetMinutes(Math.max(5, Math.min(120, Number(event.target.value) || 5)))} className={`${inputClass} mt-2`} /></label><label className="text-xs font-black">Language<select value={language} onChange={(event) => { setLanguage(event.target.value); setVoiceURI('auto'); }} className={`${inputClass} mt-2`}>{LANGUAGES.map((item) => <option key={item.code} value={item.code}>{item.label}</option>)}</select></label><label className="text-xs font-black">Adaptive TTS<select value={adaptiveSpeechRate ? 'on' : 'off'} onChange={(event) => setAdaptiveSpeechRate(event.target.value === 'on')} className={`${inputClass} mt-2`}><option value="on">On · match speaking pace</option><option value="off">Off · manual speed</option></select></label></div>
+              <div className="grid gap-4 lg:grid-cols-[1fr_220px]"><label className="text-xs font-black">Coach voice<select value={voiceURI} onChange={(event) => setVoiceURI(event.target.value)} className={`${inputClass} mt-2`}><option value="auto">Auto · best {languageLabel} voice</option>{filteredVoices.map((voice) => <option key={`${voice.voiceURI}-${voice.lang}`} value={voice.voiceURI}>{voice.name} · {voice.lang}</option>)}</select></label><label className="text-xs font-black"><span className="flex justify-between"><span>Speech speed</span><span>{speechRate.toFixed(2)}×</span></span><input className="mt-4 w-full" type="range" min="0.7" max="1.3" step="0.05" value={speechRate} onChange={(event) => setSpeechRate(Number(event.target.value))} /></label></div>
+              {progressInsights.sessions > 0 && <div className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-strong)] p-4"><div className="flex items-center gap-2"><History className="h-4 w-4 text-[var(--accent-strong)]" /><p className="text-xs font-black">Progress for {role}</p></div><div className="mt-3 grid gap-2 sm:grid-cols-4"><Metric label="First" value={String(progressInsights.first?.readinessAverage ?? '—')} /><Metric label="Latest" value={String(progressInsights.latest?.readinessAverage ?? '—')} /><Metric label="Best" value={String(progressInsights.best?.readinessAverage ?? '—')} /><Metric label="Change" value={`${progressInsights.readiness_delta >= 0 ? '+' : ''}${progressInsights.readiness_delta}`} /></div></div>}
               {error && <div role="alert" className="rounded-2xl border border-rose-300 bg-rose-50 p-4 text-sm font-semibold text-rose-900">{error}</div>}
               <button type="button" onClick={startInterview} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(135deg,var(--accent),var(--highlight))] px-5 text-sm font-black text-white"><Play className="h-4 w-4" /> Start {MODES[practiceMode].label.toLowerCase()} session</button>
             </div>
@@ -787,7 +896,7 @@ export default function LiveInterviewV3() {
         {sessionState === 'active' && (
           <section className="grid gap-6 xl:grid-cols-[0.65fr_1.35fr]">
             <div className="space-y-4">
-              <section className={`${panelClass} overflow-hidden`}><div className="relative flex min-h-[320px] flex-col items-center justify-center bg-[radial-gradient(circle_at_top,var(--accent-soft),transparent_58%),linear-gradient(145deg,#132238,#07111f)] p-7 text-white"><div className="absolute left-5 top-5 rounded-full border border-white/20 bg-black/20 px-3 py-2 text-[10px] font-black uppercase">{statusLabel}</div><div className={`flex h-36 w-36 items-center justify-center rounded-full border border-white/20 bg-white/10 shadow-2xl ${coachState === 'thinking' || coachState === 'speaking' ? 'animate-pulse' : ''}`}><BrainCircuit className="h-16 w-16" /></div><p className="mt-5 text-lg font-black">{DEMEANOURS[demeanour].label} interviewer</p><p className="mt-2 max-w-sm text-center text-xs leading-6 text-white/70">{MODES[practiceMode].label} mode · {config.label}</p><div className="mt-5 flex gap-2"><span className="rounded-full border border-white/20 px-3 py-1.5 text-[9px] font-black">{history.length} turns</span>{isRecording && <span className="rounded-full border border-rose-300/50 bg-rose-500/20 px-3 py-1.5 text-[9px] font-black">● recording</span>}</div></div></section>
+              <section className={`${panelClass} overflow-hidden`}><div className="relative flex min-h-[320px] flex-col items-center justify-center bg-[radial-gradient(circle_at_top,var(--accent-soft),transparent_58%),linear-gradient(145deg,#132238,#07111f)] p-7 text-white"><div className="absolute left-5 top-5 rounded-full border border-white/20 bg-black/20 px-3 py-2 text-[10px] font-black uppercase">{statusLabel}</div><div className={`flex h-36 w-36 items-center justify-center rounded-full border border-white/20 bg-white/10 shadow-2xl ${coachState === 'thinking' || coachState === 'speaking' ? 'animate-pulse' : ''}`}><BrainCircuit className="h-16 w-16" /></div><p className="mt-5 text-lg font-black">{activePersona.label}</p><p className="mt-2 max-w-sm text-center text-xs leading-6 text-white/70">{panelMode ? 'Panel interview' : 'Single interviewer'} · {MODES[practiceMode].label} · {config.label}</p><div className="mt-5 flex gap-2"><span className="rounded-full border border-white/20 px-3 py-1.5 text-[9px] font-black">{history.length}/{targetQuestions} turns</span>{isRecording && <span className="rounded-full border border-rose-300/50 bg-rose-500/20 px-3 py-1.5 text-[9px] font-black">● recording</span>}</div></div></section>
               <section className={`${panelClass} p-5`}><div className="flex items-start gap-3"><ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-[var(--accent-strong)]" /><div><h2 className="text-sm font-black">Evidence guard</h2><p className="mt-1 text-xs leading-6 text-[var(--ink-soft)]">Content coaching uses only the answer, vacancy and available candidate evidence. Delivery analytics never create career claims.</p></div></div></section>
             </div>
 
@@ -798,15 +907,15 @@ export default function LiveInterviewV3() {
 
               <section className={`${panelClass} p-5 md:p-7`}><div className="flex items-center justify-between gap-3"><label htmlFor="interview-answer" className="text-xs font-black">Your answer</label><button type="button" onClick={() => setVoiceEnabled((value) => !value)} className="rounded-lg border border-[var(--surface-border)] p-2">{voiceEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}</button></div><textarea id="interview-answer" value={answer} onChange={(event) => onTypedAnswer(event.target.value)} rows={8} className={`${inputClass} mt-2 resize-y leading-7`} placeholder="Speak or type your answer. CogniTwist scores content and delivery separately." /><div className="mt-3 flex flex-wrap gap-2">{isListening ? <button type="button" onClick={stopCapture} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-rose-300 bg-rose-50 px-4 text-xs font-black text-rose-900"><Square className="h-4 w-4" /> Stop</button> : <button type="button" onClick={startCapture} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[var(--surface-border)] bg-[var(--surface-strong)] px-4 text-xs font-black"><Mic className="h-4 w-4" /> Speak & record</button>}<button type="button" onClick={submitAnswer} disabled={analysing || !answer.trim()} className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-[var(--accent)] px-5 text-xs font-black text-white disabled:opacity-45">{analysing ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}{analysing ? 'Analysing…' : 'Coach this answer'}</button></div>{!speechSupported && <div className="mt-3 flex items-center gap-2 text-[11px] text-[var(--ink-soft)]"><MicOff className="h-3.5 w-3.5" /> Speech recognition unavailable; typed practice remains available.</div>}{notice && <div className="mt-4 rounded-2xl border border-[var(--surface-border)] bg-[var(--accent-soft)] p-4 text-xs leading-6">{notice}</div>}{error && <div role="alert" className="mt-4 rounded-2xl border border-rose-300 bg-rose-50 p-4 text-sm font-semibold text-rose-900">{error}</div>}</section>
 
-              {latest && <section className={`${panelClass} p-5 md:p-7`}><div className="grid gap-3 sm:grid-cols-3"><ScoreCard label="Content" score={latest.total} /><ScoreCard label="Delivery" score={latest.delivery.score} /><ScoreCard label="Readiness" score={latest.readiness} accent /></div><div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><Metric label="Pace" value={latest.delivery.wpm ? `${latest.delivery.wpm} WPM` : '—'} /><Metric label="Fillers" value={String(latest.delivery.filler_count)} /><Metric label="Long pauses" value={String(latest.delivery.long_pause_count)} /><Metric label="I / we ownership" value={`${latest.delivery.ownership.i_ratio_pct}%`} /></div><div className="mt-5 grid gap-4 lg:grid-cols-2"><FeedbackBox title="Content strengths" items={latest.strengths} tone="good" /><FeedbackBox title="Delivery coaching" items={latest.delivery.coaching} tone="warn" /></div><div className="mt-5 grid gap-3 md:grid-cols-5">{latest.dimensions.map((dimension) => <div key={dimension.key} className="rounded-xl border border-[var(--surface-border)] bg-[var(--surface-strong)] p-3"><div className="flex justify-between gap-2"><p className="text-[9px] font-black">{dimension.label}</p><span className="text-[10px] font-black">{dimension.score}/20</span></div><p className="mt-2 text-[9px] leading-4 text-[var(--ink-soft)]">{dimension.rationale}</p></div>)}</div>{latest.recording_url && <div className="mt-5 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-strong)] p-4"><p className="text-xs font-black">Answer replay</p><audio className="mt-3 w-full" controls src={latest.recording_url} /></div>}{latest.transcript_segments.length > 0 && <div className="mt-5 rounded-2xl border border-[var(--surface-border)] p-4"><p className="text-xs font-black">Timestamped transcript</p><div className="mt-3 space-y-2">{latest.transcript_segments.map((segment, index) => <p key={`${segment.at_ms}-${index}`} className="text-[10px] leading-5"><span className="mr-2 font-black text-[var(--accent-strong)]">{formatTime(Math.round(segment.at_ms / 1000))}</span>{segment.text}</p>)}</div></div>}<div className="mt-5 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-strong)] p-4"><div className="flex justify-between gap-3"><p className="text-xs font-black">Stronger response</p><button type="button" onClick={copyRevision} className="inline-flex items-center gap-1 rounded-lg border border-[var(--surface-border)] px-2.5 py-1.5 text-[9px] font-black"><Clipboard className="h-3.5 w-3.5" /> {copied ? 'Copied' : 'Copy'}</button></div><pre className="mt-3 whitespace-pre-wrap font-sans text-xs leading-6 text-[var(--ink-soft)]">{latest.revised_answer}</pre></div><div className="mt-5 rounded-2xl border border-[var(--accent)] bg-[var(--accent-soft)] p-4"><p className="text-xs font-black">Targeted retry</p><ul className="mt-2 space-y-1 text-[11px] leading-5">{latest.retry_targets.map((item) => <li key={item}>• {item}</li>)}</ul><button type="button" onClick={() => { setQuestion(latest.question, false); setNotice(`Retry target: ${latest.retry_targets.join(' ')}`); }} className="mt-3 rounded-xl bg-[var(--accent)] px-4 py-2 text-xs font-black text-white">Retry this question</button></div>{latest.evidence_findings.length > 0 && <div className="mt-5 grid gap-2">{latest.evidence_findings.map((finding, index) => <div key={`${finding.claim}-${index}`} className={`rounded-xl border p-3 ${evidenceTone(finding.status)}`}><div className="flex justify-between gap-2"><p className="text-[10px] font-black">{finding.claim}</p><span className="text-[8px] font-black uppercase">{finding.status}</span></div>{finding.evidence && <p className="mt-1 text-[9px] leading-4">{finding.evidence}</p>}</div>)}</div>}<div className="mt-5 grid gap-3 sm:grid-cols-2"><button type="button" onClick={() => setQuestion(latest.follow_up)} className="min-h-14 rounded-2xl bg-[var(--accent)] px-4 text-sm font-black text-white"><span className="block text-[9px] uppercase opacity-75">Adaptive follow-up</span><span className="mt-1 block line-clamp-2">{latest.follow_up}</span></button><button type="button" onClick={() => setQuestion(latest.next_question)} className="min-h-14 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-strong)] px-4 text-sm font-black"><span className="block text-[9px] uppercase text-[var(--ink-soft)]">Next competency</span><span className="mt-1 block line-clamp-2">{latest.next_question}</span></button></div></section>}
+              {latest && <section className={`${panelClass} p-5 md:p-7`}><div className="grid gap-3 sm:grid-cols-3"><ScoreCard label="Content" score={latest.total} /><ScoreCard label="Delivery" score={latest.delivery.score} /><ScoreCard label="Readiness" score={latest.readiness} accent /></div><div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><Metric label="Pace" value={latest.delivery.wpm ? `${latest.delivery.wpm} WPM` : '—'} /><Metric label="Fillers" value={String(latest.delivery.filler_count)} /><Metric label="Long pauses" value={String(latest.delivery.long_pause_count)} /><Metric label="I / we ownership" value={`${latest.delivery.ownership.i_ratio_pct}%`} /></div><div className="mt-5 grid gap-4 lg:grid-cols-2"><FeedbackBox title="Content strengths" items={latest.strengths} tone="good" /><FeedbackBox title="Delivery coaching" items={latest.delivery.coaching} tone="warn" /></div><div className="mt-5 grid gap-3 md:grid-cols-5">{latest.dimensions.map((dimension) => <div key={dimension.key} className="rounded-xl border border-[var(--surface-border)] bg-[var(--surface-strong)] p-3"><div className="flex justify-between gap-2"><p className="text-[9px] font-black">{dimension.label}</p><span className="text-[10px] font-black">{dimension.score}/20</span></div><p className="mt-2 text-[9px] leading-4 text-[var(--ink-soft)]">{dimension.rationale}</p></div>)}</div>{latest.recording_url && <div className="mt-5 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-strong)] p-4"><p className="text-xs font-black">Answer replay</p><audio ref={audioRef} className="mt-3 w-full" controls src={latest.recording_url} /></div>}{latest.transcript_segments.length > 0 && <div className="mt-5 rounded-2xl border border-[var(--surface-border)] p-4"><p className="text-xs font-black">Timestamped transcript · click a timestamp to replay that moment</p><div className="mt-3 space-y-2">{latest.transcript_segments.map((segment, index) => <button type="button" key={`${segment.at_ms}-${index}`} onClick={() => seekRecording(segment.at_ms)} disabled={!latest.recording_url} className="block w-full rounded-xl border border-transparent p-2 text-left text-[10px] leading-5 hover:border-[var(--surface-border)] disabled:cursor-default"><span className="mr-2 font-black text-[var(--accent-strong)]">{formatTime(Math.round(segment.at_ms / 1000))}</span>{segment.text}</button>)}</div></div>}<div className="mt-5 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-strong)] p-4"><div className="flex justify-between gap-3"><p className="text-xs font-black">Stronger response</p><button type="button" onClick={copyRevision} className="inline-flex items-center gap-1 rounded-lg border border-[var(--surface-border)] px-2.5 py-1.5 text-[9px] font-black"><Clipboard className="h-3.5 w-3.5" /> {copied ? 'Copied' : 'Copy'}</button></div><pre className="mt-3 whitespace-pre-wrap font-sans text-xs leading-6 text-[var(--ink-soft)]">{latest.revised_answer}</pre></div><div className="mt-5 rounded-2xl border border-[var(--accent)] bg-[var(--accent-soft)] p-4"><p className="text-xs font-black">Targeted micro-drills</p><div className="mt-3 grid gap-2 sm:grid-cols-2">{microDrills.map((drill) => <div key={drill.id} className="rounded-xl border border-[var(--surface-border)] bg-[var(--surface)] p-3"><div className="flex justify-between gap-2"><p className="text-[10px] font-black">{drill.title}</p><span className="text-[9px] font-black">{drill.duration_minutes} min</span></div><p className="mt-2 text-[9px] leading-4 text-[var(--ink-soft)]">{drill.instruction}</p><p className="mt-2 text-[9px] font-semibold">Target: {drill.success_criteria}</p></div>)}</div><button type="button" onClick={() => { setQuestion(latest.question, false); setNotice(`Retry targets: ${latest.retry_targets.join(' ')}`); }} className="mt-3 rounded-xl bg-[var(--accent)] px-4 py-2 text-xs font-black text-white">Retry this question</button></div>{latest.evidence_findings.length > 0 && <div className="mt-5 grid gap-2">{latest.evidence_findings.map((finding, index) => <div key={`${finding.claim}-${index}`} className={`rounded-xl border p-3 ${evidenceTone(finding.status)}`}><div className="flex justify-between gap-2"><p className="text-[10px] font-black">{finding.claim}</p><span className="text-[8px] font-black uppercase">{finding.status}</span></div>{finding.evidence && <p className="mt-1 text-[9px] leading-4">{finding.evidence}</p>}</div>)}</div>}<div className="mt-5 grid gap-3 sm:grid-cols-2"><button type="button" onClick={() => setQuestion(latest.follow_up)} className="min-h-14 rounded-2xl bg-[var(--accent)] px-4 text-sm font-black text-white"><span className="block text-[9px] uppercase opacity-75">Adaptive follow-up</span><span className="mt-1 block line-clamp-2">{latest.follow_up}</span></button><button type="button" onClick={() => setQuestion(latest.next_question)} className="min-h-14 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-strong)] px-4 text-sm font-black"><span className="block text-[9px] uppercase text-[var(--ink-soft)]">Next competency</span><span className="mt-1 block line-clamp-2">{latest.next_question}</span></button></div></section>}
 
-              <section className={`${panelClass} p-5`}><div className="flex flex-wrap items-center justify-between gap-4"><div><p className="text-xs font-black">Session · {history.length} coached answer{history.length === 1 ? '' : 's'}</p><p className="mt-1 text-xs text-[var(--ink-soft)]">Content {report.content_average} · Delivery {report.delivery_average} · Readiness {report.readiness_average}</p></div><div className="flex gap-2"><button type="button" onClick={finishSession} disabled={!history.length} className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-xs font-black disabled:opacity-40">Finish session</button><button type="button" onClick={resetInterview} className="inline-flex items-center gap-2 rounded-xl border border-[var(--surface-border)] px-4 py-2 text-xs font-black"><RotateCcw className="h-4 w-4" /> Reset</button></div></div></section>
+              <section className={`${panelClass} p-5`}><div className="flex flex-wrap items-center justify-between gap-4"><div><p className="text-xs font-black">Session · {history.length}/{targetQuestions} coached answer{history.length === 1 ? '' : 's'}</p><p className="mt-1 text-xs text-[var(--ink-soft)]">Content {report.content_average} · Delivery {report.delivery_average} · Readiness {report.readiness_average}</p></div><div className="flex gap-2"><button type="button" onClick={finishSession} disabled={!history.length} className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-xs font-black disabled:opacity-40">Finish session</button><button type="button" onClick={resetInterview} className="inline-flex items-center gap-2 rounded-xl border border-[var(--surface-border)] px-4 py-2 text-xs font-black"><RotateCcw className="h-4 w-4" /> Reset</button></div></div></section>
             </div>
           </section>
         )}
 
         {sessionState === 'complete' && (
-          <section className={`${panelClass} p-6 md:p-8`}><div className="flex items-center gap-3"><CheckCircle2 className="h-8 w-8 text-emerald-600" /><div><h2 className="text-2xl font-black">Interview session report</h2><p className="mt-1 text-sm text-[var(--ink-soft)]">Saved locally to your progress history. Readiness weights content 70% and delivery 30%.</p></div></div><div className="mt-6 grid gap-3 sm:grid-cols-3"><ScoreCard label="Content average" score={report.content_average} /><ScoreCard label="Delivery average" score={report.delivery_average} /><ScoreCard label="Readiness average" score={report.readiness_average} accent /></div>{report.strongest_turn && <div className="mt-5 grid gap-3 md:grid-cols-2"><div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4"><p className="text-xs font-black text-emerald-950">Strongest answer · {report.strongest_turn.score}</p><p className="mt-2 text-[11px] leading-5 text-emerald-900">{report.strongest_turn.question}</p></div><div className="rounded-2xl border border-amber-200 bg-amber-50 p-4"><p className="text-xs font-black text-amber-950">Priority answer · {report.weakest_turn?.score}</p><p className="mt-2 text-[11px] leading-5 text-amber-900">{report.weakest_turn?.question}</p></div></div>}<div className="mt-6 space-y-3">{history.map((item, index) => <div key={`${item.question}-${index}`} className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-strong)] p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-[9px] font-black uppercase text-[var(--accent-strong)]">Question {index + 1}</p><p className="mt-1 text-xs font-black">{item.question}</p></div><div className="flex gap-3 text-[10px] font-black"><span>C {item.total}</span><span>D {item.delivery.score}</span><span>R {item.readiness}</span></div></div></div>)}</div><button type="button" onClick={resetInterview} className="mt-6 inline-flex min-h-12 items-center gap-2 rounded-2xl bg-[var(--accent)] px-5 text-sm font-black text-white"><RotateCcw className="h-4 w-4" /> Start another practice</button></section>
+          <section className={`${panelClass} p-6 md:p-8`}><div className="flex flex-wrap items-center justify-between gap-4"><div className="flex items-center gap-3"><CheckCircle2 className="h-8 w-8 text-emerald-600" /><div><h2 className="text-2xl font-black">Interview session report</h2><p className="mt-1 text-sm text-[var(--ink-soft)]">Saved locally to progress history. Readiness weights content 70% and delivery 30%.</p></div></div><button type="button" onClick={exportSession} className="rounded-xl border border-[var(--surface-border)] px-4 py-2 text-xs font-black">Export report JSON</button></div><div className="mt-6 grid gap-3 sm:grid-cols-3"><ScoreCard label="Content average" score={report.content_average} /><ScoreCard label="Delivery average" score={report.delivery_average} /><ScoreCard label="Readiness average" score={report.readiness_average} accent /></div><div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><Metric label="Evidence" value={String(report.evidence_score)} /><Metric label="Structure" value={report.structure_score == null ? '—' : String(report.structure_score)} /><Metric label="Technical depth" value={report.technical_depth_score == null ? '—' : String(report.technical_depth_score)} /><Metric label="Communication" value={String(report.communication_score)} /></div>{report.content_dimensions.length > 0 && <div className="mt-5"><p className="text-xs font-black">Content competency breakdown</p><div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{report.content_dimensions.map((item) => <Metric key={item.key} label={item.label} value={String(item.score)} />)}</div></div>}{report.delivery_dimensions.length > 0 && <div className="mt-5"><p className="text-xs font-black">Delivery breakdown</p><div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">{report.delivery_dimensions.map((item) => <Metric key={item.key} label={item.label} value={String(item.score)} />)}</div></div>}{report.strongest_turn && <div className="mt-5 grid gap-3 md:grid-cols-2"><div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4"><p className="text-xs font-black text-emerald-950">Strongest answer · {report.strongest_turn.score}</p><p className="mt-2 text-[11px] leading-5 text-emerald-900">{report.strongest_turn.question}</p></div><div className="rounded-2xl border border-amber-200 bg-amber-50 p-4"><p className="text-xs font-black text-amber-950">Priority answer · {report.weakest_turn?.score}</p><p className="mt-2 text-[11px] leading-5 text-amber-900">{report.weakest_turn?.question}</p></div></div>}<div className="mt-6 space-y-3">{history.map((item, index) => <div key={`${item.question}-${index}`} className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-strong)] p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-[9px] font-black uppercase text-[var(--accent-strong)]">Question {index + 1}</p><p className="mt-1 text-xs font-black">{item.question}</p></div><div className="flex gap-3 text-[10px] font-black"><span>C {item.total}</span><span>D {item.delivery.score}</span><span>R {item.readiness}</span></div></div></div>)}</div><button type="button" onClick={resetInterview} className="mt-6 inline-flex min-h-12 items-center gap-2 rounded-2xl bg-[var(--accent)] px-5 text-sm font-black text-white"><RotateCcw className="h-4 w-4" /> Start another practice</button></section>
         )}
       </div>
     </main>
