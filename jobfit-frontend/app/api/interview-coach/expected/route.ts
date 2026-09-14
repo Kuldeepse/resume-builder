@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { buildExpectedInterviewResponse } from '../../../../lib/interview-expected-response.mjs';
+import { buildInterviewAgentContext } from '../../../../lib/interview-agent-context.mjs';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -73,6 +74,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ detail: 'Interview question is required.' }, { status: 400, headers: NO_STORE });
   }
 
+  const agentContext = buildInterviewAgentContext({
+    jobDescription: input.job_description,
+    role: input.role,
+    cookieHeader: request.headers.get('cookie') || '',
+  });
+  input.job_description = agentContext.jobDescription;
+
   try {
     const response = await fetch(`${backendBase()}/interview-coach/expected`, {
       method: 'POST',
@@ -83,7 +91,14 @@ export async function POST(request: Request) {
     });
     const payload = await response.json().catch(() => null);
     if (response.ok && validExpectedPayload(payload)) {
-      return NextResponse.json(payload, { headers: NO_STORE });
+      return NextResponse.json({
+        ...payload,
+        agent_context: {
+          persistent_memory: Boolean(agentContext.memory),
+          memory_sessions: agentContext.memory?.sessions || 0,
+          panel_agent: agentContext.panel?.label || null,
+        },
+      }, { headers: NO_STORE });
     }
   } catch {
     // Fall through to deterministic exact-question fallback.
@@ -98,6 +113,11 @@ export async function POST(request: Request) {
       version: 'expected-fallback-v2',
       adaptive: false,
       evidence_guard: true,
+    },
+    agent_context: {
+      persistent_memory: Boolean(agentContext.memory),
+      memory_sessions: agentContext.memory?.sessions || 0,
+      panel_agent: agentContext.panel?.label || null,
     },
     question: input.question,
     intent_summary: fallback.intent_summary || fallback.intent || 'Fallback guidance based on the exact question wording.',
