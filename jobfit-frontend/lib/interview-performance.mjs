@@ -70,6 +70,20 @@ function lengthScore(wordCount) {
   return 46;
 }
 
+function normaliseKey(value) {
+  return clean(value).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'dimension';
+}
+
+function titleCase(value) {
+  return clean(value).replace(/_/g, ' ').replace(/\b\w/g, (match) => match.toUpperCase());
+}
+
+function averageMapEntries(map) {
+  return [...map.entries()]
+    .map(([key, value]) => ({ key, label: value.label || titleCase(key), score: Math.round(value.sum / Math.max(1, value.count)) }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+}
+
 export function analyseInterviewDelivery(raw = {}) {
   const text = clean(raw.text);
   const durationSec = Math.max(0, Number(raw.duration_sec) || 0);
@@ -159,19 +173,119 @@ export function buildTargetedRetry(raw = {}) {
   return targets.slice(0, 4);
 }
 
+export function buildMicroDrills(raw = {}) {
+  const targets = Array.isArray(raw.retry_targets) ? raw.retry_targets.map(clean).filter(Boolean) : [];
+  const question = clean(raw.question);
+  const drills = [];
+  const add = (id, title, duration, instruction, success) => {
+    if (!drills.some((item) => item.id === id)) drills.push({ id, title, duration_minutes: duration, instruction, success_criteria: success });
+  };
+
+  for (const target of targets) {
+    const lower = target.toLowerCase();
+    if (/pace|wpm/.test(lower)) add('pace', 'Pace control', 2, `Answer “${question || 'the same question'}” in 90–120 seconds. Pause briefly between context, action and result.`, 'Stay between 105–165 WPM without losing key evidence.');
+    else if (/filler/.test(lower)) add('fillers', 'Filler-word reset', 2, 'Give the answer again and replace “um/uh/basically/you know” with a silent half-second pause.', 'Use fewer than 4 filler words.');
+    else if (/ownership|personal/.test(lower)) add('ownership', 'Ownership drill', 3, 'Retell the answer using explicit “I decided / I led / I changed / I validated” statements only where true.', 'Make personal accountability unmistakable without overstating team work.');
+    else if (/evidence|outcome|result|metric/.test(lower)) add('evidence', 'Outcome drill', 3, 'Keep the situation to two sentences, then spend most of the answer on actions and a verified outcome.', 'Finish with one concrete verified result or clearly state that a metric is unavailable.');
+    else if (/structure|star/.test(lower)) add('structure', 'STAR compression', 4, 'Rebuild the answer as Situation (15%), Task (10%), Action (55%), Result (20%).', 'Keep context short and make actions/results dominate.');
+    else if (/technical|trade|control|architecture|design/.test(lower)) add('technical', 'Technical depth drill', 4, 'Name the constraint, options considered, decision criteria, control/validation and operational outcome.', 'Explain one real trade-off and one validation/control explicitly.');
+    else add(`target_${drills.length}`, 'Focused retry', 3, `Retry the same question concentrating on: ${target}`, 'Improve the targeted weakness while preserving verified evidence.');
+  }
+
+  if (!drills.length) add('precision', 'Precision retry', 3, 'Answer the same question again in a tighter 90–120 second response.', 'Keep only the most relevant context, actions and verified result.');
+  return drills.slice(0, 4);
+}
+
 export function buildInterviewSessionReport(turns = []) {
   const valid = (Array.isArray(turns) ? turns : []).filter((turn) => Number.isFinite(Number(turn?.content_score)));
-  if (!valid.length) return { turns: 0, content_average: 0, delivery_average: 0, readiness_average: 0, strongest_turn: null, weakest_turn: null };
+  if (!valid.length) return {
+    turns: 0,
+    content_average: 0,
+    delivery_average: 0,
+    readiness_average: 0,
+    evidence_score: 0,
+    communication_score: 0,
+    content_dimensions: [],
+    delivery_dimensions: [],
+    strongest_turn: null,
+    weakest_turn: null,
+  };
+
   const average = (key) => Math.round(valid.reduce((sum, turn) => sum + Number(turn[key] || 0), 0) / valid.length);
   const scored = valid.map((turn, index) => ({ ...turn, index, readiness_score: Number(turn.readiness_score ?? combineInterviewReadiness(turn.content_score, turn.delivery_score)) }));
   const strongest = [...scored].sort((a, b) => b.readiness_score - a.readiness_score)[0];
   const weakest = [...scored].sort((a, b) => a.readiness_score - b.readiness_score)[0];
+
+  const contentMap = new Map();
+  const deliveryMap = new Map();
+  let evidenceTotal = 0;
+  let evidenceCount = 0;
+
+  for (const turn of valid) {
+    for (const dimension of Array.isArray(turn.content_dimensions) ? turn.content_dimensions : []) {
+      const key = normaliseKey(dimension?.key || dimension?.label);
+      const score = Number(dimension?.score);
+      if (!Number.isFinite(score)) continue;
+      const value = contentMap.get(key) || { label: clean(dimension?.label) || titleCase(key), sum: 0, count: 0 };
+      value.sum += clamp(score * 5);
+      value.count += 1;
+      contentMap.set(key, value);
+    }
+    for (const [rawKey, rawScore] of Object.entries(turn.delivery_dimensions || {})) {
+      const score = Number(rawScore);
+      if (!Number.isFinite(score)) continue;
+      const key = normaliseKey(rawKey);
+      const value = deliveryMap.get(key) || { label: titleCase(key), sum: 0, count: 0 };
+      value.sum += clamp(score);
+      value.count += 1;
+      deliveryMap.set(key, value);
+    }
+    for (const finding of Array.isArray(turn.evidence_findings) ? turn.evidence_findings : []) {
+      const status = clean(finding?.status).toLowerCase();
+      const score = status === 'confirmed' ? 100 : status === 'partial' ? 65 : status === 'unsupported' ? 20 : 45;
+      evidenceTotal += score;
+      evidenceCount += 1;
+    }
+  }
+
+  const contentDimensions = averageMapEntries(contentMap);
+  const deliveryDimensions = averageMapEntries(deliveryMap);
+  const structureCandidates = contentDimensions.filter((item) => /structure|star|clarity|relevance/.test(item.key));
+  const technicalCandidates = contentDimensions.filter((item) => /technical|architecture|trade|control|design|security|resilien|operational/.test(item.key));
+  const averageList = (items) => items.length ? Math.round(items.reduce((sum, item) => sum + item.score, 0) / items.length) : null;
+
   return {
     turns: valid.length,
     content_average: average('content_score'),
     delivery_average: average('delivery_score'),
     readiness_average: Math.round(scored.reduce((sum, turn) => sum + turn.readiness_score, 0) / scored.length),
+    evidence_score: evidenceCount ? Math.round(evidenceTotal / evidenceCount) : 0,
+    structure_score: averageList(structureCandidates),
+    technical_depth_score: averageList(technicalCandidates),
+    communication_score: deliveryDimensions.length ? Math.round(deliveryDimensions.reduce((sum, item) => sum + item.score, 0) / deliveryDimensions.length) : average('delivery_score'),
+    content_dimensions: contentDimensions,
+    delivery_dimensions: deliveryDimensions,
     strongest_turn: { index: strongest.index, question: strongest.question || '', score: strongest.readiness_score },
     weakest_turn: { index: weakest.index, question: weakest.question || '', score: weakest.readiness_score },
+  };
+}
+
+export function buildProgressInsights(sessions = [], role = '') {
+  const target = clean(role).toLowerCase();
+  const filtered = (Array.isArray(sessions) ? sessions : [])
+    .filter((item) => !target || clean(item?.role).toLowerCase() === target)
+    .filter((item) => Number.isFinite(Number(item?.readinessAverage)))
+    .sort((a, b) => String(a?.at || '').localeCompare(String(b?.at || '')));
+
+  if (!filtered.length) return { sessions: 0, first: null, latest: null, best: null, readiness_delta: 0 };
+  const first = filtered[0];
+  const latest = filtered[filtered.length - 1];
+  const best = [...filtered].sort((a, b) => Number(b.readinessAverage) - Number(a.readinessAverage))[0];
+  return {
+    sessions: filtered.length,
+    first,
+    latest,
+    best,
+    readiness_delta: Math.round(Number(latest.readinessAverage) - Number(first.readinessAverage)),
   };
 }
