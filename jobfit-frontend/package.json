@@ -7,8 +7,7 @@
     "build": "npm test && next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "node --test app/api/career-network/register/*.test.mjs lib/*.test.mjs",
-    "e2e:live-interview": "node scripts/live-interview-e2e.mjs"
+    "test": "node --test app/api/career-network/register/*.test.mjs lib/*.test.mjs"
   },
   "dependencies": {
     "next": "16.3.3",
