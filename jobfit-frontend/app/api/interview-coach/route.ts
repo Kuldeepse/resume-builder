@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { buildFallbackCoachTurn, normaliseCoachInput, validateCoachInput } from '../../../lib/interview-coach-runtime.mjs';
+import { buildInterviewAgentContext, buildPanelFallbackQuestion } from '../../../lib/interview-agent-context.mjs';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -26,6 +27,15 @@ function validAssessmentPayload(value: unknown) {
   );
 }
 
+function publicAgentContext(context: ReturnType<typeof buildInterviewAgentContext>) {
+  return {
+    persistent_memory: Boolean(context.memory),
+    memory_sessions: context.memory?.sessions || 0,
+    panel_agent: context.panel?.label || null,
+    next_panel_agent: context.panel?.nextLabel || null,
+  };
+}
+
 export async function GET() {
   try {
     const response = await fetch(`${backendBase()}/interview-coach/health`, {
@@ -38,10 +48,19 @@ export async function GET() {
       available: Boolean(response.ok && payload?.status === 'ready'),
       backend: response.ok ? payload : null,
       fallback_available: true,
-      version: 'coach-proxy-v1',
+      persistent_memory: true,
+      specialist_panel: true,
+      version: 'coach-proxy-v2',
     }, { headers: NO_STORE });
   } catch {
-    return NextResponse.json({ available: false, backend: null, fallback_available: true, version: 'coach-proxy-v1' }, { headers: NO_STORE });
+    return NextResponse.json({
+      available: false,
+      backend: null,
+      fallback_available: true,
+      persistent_memory: true,
+      specialist_panel: true,
+      version: 'coach-proxy-v2',
+    }, { headers: NO_STORE });
   }
 }
 
@@ -64,6 +83,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ detail: validationError }, { status: 400, headers: NO_STORE });
   }
 
+  const agentContext = buildInterviewAgentContext({
+    jobDescription: input.job_description,
+    role: input.role,
+    cookieHeader: request.headers.get('cookie') || '',
+  });
+  input.job_description = agentContext.jobDescription;
+
   try {
     const response = await fetch(`${backendBase()}/interview-coach/turn`, {
       method: 'POST',
@@ -74,7 +100,10 @@ export async function POST(request: Request) {
     });
     const payload = await response.json().catch(() => null);
     if (response.ok && validAssessmentPayload(payload)) {
-      return NextResponse.json(payload, { headers: NO_STORE });
+      return NextResponse.json({
+        ...payload,
+        agent_context: publicAgentContext(agentContext),
+      }, { headers: NO_STORE });
     }
   } catch {
     // Fall through to the deterministic evidence-safe coach below.
@@ -82,7 +111,22 @@ export async function POST(request: Request) {
 
   try {
     const fallback = buildFallbackCoachTurn(input);
-    return NextResponse.json({ ...fallback, degraded_reason: 'adaptive_ai_unavailable' }, { headers: NO_STORE });
+    if (agentContext.panel) {
+      const panelQuestion = buildPanelFallbackQuestion(agentContext.panel.nextLabel, input.history);
+      if (panelQuestion) fallback.assessment.next_question = panelQuestion;
+    }
+    if (agentContext.memory?.priorities?.length) {
+      const focus = agentContext.memory.priorities.slice(0, 2).map((item: { label: string; score: number }) => `${item.label} ${item.score}/20`).join(' and ');
+      fallback.assessment.improvements = [
+        `Cross-session practice focus: strengthen ${focus}.`,
+        ...fallback.assessment.improvements,
+      ].slice(0, 4);
+    }
+    return NextResponse.json({
+      ...fallback,
+      degraded_reason: 'adaptive_ai_unavailable',
+      agent_context: publicAgentContext(agentContext),
+    }, { headers: NO_STORE });
   } catch {
     return NextResponse.json({ detail: 'Interview coaching could not complete this assessment.' }, { status: 500, headers: NO_STORE });
   }
