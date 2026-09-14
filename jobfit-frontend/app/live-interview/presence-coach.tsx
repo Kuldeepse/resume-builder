@@ -44,7 +44,7 @@ export default function PresenceCoach() {
   useEffect(() => () => stop(), []);
 
   const start = async () => {
-    if (!navigator.mediaDevices?.getUserMedia) {
+    if (typeof navigator.mediaDevices === 'undefined') {
       setSupported(false);
       setMessage('Camera access is unavailable in this browser.');
       return;
