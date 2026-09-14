@@ -31,7 +31,7 @@ function sentences(value) {
 function repeatedPhrases(value) {
   const tokens = words(value).map((word) => word.toLowerCase()).filter((word) => !STOP.has(word));
   const counts = new Map();
-  for (let size = 3; size <= 5; size += 1) {
+  for (let size = 2; size <= 5; size += 1) {
     for (let index = 0; index <= tokens.length - size; index += 1) {
       const phrase = tokens.slice(index, index + size).join(' ');
       counts.set(phrase, (counts.get(phrase) || 0) + 1);
