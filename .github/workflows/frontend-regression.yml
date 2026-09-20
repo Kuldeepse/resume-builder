@@ -34,3 +34,5 @@ jobs:
         run: npm run build
       - name: Run Live Interview end-to-end smoke
         run: node scripts/live-interview-e2e.mjs
+      - name: Run isolated security API smoke
+        run: node scripts/security-e2e.mjs
