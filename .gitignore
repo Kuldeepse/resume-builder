@@ -12,6 +12,11 @@
 *.p12
 *.pfx
 
+# Strix security reports can contain sensitive reproduction details.
+strix_runs/
+**/strix_runs/
+.strix/
+
 # Python
 __pycache__/
 *.py[cod]

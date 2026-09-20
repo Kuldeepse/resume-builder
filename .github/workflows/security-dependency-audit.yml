@@ -1,0 +1,59 @@
+name: Dependency Security Audit
+
+on:
+  pull_request:
+    paths:
+      - 'jobfit-frontend/package*.json'
+      - 'jobfit-backend/requirements.txt'
+      - 'jobfit-backend/PyPDF2.py'
+      - 'jobfit-discovery-worker/requirements.txt'
+      - '.github/workflows/security-dependency-audit.yml'
+  workflow_dispatch:
+  schedule:
+    - cron: '23 5 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  npm-audit:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: jobfit-frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: jobfit-frontend/package-lock.json
+      # This repository currently contains a stale lockfile. Mirror the build
+      # workflow's dependency resolution rather than skipping the audit on npm-ci failure.
+      - name: Resolve frontend dependencies without install scripts
+        run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Audit resolved production dependency advisories (high and critical)
+        run: npm audit --omit=dev --audit-level=high
+      - name: Report lockfile drift for reproducible-install follow-up
+        run: |
+          if ! git diff --exit-code -- package-lock.json >/dev/null; then
+            echo '::warning title=Stale package-lock.json::The checked-in lockfile differs from the resolved dependency tree. Update and commit it before switching the build to npm ci.'
+          fi
+
+  python-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install open-source vulnerability auditor
+        run: python -m pip install 'pip-audit>=2.7,<3'
+      - name: Audit FastAPI backend requirements
+        run: pip-audit -r jobfit-backend/requirements.txt
+      - name: Audit discovery worker requirements
+        run: pip-audit -r jobfit-discovery-worker/requirements.txt
+      - name: Verify legacy backend import resolves to maintained parser
+        run: |
+          python -m pip install 'pypdf>=6.19.0,<7'
+          PYTHONPATH=jobfit-backend python -c "from PyPDF2 import PdfReader; import pypdf; assert PdfReader is pypdf.PdfReader; print('PDF parser compatibility bridge uses maintained pypdf')"

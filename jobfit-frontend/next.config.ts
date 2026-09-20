@@ -28,7 +28,9 @@ const securityHeaders = [
   { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
   {
     key: "Permissions-Policy",
-    value: "camera=(), microphone=(self), geolocation=(), payment=(), usb=()",
+    // The user must still click Camera and grant browser permission. A blanket
+    // camera=() policy blocks even that explicit, local-only presence-coach flow.
+    value: "camera=(self), microphone=(self), geolocation=(), payment=(), usb=()",
   },
 ];
 

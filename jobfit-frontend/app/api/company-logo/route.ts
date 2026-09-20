@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
+import { canProxyImageResponse, safeProxyImageMime, MAX_PROXY_IMAGE_BYTES } from '@/lib/image-proxy-security.mjs';
 
+export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const ALLOWED_DOMAINS = new Set([
@@ -36,23 +38,44 @@ async function fetchImage(url: string) {
   try {
     const response = await fetch(url, {
       headers: {
-        Accept: 'image/avif,image/webp,image/png,image/svg+xml,image/*,*/*;q=0.8',
+        Accept: 'image/avif,image/webp,image/png,image/jpeg,image/gif,image/x-icon,image/vnd.microsoft.icon',
         'User-Agent': 'CogniTwist/1.0',
       },
-      redirect: 'follow',
+      // Allowlisted URLs can redirect to untrusted or internal targets. Never follow redirects.
+      redirect: 'manual',
       signal: controller.signal,
       cache: 'no-store',
     });
-    if (!response.ok) return null;
     const contentType = response.headers.get('content-type') || '';
-    if (!contentType.toLowerCase().startsWith('image/')) return null;
-    const bytes = await response.arrayBuffer();
-    if (!bytes.byteLength || bytes.byteLength > 512_000) return null;
-    return { bytes, contentType };
+    if (!canProxyImageResponse(response.status, contentType, response.headers.get('content-length'))) return null;
+    if (!response.body) return null;
+
+    const reader = response.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > MAX_PROXY_IMAGE_BYTES) {
+        await reader.cancel().catch(() => undefined);
+        return null;
+      }
+      chunks.push(value);
+    }
+    if (!size) return null;
+    const bytes = new Uint8Array(size);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    return { bytes, contentType: safeProxyImageMime(contentType) };
   } catch {
     return null;
   } finally {
     clearTimeout(timer);
+    controller.abort();
   }
 }
 

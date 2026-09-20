@@ -3,6 +3,7 @@ import { isAllowedOrigin, validateRegistrationPayload } from './policy.mjs';
 import { buildSupabaseRestHeaders } from '@/lib/supabase-rest.mjs';
 import { sendCareerNetworkRegistrationEmails } from '@/lib/career-network-email.mjs';
 import { deriveEmailDeliveryState } from '@/lib/career-network-email-status.mjs';
+import { duplicateRegistrationResponse, isDuplicateRegistration } from '@/lib/registration-security.mjs';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -14,6 +15,7 @@ const NO_STORE_HEADERS = {
 };
 
 const WHATSAPP_GROUP_NAME = 'CogniTwist AI IT Jobs referrals UK';
+const MAX_BODY_BYTES = 32 * 1024;
 
 async function updateConfirmationEmailStatus({
   supabaseUrl,
@@ -53,6 +55,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ detail: 'Origin is not allowed.' }, { status: 403, headers: NO_STORE_HEADERS });
   }
 
+  const contentLength = Number(request.headers.get('content-length') || '0');
+  if (!Number.isFinite(contentLength) || contentLength > MAX_BODY_BYTES) {
+    return NextResponse.json({ detail: 'Registration request is too large.' }, { status: 413, headers: NO_STORE_HEADERS });
+  }
+
   const supabaseUrl = process.env.SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!supabaseUrl || !serviceRoleKey) {
@@ -64,7 +71,13 @@ export async function POST(request: NextRequest) {
 
   let body: Record<string, unknown>;
   try {
-    body = await request.json();
+    // Some clients omit Content-Length; enforce the byte limit on the actual body too.
+    const raw = await request.text();
+    if (Buffer.byteLength(raw, 'utf8') > MAX_BODY_BYTES) {
+      return NextResponse.json({ detail: 'Registration request is too large.' }, { status: 413, headers: NO_STORE_HEADERS });
+    }
+    body = JSON.parse(raw);
+    if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error('Invalid payload');
   } catch {
     return NextResponse.json({ detail: 'Invalid registration request.' }, { status: 400, headers: NO_STORE_HEADERS });
   }
@@ -79,14 +92,16 @@ export async function POST(request: NextRequest) {
   }
 
   const storageRecord = validation.record;
+  // Insert-only: an unauthenticated repeat registration must NEVER overwrite a
+  // verified registrant, update consent or return an existing tracking code.
   const storageResponse = await fetch(
-    `${supabaseUrl.replace(/\/$/, '')}/rest/v1/career_network_registrations?on_conflict=email,role`,
+    `${supabaseUrl.replace(/\/$/, '')}/rest/v1/career_network_registrations`,
     {
       method: 'POST',
       headers: buildSupabaseRestHeaders(serviceRoleKey, {
         contentType: 'application/json',
         accept: 'application/json',
-        prefer: 'resolution=merge-duplicates,return=representation',
+        prefer: 'return=representation',
       }),
       body: JSON.stringify(storageRecord),
       cache: 'no-store',
@@ -94,6 +109,10 @@ export async function POST(request: NextRequest) {
   );
 
   if (!storageResponse.ok) {
+    const errorPayload = await storageResponse.json().catch(() => null) as { code?: string } | null;
+    if (isDuplicateRegistration(storageResponse.status, errorPayload?.code)) {
+      return NextResponse.json(duplicateRegistrationResponse(), { status: 202, headers: NO_STORE_HEADERS });
+    }
     return NextResponse.json(
       { detail: 'Registration could not be stored securely. Please try again later.' },
       { status: 503, headers: NO_STORE_HEADERS },
@@ -166,9 +185,6 @@ export async function POST(request: NextRequest) {
       status_lookup_code: stored[0]?.status_lookup_code || null,
       message: 'Registration received. Your details remain private and are not published.',
     },
-    {
-      status: 201,
-      headers: NO_STORE_HEADERS,
-    },
+    { status: 201, headers: NO_STORE_HEADERS },
   );
 }
